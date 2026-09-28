@@ -69,6 +69,12 @@ Almost every RL algorithm learns one or more of three things:
 
 The methods in this chapter form a progression. Sections 9.2 through 9.4 build *value-based* methods: estimate $V$ or $Q$ from experience, by averaging complete returns (Monte Carlo) or by bootstrapping from the agent's own estimates (temporal-difference learning), and then act greedily with respect to $Q$. This leads to Q-learning and, with a neural network in place of a table, to the deep Q-networks of Section 9.5. Section 9.6 turns to *policy gradient* methods, which adjust the parameters of a policy network directly in the direction that increases expected reward, often with a learned value function as a helper (the *actor-critic* architecture). Section 9.7 develops PPO, a policy gradient method that makes each update safe and reuses each batch of experience several times. PPO is the algorithm that Chapter 10 adapts to language models.
 
+## A short history
+
+Reinforcement learning grew out of two older threads: the psychology of trial-and-error learning, which goes back to Edward Thorndike's "law of effect" around 1900, and the mathematics of optimal control, where Richard Bellman's dynamic programming of the 1950s introduced value functions and the equation that bears his name. Arthur Samuel's checkers program of 1959 already improved by playing against itself and adjusting its evaluation of positions toward later ones. In the 1980s Richard Sutton and Andrew Barto unified these ideas; Sutton's temporal-difference learning (1988) and Christopher Watkins's Q-learning (1989) remain central to the field.
+
+The first spectacular success was Gerald Tesauro's TD-Gammon (1992–1995), a neural network trained by temporal-difference learning from self-play that reached the level of the world's best backgammon players. Two decades later, DeepMind's deep Q-network (2013, 2015) learned to play dozens of Atari video games from raw pixels, and AlphaGo (2016) combined policy and value networks with tree search to defeat Lee Sedol, one of the strongest Go players in the world. Policy gradient methods, and PPO in particular, went on to train agents for robotic control and complex video games. The same methods then turned to language: fine-tuning with reinforcement learning from human feedback made InstructGPT (2022) and ChatGPT far more helpful than their base models, and reinforcement learning with automatically checked rewards later produced models that reason step by step. Chapters 10 and 11 tell that part of the story.
+
 ## Code for this section
 
 The listings below collect the code for this section in the order in which the text refers to them. The full scripts, which also draw the figures, are in [`figures/src/`](figures/src/) (`fig_s1_loop.py` and `gridworld.py`).
@@ -151,17 +157,3 @@ Output:
 uniform      :  56.9 visits per episode, reaches goal in 18% of episodes
 mostly greedy:  11.0 visits per episode, reaches goal in 99% of episodes
 ```
-
-## A short history
-
-Reinforcement learning grew out of two older threads: the psychology of trial-and-error learning, which goes back to Edward Thorndike's "law of effect" around 1900, and the mathematics of optimal control, where Richard Bellman's dynamic programming of the 1950s introduced value functions and the equation that bears his name. Arthur Samuel's checkers program of 1959 already improved by playing against itself and adjusting its evaluation of positions toward later ones. In the 1980s Richard Sutton and Andrew Barto unified these ideas; Sutton's temporal-difference learning (1988) and Christopher Watkins's Q-learning (1989) remain central to the field.
-
-The first spectacular success was Gerald Tesauro's TD-Gammon (1992–1995), a neural network trained by temporal-difference learning from self-play that reached the level of the world's best backgammon players. Two decades later, DeepMind's deep Q-network (2013, 2015) learned to play dozens of Atari video games from raw pixels, and AlphaGo (2016) combined policy and value networks with tree search to defeat Lee Sedol, one of the strongest Go players in the world. Policy gradient methods, and PPO in particular, went on to train agents for robotic control and complex video games. The same methods then turned to language: fine-tuning with reinforcement learning from human feedback made InstructGPT (2022) and ChatGPT far more helpful than their base models, and reinforcement learning with automatically checked rewards later produced models that reason step by step. Chapters 10 and 11 tell that part of the story.
-
-## Key takeaways
-
-- Reinforcement learning learns from reward, a scalar score of behavior, instead of from labeled correct answers. This makes it applicable when good behavior is easy to recognize but hard to demonstrate.
-- The agent-environment loop is the core abstraction: observe a state $`s_t`$, take an action $`a_t`$, receive a reward $`r_{t+1}`$ and the next state $`s_{t+1}`$. A policy $`\pi(a \mid s)`$ decides the actions.
-- RL differs from supervised learning in three ways: feedback evaluates rather than instructs, it is often delayed (the credit assignment problem), and the data depend on the agent's own policy.
-- Because an agent only learns about what it tries, it must balance exploring unknown actions against exploiting known good ones.
-- Model-free RL methods learn value functions, policies, or both. This chapter moves from value-based methods (Monte Carlo, TD, Q-learning, DQN) to policy gradients and PPO, the family used to train language models.

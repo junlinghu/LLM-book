@@ -81,6 +81,10 @@ In full RL problems exploration becomes both more important and harder. With man
 
 For language models, the second mechanism is the one that matters. The model's softmax over the vocabulary is a stochastic policy, and sampling at a temperature above zero produces varied responses to the same prompt. An RL method can only reinforce good responses that the model actually samples, so a model that never produces a correct answer to a hard problem cannot learn to produce one from reward alone. This is the exploration problem in its LLM form, and it returns in Chapters 10 and 11.
 
+## A short history
+
+The bandit problem was first posed in the 1930s by William Thompson, who studied how to allocate patients between two medical treatments of unknown effectiveness and proposed what is now called Thompson sampling. Herbert Robbins formalized the multi-armed bandit in 1952. In 1985 Tze Leung Lai and Robbins proved that regret must grow at least logarithmically with time and constructed policies that achieve this rate, and in 2002 Peter Auer, Nicolò Cesa-Bianchi, and Paul Fischer gave the simple UCB1 rule with a finite-time guarantee. The 10-armed testbed used here follows the experiments popularized by Sutton and Barto's textbook.
+
 ## Code for this section
 
 The listing below is taken from [`figures/src/bandit.py`](figures/src/bandit.py); the script `fig_s3_bandits.py` in the same folder runs the five agents and draws Figures 9.6 and 9.7.
@@ -142,15 +146,3 @@ eps=0.1    mean reward (all steps) 1.297   last 100 steps: reward 1.363, optimal
 optimistic mean reward (all steps) 1.292   last 100 steps: reward 1.501, optimal 86.4%
 UCB c=2    mean reward (all steps) 1.384   last 100 steps: reward 1.485, optimal 86.1%
 ```
-
-## A short history
-
-The bandit problem was first posed in the 1930s by William Thompson, who studied how to allocate patients between two medical treatments of unknown effectiveness and proposed what is now called Thompson sampling. Herbert Robbins formalized the multi-armed bandit in 1952. In 1985 Tze Leung Lai and Robbins proved that regret must grow at least logarithmically with time and constructed policies that achieve this rate, and in 2002 Peter Auer, Nicolò Cesa-Bianchi, and Paul Fischer gave the simple UCB1 rule with a finite-time guarantee. The 10-armed testbed used here follows the experiments popularized by Sutton and Barto's textbook.
-
-## Key takeaways
-
-- A multi-armed bandit is RL with a single state: each action has an unknown expected reward $`q_*(a)`$, and the agent learns about an arm only by pulling it.
-- Action values can be estimated incrementally with $`Q \leftarrow Q + \alpha (R - Q)`$. This "move the estimate toward a target" update is the template for Monte Carlo, TD, and Q-learning. A constant step size tracks nonstationary targets.
-- A purely greedy agent often locks onto a suboptimal arm (34.7 percent optimal choices on our testbed). ε-greedy exploration fixes this at the cost of some random actions (80.0 percent optimal with $`\epsilon = 0.1`$ after 1,000 steps).
-- Directed exploration does better than random exploration: optimistic initial values and UCB, which adds an uncertainty bonus $`c\sqrt{\ln t / N(a)}`$, reach about 86 percent optimal choices on the same testbed.
-- In large problems, value-based methods explore with ε-greedy and policy gradient methods explore by sampling from a stochastic policy, helped by an entropy bonus. A language model can only be reinforced for good responses that it actually samples.

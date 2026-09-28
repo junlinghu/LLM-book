@@ -82,6 +82,10 @@ For language models, value-based methods face a structural problem. Casting text
 
 For these reasons, RL for language models relies on policy gradient methods, possibly with a learned value function as a critic (which estimates the value of states, not of every token as an action). Sections 9.6 and 9.7 develop those methods.
 
+## A short history
+
+Function approximation has been part of reinforcement learning from the start: Samuel's checkers player used a linear evaluation function, and TD-Gammon used a neural network. Long-Ji Lin introduced experience replay in the early 1990s (Lin 1992). Through the 1990s, a series of counterexamples by Leemon Baird, John Tsitsiklis, Benjamin Van Roy, and others showed that off-policy TD learning with function approximation can diverge (Tsitsiklis et al. 1997), and this made neural-network value functions unfashionable for more than a decade. DQN (Mnih et al. 2013, 2015) revived them with replay and a target network, and started the era of deep reinforcement learning. Hado van Hasselt, Arthur Guez, and David Silver's double DQN (2016) and many other refinements followed.
+
 ## Code for this section
 
 The listings below collect the code for this section. Code 9.5.1 is condensed from [`figures/src/dqn.py`](figures/src/dqn.py) (the full file also records the Q-value estimates plotted in Figure 9.12); `run_dqn_experiments.py` trains the nine runs in parallel (several minutes on a CPU) and `fig_s5_dqn.py` draws the figure. Code 9.5.2 is from `fig_s5_triad.py`.
@@ -221,15 +225,3 @@ Output:
 gamma=0.4: w after 60 updates  off-policy 0.298  on-policy 1.21e-07
 gamma=0.9: w after 60 updates  off-policy 101  on-policy 2.22e-06
 ```
-
-## A short history
-
-Function approximation has been part of reinforcement learning from the start: Samuel's checkers player used a linear evaluation function, and TD-Gammon used a neural network. Long-Ji Lin introduced experience replay in the early 1990s (Lin 1992). Through the 1990s, a series of counterexamples by Leemon Baird, John Tsitsiklis, Benjamin Van Roy, and others showed that off-policy TD learning with function approximation can diverge (Tsitsiklis et al. 1997), and this made neural-network value functions unfashionable for more than a decade. DQN (Mnih et al. 2013, 2015) revived them with replay and a target network, and started the era of deep reinforcement learning. Hado van Hasselt, Arthur Guez, and David Silver's double DQN (2016) and many other refinements followed.
-
-## Key takeaways
-
-- Tables cannot store or generalize values in large or continuous state spaces; function approximation represents $`\hat{Q}(s, a; \mathbf{w})`$ with a neural network trained by regression toward TD targets (a semi-gradient method).
-- DQN stabilizes deep Q-learning with experience replay (random minibatches from a buffer of past transitions, which breaks correlations and reuses data) and a target network (a periodically copied network that keeps targets fixed between copies).
-- On CartPole, removing the target network made the Q-value estimates diverge to about $`2 \times 10^8`$ (true values are at most 100) and the policy collapse; full DQN learned, but slowly and unevenly.
-- The deadly triad of function approximation, bootstrapping, and off-policy learning can make value estimates diverge, as a two-state example shows in a few lines.
-- Value-based methods fit language models poorly: the action space is the whole vocabulary at every step, greedy policies are the wrong target, and the useful knowledge already sits in a stochastic policy. LLM training therefore uses policy gradients.

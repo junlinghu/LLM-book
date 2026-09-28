@@ -165,6 +165,10 @@ Figure 9.17 shows this with REINFORCE with a baseline, changing only the learnin
 
 We could simply use a small learning rate, but that makes learning slow everywhere to avoid disasters in a few places, and it does nothing to let us reuse data. What we want is a way to take steps that are as large as is *safe*, measured not in parameter space but in how much the policy's behavior changes, and to take several of them on each batch of data. That is precisely what trust-region methods and Proximal Policy Optimization provide, and they are the subject of Section 9.7.
 
+## A short history
+
+Ronald Williams introduced REINFORCE in 1992, together with the observation that a baseline reduces variance without introducing bias (Williams 1992). Actor-critic architectures are older: Andrew Barto, Richard Sutton, and Charles Anderson's 1983 pole-balancing system already paired an "adaptive critic" with an action-selecting element. The policy gradient theorem, which justified using a learned critic with function approximation, was published by Sutton, McAllester, Singh, and Mansour in 2000 (Sutton et al. 2000), and Vijay Konda and John Tsitsiklis analyzed actor-critic algorithms in the same period. Sham Kakade's natural policy gradient (2001) first addressed the step-size problem by measuring steps in terms of the change in the policy's distribution rather than in parameters, an idea that led to TRPO and PPO. Deep actor-critic methods took off with A3C (Mnih et al. 2016), which trained on many parallel copies of an environment.
+
 ## Code for this section
 
 The listings below collect the code for this section in the order in which the text refers to them. Code 9.6.1 is [`figures/src/score_function_check.py`](figures/src/score_function_check.py). Codes 9.6.2 and 9.6.3 are from [`figures/src/reinforce.py`](figures/src/reinforce.py); the script `run_reinforce_experiments.py` trains all the configurations in parallel (several minutes on a CPU), and `fig_s6_reinforce.py` draws Figures 9.14, 9.15, and 9.17 and prints the numbers quoted in the text.
@@ -317,16 +321,3 @@ Running `train_reinforce` for 1,000 episodes with seeds 0 to 4 (`variance_every=
 no baseline  mean return eps 1-200:   98.0  eps 201-500:  205.6  last 100:  365.5 (per seed [321, 494, 500, 109, 404]); first episode with 20-ep average >= 475: [608, 630, 480, 511, 988]
 baseline     mean return eps 1-200:  134.7  eps 201-500:  345.6  last 100:  427.2 (per seed [500, 483, 484, 172, 496]); first episode with 20-ep average >= 475: [361, 248, 359, 277, 250]
 ```
-
-## A short history
-
-Ronald Williams introduced REINFORCE in 1992, together with the observation that a baseline reduces variance without introducing bias (Williams 1992). Actor-critic architectures are older: Andrew Barto, Richard Sutton, and Charles Anderson's 1983 pole-balancing system already paired an "adaptive critic" with an action-selecting element. The policy gradient theorem, which justified using a learned critic with function approximation, was published by Sutton, McAllester, Singh, and Mansour in 2000 (Sutton et al. 2000), and Vijay Konda and John Tsitsiklis analyzed actor-critic algorithms in the same period. Sham Kakade's natural policy gradient (2001) first addressed the step-size problem by measuring steps in terms of the change in the policy's distribution rather than in parameters, an idea that led to TRPO and PPO. Deep actor-critic methods took off with A3C (Mnih et al. 2016), which trained on many parallel copies of an environment.
-
-## Key takeaways
-
-- Policy gradient methods parameterize a stochastic policy $`\pi_\theta(a \mid s)`$ and maximize the expected return $`J(\theta)`$ by gradient ascent. They handle large and continuous action spaces naturally.
-- The log-derivative trick turns the gradient of an expectation into an expectation of $`f(x)\nabla_\theta \log p_\theta(x)`$; the environment's dynamics drop out, giving $`\nabla_\theta J = \mathbb{E}[\sum_t \nabla_\theta \log \pi_\theta(a_t \mid s_t)\, G_t]`$.
-- REINFORCE estimates this gradient from complete episodes. It is unbiased but has high variance; on CartPole it learns, but erratically.
-- Subtracting a state-dependent baseline leaves the gradient unbiased and reduces its variance. With a learned value baseline, REINFORCE learned faster and more reliably on CartPole, and the baseline made single-episode gradient estimates up to about 6 times less variable.
-- The advantage $`A^{\pi}(s,a) = Q^{\pi}(s,a) - V^{\pi}(s)`$ measures how much better an action was than expected. Actor-critic methods estimate it with a learned critic, for example with the TD error, trading a little bias for lower variance.
-- Policy gradients are on-policy: each batch of experience supports one update of the current policy. Larger or repeated steps can wreck the policy, and because a bad policy collects bad data, the damage can be permanent (every run with learning rates of $`10^{-2}`$ or more collapsed on CartPole). Section 9.7 fixes this with PPO.

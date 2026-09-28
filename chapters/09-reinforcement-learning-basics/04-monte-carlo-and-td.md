@@ -108,6 +108,10 @@ Yet during training the ranking reverses. Over the last 100 episodes, SARSA's av
 
 Neither answer is wrong; they answer different questions. Q-learning finds the best policy for an agent that will eventually stop exploring. SARSA finds the best policy given that the agent keeps exploring. If exploration is gradually reduced to zero, SARSA's policy also converges to the optimal one. The distinction between learning about the policy that generated the data and learning about a different one runs through the rest of this chapter. Policy gradient methods (Section 9.6) are on-policy, and PPO (Section 9.7) is built around carefully reusing slightly off-policy data.
 
+## A short history
+
+Monte Carlo methods take their name from the casino and date to the 1940s, when Stanislaw Ulam, John von Neumann, and Nicholas Metropolis used random sampling for physics calculations; their use for estimating values from sampled episodes came much later. The idea behind TD learning appeared in Arthur Samuel's checkers player of 1959 and in models of animal learning, and Richard Sutton formalized it as a family of prediction methods, TD($`\lambda`$), in 1988 (Sutton 1988). Christopher Watkins introduced Q-learning in his 1989 PhD thesis, with a convergence proof published with Peter Dayan in 1992 (Watkins et al. 1992). SARSA was proposed by Gavin Rummery and Mahesan Niranjan in 1994 under the name "modified connectionist Q-learning"; the shorter name came from Sutton. The cliff-walking example comes from Sutton and Barto's textbook.
+
 ## Code for this section
 
 The listings below collect the code for this section in the order in which the text refers to them. The prediction code is from [`figures/src/fig_s4_mc_td.py`](figures/src/fig_s4_mc_td.py) and uses the `GridWorld` class of Code 9.2.1; the control code is from `fig_s4_cliff.py` in the same folder. The scripts also draw Figures 9.9 and 9.10.
@@ -260,15 +264,3 @@ Output:
 sarsa     reward per episode (last 100):  -26.3   greedy returns: -100 (x7), -19 (x3), -17 (x40)
 qlearning reward per episode (last 100):  -49.3   greedy returns: -13 (x50)
 ```
-
-## A short history
-
-Monte Carlo methods take their name from the casino and date to the 1940s, when Stanislaw Ulam, John von Neumann, and Nicholas Metropolis used random sampling for physics calculations; their use for estimating values from sampled episodes came much later. The idea behind TD learning appeared in Arthur Samuel's checkers player of 1959 and in models of animal learning, and Richard Sutton formalized it as a family of prediction methods, TD($`\lambda`$), in 1988 (Sutton 1988). Christopher Watkins introduced Q-learning in his 1989 PhD thesis, with a convergence proof published with Peter Dayan in 1992 (Watkins et al. 1992). SARSA was proposed by Gavin Rummery and Mahesan Niranjan in 1994 under the name "modified connectionist Q-learning"; the shorter name came from Sutton. The cliff-walking example comes from Sutton and Barto's textbook.
-
-## Key takeaways
-
-- Monte Carlo prediction estimates $`V^{\pi}(s)`$ by averaging complete returns from $s$. Its target is unbiased but has high variance, and it must wait until the end of an episode.
-- TD(0) updates after every step toward $`r_{t+1} + \gamma V(s_{t+1})`$, bootstrapping from its own estimate. The target is biased but has much lower variance; the TD error $`\delta_t = r_{t+1} + \gamma V(s_{t+1}) - V(s_t)`$ reappears in PPO's advantage estimates.
-- On the gridworld, TD(0) reaches lower errors than Monte Carlo at equal step sizes (0.036 vs. 0.063 after 300 episodes with $`\alpha = 0.02`$). n-step returns and TD($`\lambda`$) interpolate between the two.
-- Model-free control learns action values $Q(s, a)$ and acts ε-greedily. SARSA (on-policy) bootstraps from the action it will actually take; Q-learning (off-policy) bootstraps from the best next action and so learns $`Q^*`$ while exploring.
-- On cliff walking, Q-learning learns the optimal 13-step path along the edge but earns less during training ($-49.3$ per episode) because exploratory steps send it over the cliff, while SARSA learns a safer 17-step path and earns more ($-26.3$).

@@ -136,6 +136,10 @@ The discount factor is part of the problem specification, but in practice it is 
 
 Small discount factors make learning easier, since values depend on only a few steps of the future, but they can make an agent short-sighted enough to ignore the very rewards we care about. CartPole agents typically use $`\gamma = 0.99`$, and so do the PPO experiments of Section 9.7. For language models, where a response is a single short episode with a reward at the end, $`\gamma = 1`$ (no discounting) is common (Chapter 10).
 
+## A short history
+
+The Markov decision process and dynamic programming come from operations research and control theory. Richard Bellman formulated the principle of optimality and the equation named after him in the 1950s, in his book *Dynamic Programming* (1957), and Ronald Howard's policy iteration (1960) gave another exact solution method. For decades these methods assumed a known model and were limited by what Bellman called the "curse of dimensionality," the explosion in the number of states as problems grow. Reinforcement learning can be seen as the effort to keep Bellman's equations while dropping those two assumptions: learning from sampled experience instead of a known model, and generalizing across states with function approximation instead of sweeping over a table.
+
 ## Code for this section
 
 The listings below collect the code for this section in the order in which the text refers to them. They are taken from [`figures/src/gridworld.py`](figures/src/gridworld.py); the script `fig_s2_mdp.py` in the same folder produces Figures 9.4 and 9.5 and the numbers quoted in the text.
@@ -249,16 +253,3 @@ Output:
  [0.531 0.478 0.531   nan 0.81 ]
  [0.478 0.531 0.59  0.656 0.729]]
 ```
-
-## A short history
-
-The Markov decision process and dynamic programming come from operations research and control theory. Richard Bellman formulated the principle of optimality and the equation named after him in the 1950s, in his book *Dynamic Programming* (1957), and Ronald Howard's policy iteration (1960) gave another exact solution method. For decades these methods assumed a known model and were limited by what Bellman called the "curse of dimensionality," the explosion in the number of states as problems grow. Reinforcement learning can be seen as the effort to keep Bellman's equations while dropping those two assumptions: learning from sampled experience instead of a known model, and generalizing across states with function approximation instead of sweeping over a table.
-
-## Key takeaways
-
-- An MDP consists of states, actions, transition probabilities $`P(s' \mid s, a)`$, rewards $r(s, a)$, and a discount factor $`\gamma`$; the Markov property says the next state depends only on the current state and action.
-- A policy $`\pi(a \mid s)`$ maps states to action probabilities. The return $`G_t = \sum_k \gamma^k r_{t+k+1}`$ is the discounted sum of future rewards and satisfies $`G_t = r_{t+1} + \gamma G_{t+1}`$.
-- $`V^{\pi}(s)`$ is the expected return from a state and $`Q^{\pi}(s,a)`$ the expected return after taking an action; they are linked by $`V^{\pi}(s) = \sum_a \pi(a \mid s) Q^{\pi}(s,a)`$.
-- The Bellman expectation equation expresses a state's value as the expected immediate reward plus the discounted value of the next state; iterating it (policy evaluation) computes $`V^{\pi}`$ exactly when the model is known.
-- The Bellman optimality equation replaces the policy average by a maximum. Its solution $`Q^*`$ yields an optimal policy by acting greedily, and value iteration computes it for small, known MDPs.
-- The discount factor sets the effective horizon, about $`1/(1-\gamma)`$ steps, and can change which behavior looks best.
