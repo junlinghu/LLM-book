@@ -15,17 +15,57 @@ Every large language model is, at its core, a neural network trained by gradient
 
 ## Sections
 
-| # | Section | Summary |
-|---|---|---|
-| 1 | [From Biological Inspiration to the Artificial Neuron](01-the-artificial-neuron.md) | McCulloch-Pitts and Rosenblatt, the neuron as a weighted sum plus bias and activation, the perceptron rule and its failure on XOR, decision hyperplanes, and neurons as linear and logistic regression. |
-| 2 | [Activation Functions](02-activation-functions.md) | Why stacked linear layers collapse to one, saturation in step, sigmoid, and tanh, ReLU and dead units, and the smooth GELU and SiLU used in transformers, each plotted with its derivative. |
-| 3 | [The Multi-Layer Perceptron](03-multi-layer-perceptron.md) | Layers as matrix multiplications with shapes written out, a hand-computed forward pass through a 2-2-1 network, solving XOR and two moons with hidden features, universal approximation, and parameter counts. |
-| 4 | [Loss Functions: Measuring Mistakes](04-loss-functions.md) | MSE for regression, stable softmax, cross-entropy and binary cross-entropy, why cross-entropy beats MSE for classification, the p − y gradient, and next-token prediction and perplexity in LLMs. |
-| 5 | [Gradient Descent](05-gradient-descent.md) | Minimizing the average loss by stepping against the gradient, learning rates that are too small or too large on 1-D and 2-D surfaces, batch vs. stochastic vs. minibatch gradients, and epochs and iterations. |
-| 6 | [Computational Graphs and Backpropagation](06-computational-graphs-and-backpropagation.md) | Computational graphs, the chain rule node by node, forward vs. reverse mode, gradient accumulation, backprop for the MLP by hand, and an original scalar autograd engine that trains an MLP on XOR and two moons. |
-| 7 | [Vectorization: From Scalars to Tensors](07-vectorization.md) | Replacing scalar loops with matrix operations, shapes and broadcasting, matrix-form backprop and the transpose pattern, shape checks, gradient checking with finite differences, and why matrix multiplication dominates cost. |
-| 8 | [The Training Loop and Generalization](08-training-loop-and-generalization.md) | The training loop, train/validation/test splits, learning curves, underfitting and overfitting as width grows, early stopping, why weights cannot start at zero, and reproducibility with seeds. |
-| 9 | [A First Look at PyTorch](09-a-first-look-at-pytorch.md) | Tensors with requires_grad, the dynamic graph and backward(), mapping each from-scratch piece to PyTorch, rebuilding the MLP with torch.nn, and matching our gradients and loss curve to round-off. |
+1. **[From Biological Inspiration to the Artificial Neuron](01-the-artificial-neuron.md)**
+   - McCulloch-Pitts and Rosenblatt: a short history
+   - The neuron as a weighted sum plus bias, followed by an activation
+   - The perceptron learning rule and its failure on XOR
+   - Decision boundaries as hyperplanes
+   - Neurons as linear and logistic regression
+2. **[Activation Functions](02-activation-functions.md)**
+   - Why stacked linear layers collapse into one
+   - Saturation in step, sigmoid, and tanh
+   - ReLU and dead units
+   - The smooth GELU and SiLU used in transformers, each plotted with its derivative
+3. **[The Multi-Layer Perceptron](03-multi-layer-perceptron.md)**
+   - Layers as matrix multiplications, with shapes written out
+   - A hand-computed forward pass through a 2-2-1 network
+   - Solving XOR and two moons, and what the hidden units learn
+   - Universal approximation
+   - Counting parameters
+4. **[Loss Functions: Measuring Mistakes](04-loss-functions.md)**
+   - Mean squared error for regression
+   - Numerically stable softmax
+   - Cross-entropy and binary cross-entropy
+   - Why cross-entropy beats MSE for classification, and the p − y gradient
+   - Next-token prediction and perplexity in LLMs
+5. **[Gradient Descent](05-gradient-descent.md)**
+   - Minimizing the average loss by stepping against the gradient
+   - Learning rates that are too small or too large, on 1-D and 2-D surfaces
+   - Batch vs. stochastic vs. minibatch gradients
+   - Epochs and iterations
+6. **[Computational Graphs and Backpropagation](06-computational-graphs-and-backpropagation.md)**
+   - Computational graphs and the chain rule, node by node
+   - Forward mode vs. reverse mode
+   - Gradient accumulation when a value is used more than once
+   - Backpropagation through the MLP by hand
+   - An original scalar autograd engine that trains an MLP on XOR and two moons
+7. **[Vectorization: From Scalars to Tensors](07-vectorization.md)**
+   - Replacing scalar loops with matrix operations
+   - Shapes and broadcasting
+   - Matrix-form backpropagation and the transpose pattern
+   - Shape checks and gradient checking with finite differences
+   - Why matrix multiplication dominates the cost
+8. **[The Training Loop and Generalization](08-training-loop-and-generalization.md)**
+   - The training loop, step by step
+   - Train, validation, and test splits
+   - Learning curves, underfitting, and overfitting as width grows
+   - Early stopping
+   - Why weights cannot start at zero, and reproducibility with seeds
+9. **[A First Look at PyTorch](09-a-first-look-at-pytorch.md)**
+   - Tensors with `requires_grad`, the dynamic graph, and `backward()`
+   - Mapping each from-scratch piece to PyTorch
+   - Rebuilding the MLP with `torch.nn`
+   - Matching our gradients and loss curve to round-off error
 
 Figures are in [`figures/`](figures/). Every plot is produced by a Python script in [`figures/src/`](figures/src/), which also holds the chapter's from-scratch code (the scalar autograd engine and the NumPy MLP). To regenerate all figures, run `for f in fig_*.py; do python "$f"; done` from inside `figures/src/` (requires NumPy, Matplotlib, and PyTorch).
 
