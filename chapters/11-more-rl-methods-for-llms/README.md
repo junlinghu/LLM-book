@@ -2,15 +2,6 @@
 
 Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the models it produced. This chapter starts with that pipeline's limitations and then surveys the methods that came after it: variants that make PPO cheaper or more stable, methods that learn directly from preferences without a separate reward model or RL loop, and methods that use verifiable rewards to train reasoning.
 
-## Learning goals
-
-- Explain the limitations of PPO-based RLHF (cost, instability, reward hacking, reduced diversity, and sycophancy) and which newer methods address each.
-- Explain how critic-free methods (REINFORCE, RLOO, GRPO) simplify PPO.
-- Derive DPO from the RLHF objective and explain why it needs no reward model or sampling loop.
-- Compare the main preference-optimization variants and when to use each.
-- Explain GRPO and reinforcement learning with verifiable rewards (RLVR), and why they matter for reasoning models.
-- Choose a method given your data, compute budget, and goal.
-
 ## Outline
 
 ### 1. [Where Chapter 10 left off: the limits of PPO-based RLHF](01-limits-of-ppo-based-rlhf.md)

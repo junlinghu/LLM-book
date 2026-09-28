@@ -4,16 +4,6 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 
 This chapter follows the classic RLHF recipe from start to finish. [Section 1](01-from-sft-to-rlhf.md) explains what supervised fine-tuning cannot teach and why comparisons are easier to collect than demonstrations. [Section 2](02-language-generation-as-rl.md) casts text generation as a reinforcement learning problem, with the language model as the policy, and trains a small model with REINFORCE. [Section 3](03-the-rlhf-pipeline.md) lays out the three stages of the pipeline, and [Section 4](04-collecting-human-preference-data.md) covers how preference data are collected, what they look like, and how noisy they are. [Section 5](05-reward-modeling.md) turns preferences into a reward model with the Bradley-Terry loss, and [Section 6](06-the-rlhf-objective.md) defines the KL-regularized objective that the policy optimizes and derives its optimal solution. [Section 7](07-ppo-for-language-models.md) adapts PPO from Chapter 9 to language models, with per-token KL shaping, a value model, and the implementation details that make it work, and [Section 8](08-ppo-based-rlhf-in-practice.md) surveys the models built with PPO-based RLHF from 2019 to 2026.
 
-## Learning goals
-
-- Explain what SFT cannot teach and what RLHF adds on top of it.
-- Frame text generation as RL: the token-level MDP, the language model as a policy, sparse sequence-level reward, and credit assignment.
-- Describe the three-stage pipeline: SFT, reward model, then RL.
-- Train a reward model from pairwise preferences using the Bradley-Terry loss.
-- Write the KL-regularized RLHF objective and explain each term.
-- Explain what changes when PPO is applied to a language model: the four models, token-level KL reward shaping, rollout generation, and the costs.
-- Describe what PPO-based RLHF achieved in practice and the models it produced.
-
 ## Outline
 
 ### 1. [From SFT to RLHF](01-from-sft-to-rlhf.md)

@@ -2,13 +2,6 @@
 
 This chapter covers how to measure whether an LLM is good, and how to detect and reduce one of its most important failures: hallucination.
 
-## Learning goals
-
-- Choose metrics that match the task (language modeling, chat, code, safety).
-- Read common benchmarks without overclaiming.
-- Explain what hallucination is, why LLMs hallucinate, and how to measure and reduce it.
-- Design a small, honest evaluation for a new model or fine-tune.
-
 ## Sections
 
 | # | Section | Summary |

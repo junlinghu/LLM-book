@@ -6,13 +6,6 @@ That is why inference matters. For a widely used model, the cost of serving it c
 
 This chapter explains what generating a token takes and how to make it fast and affordable. [Section 1](01-from-logits-to-text.md) shows how logits become text through greedy decoding, sampling, beam search, and constrained decoding. [Section 2](02-the-compute-of-a-forward-pass.md) counts the compute of a forward pass, and [Section 3](03-prefill-and-decode.md) explains why processing the prompt is limited by compute while generating tokens is limited by memory bandwidth. [Section 4](04-the-kv-cache.md) introduces the KV cache, which often limits context length and batch size, and [Section 5](05-hardware-for-inference.md) connects all this to hardware with the roofline model. [Section 6](06-making-inference-faster-and-cheaper.md) covers the main levers for speed and cost: quantization, batching, speculative decoding, fast kernels, and model-level choices. [Section 7](07-scaling-across-devices.md) splits a model across devices, [Section 8](08-serving-systems.md) puts the pieces together in serving systems and explains per-token pricing, and [Section 9](09-test-time-compute.md) looks at spending more compute at inference time to get better answers.
 
-## Learning goals
-
-- Explain how autoregressive generation turns logits into text.
-- Estimate the compute and memory an LLM needs to generate a token.
-- Understand why inference is usually limited by memory bandwidth, not raw compute.
-- Explain the main techniques for speeding up and scaling inference.
-
 ## Outline
 
 ### 1. [From logits to text](01-from-logits-to-text.md)
