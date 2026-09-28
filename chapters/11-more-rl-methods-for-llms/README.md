@@ -13,7 +13,7 @@ Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapt
 ## Outline
 
 ### 1. Where Chapter 10 left off
-- A short recap of the KL-regularized RLHF objective and the PPO pipeline (see Chapter 10)
+- A short recap of the KL-regularized RLHF objective and the PPO pipeline (see Chapter 10; the PPO algorithm itself is in Chapter 9)
 - The costs this chapter addresses: the value model, the reward model, online sampling, and instability
 - A map of the chapter: simpler RL, direct preference methods, verifiable rewards, and AI feedback
 
