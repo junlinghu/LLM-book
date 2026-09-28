@@ -13,7 +13,7 @@ Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the mo
 
 ## Outline
 
-### 1. Where Chapter 10 left off: the limits of PPO-based RLHF
+### 1. [Where Chapter 10 left off: the limits of PPO-based RLHF](01-limits-of-ppo-based-rlhf.md)
 - A short recap of the RLHF objective and PPO (see Chapters 9 and 10)
 - **Cost**: four models in memory and slow sampling, which critic-free RL (Section 2) reduces
 - **Instability**: training is sensitive to hyperparameters, which DPO and its variants avoid (Sections 3 and 4)
@@ -22,14 +22,14 @@ Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the mo
 - **Sycophancy**: the model learns to agree with the user instead of being correct (Sharma et al. 2023)
 - How AI feedback (Section 6) cuts the cost of human labels
 
-### 2. RL without a value model
+### 2. [RL without a value model](02-rl-without-a-value-model.md)
 - Why the critic is expensive for LLMs
 - **REINFORCE with baseline**: the simplest policy gradient for sequences
 - **RLOO (REINFORCE Leave-One-Out)**: sample several answers and use the others as the baseline
 - **GRPO (Group Relative Policy Optimization)**: normalize rewards within a group of answers to the same prompt, removing the value model
 - How these compare with PPO in memory, stability, and results
 
-### 3. Direct Preference Optimization (DPO)
+### 3. [Direct Preference Optimization (DPO)](03-direct-preference-optimization.md)
 - Deriving the closed-form optimal policy for the KL-regularized objective
 - Rewriting the reward in terms of the policy: the "implicit reward model"
 - The DPO loss on chosen and rejected pairs
@@ -37,7 +37,7 @@ Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the mo
 - Strengths: simple, stable, cheap (no sampling during training)
 - Weaknesses: offline data only, sensitivity to data quality, and likelihood of both responses can fall
 
-### 4. DPO variants and other preference methods
+### 4. [DPO variants and other preference methods](04-dpo-variants-and-other-preference-methods.md)
 - **IPO**: fixes DPO's tendency to overfit deterministic preferences
 - **KTO**: learns from single thumbs-up or thumbs-down labels instead of pairs
 - **ORPO**: combines SFT and preference optimization in one step, without a reference model
@@ -45,24 +45,24 @@ Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the mo
 - **Online and iterative DPO**: generating fresh pairs with the current model
 - Rejection sampling fine-tuning (best-of-n then SFT) as a simple baseline
 
-### 5. Reinforcement learning with verifiable rewards (RLVR)
+### 5. [Reinforcement learning with verifiable rewards (RLVR)](05-reinforcement-learning-with-verifiable-rewards.md)
 - Replacing a learned reward model with a checker: correct math answers, passing unit tests, valid format
 - Why verifiable rewards resist reward hacking better than learned ones
 - Training reasoning models with GRPO-style RL (for example the DeepSeek-R1 recipe)
 - Emergent behaviors: longer chains of thought, self-checking
 - Outcome rewards vs. process rewards (process reward models that score each step)
 
-### 6. AI feedback and self-improvement
+### 6. [AI feedback and self-improvement](06-ai-feedback-and-self-improvement.md)
 - RLAIF: using an LLM instead of humans to label preferences
 - Constitutional AI: critiques and revisions guided by written principles
 - Self-rewarding and self-play approaches
 
-### 7. Choosing a method
+### 7. [Choosing a method](07-choosing-a-method.md)
 - A comparison table: data needed, models in memory, compute, stability, and typical use
 - Common recipes: SFT then DPO for chat quality; SFT then GRPO with verifiable rewards for reasoning
 - Diagnosing training: reward curves, KL divergence, response length, and evaluation scores
 
-### 8. What's used in practice
+### 8. [What's used in practice](08-whats-used-in-practice.md)
 - A snapshot of publicly documented post-training recipes, as of September 2026
 - The shift away from PPO: most open reports since late 2024 use critic-free, group-baseline RL (mostly **GRPO** and its variants) instead of PPO with a learned value model
 - PPO has not disappeared: classic RLHF used it (InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat; see Chapter 10, Section 8), Tulu 3 and OLMo 2 ran RLVR with PPO, and ByteDance Seed1.5-Thinking uses a value-based PPO-style method
