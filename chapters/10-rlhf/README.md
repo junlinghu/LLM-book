@@ -84,16 +84,16 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - PPO holds up in controlled comparisons: tuned carefully, it matched or beat DPO and other alignment methods on dialogue, math, and code (Xu et al. 2024; Ivison et al. 2024)
 - After 2024: PPO remains in use for RL with verifiable rewards (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking); closed reasoning models from o1 onward do not disclose their algorithm. Chapter 11 (Section 8) covers the shift toward DPO and GRPO-style methods
 
-| Model | What PPO-based RLHF achieved |
-|---|---|
-| GPT-2 fine-tuned from human preferences | Learned stylistic continuation (positive sentiment, descriptive text) from only 5,000 human comparisons (Ziegler et al. 2019) |
-| Summarization policies (TL;DR) | Summaries preferred over human references and over much larger supervised models; transferred to CNN/DM news without news-specific training (Stiennon et al. 2020) |
-| InstructGPT | Outputs of the 1.3B model preferred to those of 175B GPT-3; more truthful, less toxic, with minimal regressions on public NLP benchmarks (Ouyang et al. 2022) |
-| Helpful-and-harmless assistant | Improved almost all NLP evaluations for large models (an "alignment bonus"), stayed compatible with coding and summarization skills, and was updated weekly with fresh feedback (Bai et al. 2022) |
-| ChatGPT | Conversational assistant fine-tuned from a GPT-3.5 model with InstructGPT's methods, using PPO over several iterations (OpenAI 2022) |
-| GPT-4 | PPO against a reward model, plus rule-based reward models during PPO; with the other safety steps, 82% less likely than GPT-3.5 to respond to requests for disallowed content (OpenAI 2023) |
-| Llama 2-Chat | Rejection-sampling fine-tuning, then PPO; outperformed open-source chat models on most benchmarks and in human evaluations of helpfulness and safety (Touvron et al. 2023) |
-| Claude 2 | Trained with RLHF and Constitutional AI (which has an RL phase); improved over Claude 1.3 in helpfulness and honesty; RL algorithm not named (Anthropic 2023) |
+| Model | What PPO-based RLHF achieved | Source |
+|---|---|---|
+| GPT-2 fine-tuned from human preferences | Learned stylistic continuation (positive sentiment, descriptive text) from only 5,000 human comparisons | Ziegler et al. 2019 |
+| Summarization policies (TL;DR) | Summaries preferred over human references and over much larger supervised models; transferred to CNN/DM news without news-specific training | Stiennon et al. 2020 |
+| InstructGPT | Outputs of the 1.3B model preferred to those of 175B GPT-3; more truthful, less toxic, with minimal regressions on public NLP benchmarks | Ouyang et al. 2022 |
+| Helpful-and-harmless assistant | Improved almost all NLP evaluations for large models (an "alignment bonus"), stayed compatible with coding and summarization skills, and was updated weekly with fresh feedback | Bai et al. 2022 |
+| ChatGPT | Conversational assistant fine-tuned from a GPT-3.5 model with InstructGPT's methods, using PPO over several iterations | OpenAI 2022 |
+| GPT-4 | PPO against a reward model, plus rule-based reward models during PPO; with the other safety steps, 82% less likely than GPT-3.5 to respond to requests for disallowed content | OpenAI 2023 |
+| Llama 2-Chat | Rejection-sampling fine-tuning, then PPO; outperformed open-source chat models on most benchmarks and in human evaluations of helpfulness and safety | Touvron et al. 2023 |
+| Claude 2 | Trained with RLHF and Constitutional AI (which has an RL phase); improved over Claude 1.3 in helpfulness and honesty; RL algorithm not named | Anthropic 2023 |
 
 ## Suggested code labs
 
