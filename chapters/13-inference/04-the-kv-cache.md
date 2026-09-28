@@ -8,9 +8,9 @@ Section 1 noted that the decoding loop only needs the logits for the last positi
 
 Recall the causal self-attention of Chapter 6. In one layer and one head, each position $t$ has a query $\mathbf{q}_t = W_Q \mathbf{x}_t$, a key $\mathbf{k}_t = W_K \mathbf{x}_t$, and a value $\mathbf{v}_t = W_V \mathbf{x}_t$, where $\mathbf{x}_t$ is the layer input at that position. The attention output at position $t$ is
 
-$$
+```math
 \mathbf{o}_t = \sum_{\tau=1}^{t} \alpha_{t\tau} \mathbf{v}_\tau, \qquad \alpha_{t\tau} = \frac{\exp\big(\mathbf{q}_t^\top \mathbf{k}_\tau / \sqrt{d_h}\big)}{\sum_{\tau'=1}^{t} \exp\big(\mathbf{q}_t^\top \mathbf{k}_{\tau'} / \sqrt{d_h}\big)}.
-$$
+```
 
 Two facts follow from the causal mask:
 
@@ -23,8 +23,8 @@ Without a cache, generating token $t+1$ means running the full network on all $t
 
 Fact 1 says the earlier keys and values never change. So we compute them once and store them. At each decode step, for each layer:
 
-1. Compute $\mathbf{q}_{t}, \mathbf{k}_{t}, \mathbf{v}_{t}$ for the *new* token only.
-2. Append $\mathbf{k}_{t}$ and $\mathbf{v}_{t}$ to the cache: $K_{1:t} = [K_{1:t-1}; \mathbf{k}_t^\top]$, $V_{1:t} = [V_{1:t-1}; \mathbf{v}_t^\top]$.
+1. Compute $`\mathbf{q}_{t}, \mathbf{k}_{t}, \mathbf{v}_{t}`$ for the *new* token only.
+2. Append $`\mathbf{k}_{t}`$ and $`\mathbf{v}_{t}`$ to the cache: $`K_{1:t} = [K_{1:t-1}; \mathbf{k}_t^\top]`$, $`V_{1:t} = [V_{1:t-1}; \mathbf{v}_t^\top]`$.
 3. Compute attention for the new query against all cached keys and values.
 
 Everything else in the layer (the output projection, the MLP, the normalizations) operates on one position at a time and needs no history. So keys and values are *all* that must be kept. Queries are not cached because each query is used only once, at its own position.
@@ -89,17 +89,17 @@ On an ordinary laptop the cached version is faster by well over an order of magn
 
 For every layer, every key-value head, and every token, the cache holds one key vector and one value vector of dimension $d_h$. The total size in bytes is
 
-$$
+```math
 \text{KV bytes} = 2 \times L \times h_{kv} \times d_h \times n \times b \times s,
-$$
+```
 
 where the leading 2 counts keys and values, $L$ is the number of layers, $h_{kv}$ the number of key-value heads (equal to the number of attention heads $h$ in standard multi-head attention), $d_h$ the head dimension, $n$ the sequence length, $b$ the batch size (number of sequences), and $s$ the bytes per element (2 for FP16 or BF16, 1 for FP8 or INT8).
 
 It is convenient to separate out the size *per token*:
 
-$$
+```math
 \text{KV bytes per token} = 2 \, L \, h_{kv} \, d_h \, s.
-$$
+```
 
 Some examples, all with 16-bit entries ($s = 2$):
 
@@ -127,17 +127,17 @@ The formula is linear in both $n$ and $b$, and this is exactly the problem. A se
 
 **Capacity.** Consider serving Llama 3 8B in BF16 on our hypothetical 80 GB accelerator from Section 3. The weights take about 16 GB. If about 60 GB remain for cache after activations and overheads, then at 128 KiB per token the device can hold roughly
 
-$$
+```math
 \frac{60 \times 10^9}{131{,}072} \approx 458{,}000 \text{ tokens of cache}.
-$$
+```
 
 That could be about 55 concurrent requests at 8,000 tokens each, or only three requests at the full 128,000-token context. Long context and high concurrency compete for the same memory. When a server runs out of cache space, it must reject, queue, or preempt requests.
 
 **Bandwidth.** The cache must not only be stored but also *read*. On every decode step, each sequence's attention reads its entire cache in every layer. Section 3 estimated decode time as bytes read divided by bandwidth. For a batch of $b$ sequences, the bytes read per step are roughly
 
-$$
+```math
 \underbrace{2N}_{\text{weights (16-bit)}} + \underbrace{b \times 2 L h_{kv} d_h n s}_{\text{KV caches}}.
-$$
+```
 
 The weights are read once per step no matter how large the batch, but each sequence's cache is its own. For Llama 3 8B at 128,000 tokens, one sequence's cache (16 GiB) is about as large as the weights, so a single long-context request decodes at roughly half the speed of a short one. With many long requests in a batch, cache reads dominate. Unlike weight reads, cache reads cannot be amortized by batching, a point Section 5 makes precise with the roofline model.
 
@@ -153,9 +153,9 @@ In standard multi-head attention (MHA), each of the $h$ query heads has its own 
 
 **Grouped-query attention (GQA)**, introduced by Ainslie et al., interpolates between the two. The $h$ query heads are divided into $h_{kv}$ groups, and each group shares one key head and one value head:
 
-$$
+```math
 \text{head } j \text{ uses } K^{(g(j))}, V^{(g(j))}, \qquad g(j) = \left\lfloor \frac{j}{h / h_{kv}} \right\rfloor \quad (\text{heads numbered from } 0).
-$$
+```
 
 With $h_{kv} = h$, GQA is MHA; with $h_{kv} = 1$, it is MQA. Ainslie et al. found that intermediate values achieve quality close to MHA with speed close to MQA, and showed that an existing MHA checkpoint can be converted to GQA by mean-pooling its key and value heads within each group and then continuing training ("uptraining") for a small fraction of the original compute. GQA has become the default in many open models: the Llama 3 8B entry in the table above uses 8 key-value heads for 32 query heads, a 4 times reduction relative to Llama 2 7B.
 
