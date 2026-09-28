@@ -2,16 +2,6 @@
 
 Chapter 2 built a neural network with one hidden layer and trained it with plain gradient descent. Modern models, LLMs included, stack dozens or hundreds of layers, and naively stacking more layers makes training fail: gradients vanish or explode, and optimization stalls. This chapter covers the ideas that make deep networks trainable: careful initialization, residual connections, normalization, adaptive optimizers such as Adam and AdamW, learning-rate schedules, and regularization. Together they form a practical recipe for training deep networks, and the chapter closes by showing how the same ideas extend to networks built for images and sequences: convolutional and recurrent networks.
 
-## Learning goals
-
-- Explain why depth helps, and why deep networks are harder to train than shallow ones.
-- Diagnose vanishing and exploding gradients by monitoring activation and gradient statistics, and use gradient clipping.
-- Derive variance-preserving initialization (Xavier/Glorot and He/Kaiming) and explain when to use each.
-- Explain how residual connections and normalization layers (BatchNorm, LayerNorm, RMSNorm) keep deep networks trainable, and why transformers use LayerNorm or RMSNorm.
-- Implement SGD with momentum, RMSProp, Adam, and AdamW from scratch, and explain what each one fixes.
-- Choose a learning-rate schedule with warmup and decay, and regularize a deep network with weight decay and dropout.
-- Train a deep network end to end with a practical recipe and a debugging checklist.
-
 ## Outline
 
 ### 1. [Why go deep](01-why-go-deep.md)

@@ -2,17 +2,6 @@
 
 A language model never sees text. It sees a sequence of integers, and the tokenizer is the component that turns a string into those integers and back again. Chapter 4 showed how a model maps discrete symbols to learned vectors through an embedding table; this chapter decides what those symbols are. The choice sets the size of the output softmax, how many positions a document takes up, how much each request costs, and whether the model can spell, count digits, or read a language other than English efficiently. This chapter explains why modern LLMs settled on subword tokenization, derives the three main algorithms (byte pair encoding, WordPiece, and the unigram language model), walks through the full pipeline from normalization to decoding, and catalogs the failure modes that trace back to tokenization. Along the way we build a byte-level BPE tokenizer from scratch and check it against production libraries.
 
-## Learning goals
-
-- Explain what a tokenizer does, why models need one, and how it connects text to the embedding table and the output softmax.
-- Compare character-, word-, and subword-level tokenization in terms of vocabulary size, sequence length, and out-of-vocabulary handling.
-- Implement byte pair encoding (BPE) training and encoding from scratch, including byte-level BPE as used in GPT-2.
-- Explain how WordPiece and the unigram language model differ from BPE, and what SentencePiece adds.
-- Describe the full tokenization pipeline: normalization, pre-tokenization, the subword model, special tokens, and decoding.
-- Reason about vocabulary size: its effect on sequence length, parameter count, compute, and rare-token training.
-- Recognize tokenization artifacts (arithmetic, spelling, multilingual cost, whitespace and code, glitch tokens) and diagnose them by inspecting token boundaries.
-- Use tiktoken and Hugging Face `tokenizers` in practice, and measure a tokenizer's compression on a corpus.
-
 ## Sections
 
 1. **[Why Tokenization Matters](01-why-tokenization-matters.md)**

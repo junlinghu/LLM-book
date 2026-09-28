@@ -2,17 +2,6 @@
 
 Every large language model is, at its core, a neural network trained by gradient descent. This chapter builds that foundation from scratch: a single neuron, a network with one hidden layer, a loss that measures mistakes, and backpropagation to fix them. Along the way we write a tiny automatic-differentiation engine of our own and then check it against PyTorch, so that later chapters can use PyTorch with a clear picture of what happens underneath.
 
-## Learning goals
-
-- Describe a neuron as a weighted sum plus bias followed by an activation, and relate it to linear and logistic regression.
-- Explain why nonlinear activations are needed and compare the common ones (sigmoid, tanh, ReLU, GELU).
-- Build and run the forward pass of a multi-layer perceptron with one hidden layer.
-- Choose a loss for regression or classification, and connect softmax cross-entropy to next-token prediction in LLMs.
-- Explain gradient descent, stochastic gradient descent, minibatches, and the role of the learning rate.
-- Derive backpropagation with the chain rule on a computational graph, and implement it both by hand and as a small autograd engine.
-- Write a complete training loop with a train/validation split, and recognize underfitting and overfitting.
-- Verify from-scratch gradients with finite differences and with PyTorch autograd.
-
 ## Sections
 
 1. **[From Biological Inspiration to the Artificial Neuron](01-the-artificial-neuron.md)**

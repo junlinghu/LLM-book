@@ -2,16 +2,6 @@
 
 Chapter 7 ended with a base model that continues text. Asked a question, it may answer, or it may continue with more questions, because it was trained to predict what comes next in web pages and books, not to help the person typing. **Supervised fine-tuning** closes much of that gap with a simple idea: collect examples of the behavior we want, each a prompt paired with a good response, and keep training the pretrained model on them with the same next-token loss. Only two things change. The loss is computed on the response tokens, not on the prompt, and the text is laid out in a fixed conversation format with special tokens marking who is speaking (Chapter 5). The idea grew out of task fine-tuning of pretrained models (Radford et al. 2018), was scaled up by training on many tasks phrased as instructions (Wei et al. 2022a; Sanh et al. 2022; Chung et al. 2024), and became the first stage of turning GPT-3 into an assistant that follows instructions (Ouyang et al. 2022). This chapter defines the SFT objective and its loss masking, formats conversations with chat templates, looks at where instruction data comes from and why quality matters more than quantity, sets out a training recipe and its memory cost, introduces parameter-efficient fine-tuning with LoRA, and ends with how to evaluate an SFT model and what imitation alone cannot teach.
 
-## Learning goals
-
-- Explain what a base model lacks as an assistant, and what supervised fine-tuning on demonstrations adds.
-- Write the SFT loss as next-token cross-entropy restricted to response tokens, and implement loss masking for single-turn and multi-turn conversations.
-- Format conversations with a chat template, and explain why the same template must be used in training and at inference.
-- Compare the main sources of instruction data (human demonstrations, templated NLP tasks, and model-generated data), and explain why a small, high-quality, diverse dataset can go a long way.
-- Choose a fine-tuning recipe (learning rate, epochs, packing, and mixing in other data), and estimate the memory needed for full fine-tuning.
-- Derive LoRA, count its trainable parameters, and explain how QLoRA fits large models on a single GPU.
-- Evaluate an SFT model, and describe the risks of fine-tuning: forgetting, hallucination, and weakened safety behavior.
-
 ## Sections
 
 1. **[From Base Model to Assistant](01-from-base-model-to-assistant.md)**

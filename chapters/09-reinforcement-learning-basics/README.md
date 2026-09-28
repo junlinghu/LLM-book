@@ -2,15 +2,6 @@
 
 Pretraining and supervised fine-tuning teach a model to imitate text. Reinforcement learning (RL) teaches it to act so as to earn reward, even when nobody can show it the perfect answer. This chapter covers the core RL methods on their own terms, without language models: Markov decision processes and value functions, exploration, Monte Carlo and temporal-difference learning, and then, at greater length, policy gradient methods up to Proximal Policy Optimization (PPO), the algorithm behind classic RLHF. Chapter 10 applies these tools to large language models.
 
-## Learning goals
-
-- Describe the agent-environment loop and formalize a problem as a Markov decision process (MDP).
-- Define policies, returns, and value functions, and explain the Bellman equation.
-- Explain the exploration-exploitation trade-off using multi-armed bandits.
-- Compare the main families of methods: Monte Carlo, temporal-difference learning, and policy gradients.
-- Derive the REINFORCE estimator and explain how baselines, advantages, and actor-critic methods reduce variance.
-- Explain PPO in detail (the probability ratio, the clipped objective, GAE, the value and entropy terms, and the training loop) and implement it from scratch.
-
 ## Sections
 
 1. **[What Reinforcement Learning Is](01-what-reinforcement-learning-is.md)**
