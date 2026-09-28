@@ -26,7 +26,7 @@ A useful fact connects all three. If we normalize every vector to unit length, $
 \lVert \hat{\mathbf{a}} - \hat{\mathbf{b}} \rVert^2 = \lVert \hat{\mathbf{a}} \rVert^2 + \lVert \hat{\mathbf{b}} \rVert^2 - 2\, \hat{\mathbf{a}}^\top \hat{\mathbf{b}} = 2 - 2 \cos(\mathbf{a}, \mathbf{b}) .
 ```
 
-So for unit vectors, "highest cosine," "highest dot product," and "smallest distance" all pick out the same neighbors. This is why embedding tables are often normalized once, after training, and then searched with plain dot products, which are fast to compute with a single matrix multiplication. Section 4.6 relies on the same fact for semantic search.
+So for unit vectors, "highest cosine," "highest dot product," and "smallest distance" all pick out the same neighbors. This is why embedding tables are often normalized once, after training, and then searched with plain dot products, which are fast to compute with a single matrix multiplication. Section 6.13 relies on the same fact to search a collection of sentence vectors.
 
 ## A toy embedding space
 
@@ -81,7 +81,7 @@ print(nearest(E[idx["banana"]], E, exclude=[idx["banana"]]))
 [('apple', 0.998), ('queen', 0.077), ('woman', 0.052)]
 ```
 
-We exclude the query word itself, which would otherwise always be its own nearest neighbor with cosine 1. For a real vocabulary of $`V`$ words, this is one matrix-vector product with $`V \times d`$ multiply-adds, which takes well under a second even for millions of words. For billions of vectors, Section 4.6 introduces approximate search.
+We exclude the query word itself, which would otherwise always be its own nearest neighbor with cosine 1. For a real vocabulary of $`V`$ words, this is one matrix-vector product with $`V \times d`$ multiply-adds, which takes well under a second even for millions of words. For billions of vectors, Section 6.13 introduces approximate search.
 
 What do nearest neighbors look like in a real embedding space trained on a large corpus? You can explore this yourself in Lab 4.2, but some patterns are consistent. The neighbors of a word typically include:
 
@@ -183,7 +183,7 @@ Then project words that *should* be gender-neutral onto it: the score $`\cos(\ma
 Why this matters:
 
 - **Downstream systems inherit it.** A résumé-screening or search system built on biased embeddings can rank people differently based on words correlated with gender or ethnicity, even if those attributes are never used directly.
-- **It is not only a word-embedding problem.** LLMs are trained on the same kind of text with objectives built on the same co-occurrence statistics. Their embedding tables and internal representations absorb the same associations, and those can surface in generated text.
+- **It is not only a word-embedding problem.** The large language models of Chapter 7 are trained on the same kind of text with objectives built on the same co-occurrence statistics. Their embedding tables and internal representations absorb the same associations, and those can surface in generated text.
 
 Can the bias be removed? A simple idea is **projection-based debiasing**: estimate the bias direction $`\mathbf{g}`$, then remove each neutral word's component along it,
 

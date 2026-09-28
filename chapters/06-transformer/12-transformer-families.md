@@ -91,7 +91,7 @@ Encoder-decoder Transformers with a non-text encoder follow the same pattern: an
 | Typical tasks | translation, summarization, text-to-text tasks | classification, tagging, span extraction, image classification |
 | Examples | original Transformer, T5, BART | BERT, ViT |
 
-A third family keeps only the decoder, with causal self-attention and no cross-attention, and trains it to predict the next token of ordinary text. That family is the subject of the next chapter.
+A third family keeps only the decoder, with causal self-attention and no cross-attention, and trains it to predict the next token of ordinary text. That family is the subject of the next chapter. First, Section 13 looks at one more use of encoder-only models: without any task head, as embedding models that turn a word in context, or a whole text, into a vector.
 
 ## Key takeaways
 

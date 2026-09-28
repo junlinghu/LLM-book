@@ -116,6 +116,7 @@ V^{(p)} = \text{smallest set such that} \sum_{i \in V^{(p)}} p(i) \ge p
 - Zero-shot behavior from prompt design alone, for example adding "TL;DR:" after an article to elicit a summary (Radford et al. 2019)
 - **In-context learning**: zero-, one-, and few-shot prompting, where examples of a task in the prompt improve performance without any weight updates, and more so for larger models (Brown et al. 2020)
 - What a base model does not do reliably: follow instructions (it may continue a question with more questions), refuse harmful requests, or avoid stating falsehoods and reproducing biases in its data
+- Retrieval-augmented generation: retrieve passages with a sentence embedding model (Section 6.13), place them in the prompt with the question, and generate; its failure modes trace mostly to retrieval
 - Evaluating a base model: validation loss or perplexity, bits per byte across tokenizers (Chapter 5), and few-shot benchmarks (Chapter 12)
 - From a base model to an assistant: supervised fine-tuning on demonstrations (Chapter 8) and learning from human preferences (Chapters 9 to 11; Ouyang et al. 2022)
 

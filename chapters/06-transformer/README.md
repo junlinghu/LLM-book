@@ -1,6 +1,6 @@
 # Chapter 6: Transformer
 
-Chapter 3 ended with the limits of recurrent networks: they process a sequence one step at a time, so training cannot be parallelized across positions, and everything the network knows about the past must squeeze through a fixed-size hidden state. For sequence-to-sequence tasks such as translation, the classic recurrent design made the problem worse: an encoder compressed the whole source sentence into one vector, and a decoder had to generate the target from that summary alone. The **Transformer** (Vaswani et al. 2017) removed recurrence entirely. Its core operation, **attention**, lets every position look directly at every other position and decide, based on content, which ones matter, and all positions are computed in parallel with large matrix multiplications. The original Transformer is an **encoder-decoder** model built for translation: an encoder reads the source sentence with self-attention, and a decoder generates the target one token at a time, attending both to the tokens it has produced so far and, through cross-attention, to the encoder's output. Together with residual connections, layer normalization, and a warmup learning-rate schedule (Chapter 3), this design trains stably and became the foundation of almost every modern language model. This chapter builds the original Transformer piece by piece: scaled dot-product attention, self- and cross-attention, padding and causal masks, multi-head attention, positional encodings, the encoder and decoder blocks, and the full encoder-decoder architecture. It then trains the model on a sequence-to-sequence task with teacher forcing and label smoothing, decodes with greedy and beam search, counts the model's parameters and compute, and closes with the architecture families that grew out of it.
+Chapter 3 ended with the limits of recurrent networks: they process a sequence one step at a time, so training cannot be parallelized across positions, and everything the network knows about the past must squeeze through a fixed-size hidden state. For sequence-to-sequence tasks such as translation, the classic recurrent design made the problem worse: an encoder compressed the whole source sentence into one vector, and a decoder had to generate the target from that summary alone. The **Transformer** (Vaswani et al. 2017) removed recurrence entirely. Its core operation, **attention**, lets every position look directly at every other position and decide, based on content, which ones matter, and all positions are computed in parallel with large matrix multiplications. The original Transformer is an **encoder-decoder** model built for translation: an encoder reads the source sentence with self-attention, and a decoder generates the target one token at a time, attending both to the tokens it has produced so far and, through cross-attention, to the encoder's output. Together with residual connections, layer normalization, and a warmup learning-rate schedule (Chapter 3), this design trains stably and became the foundation of almost every modern language model. This chapter builds the original Transformer piece by piece: scaled dot-product attention, self- and cross-attention, padding and causal masks, multi-head attention, positional encodings, the encoder and decoder blocks, and the full encoder-decoder architecture. It then trains the model on a sequence-to-sequence task with teacher forcing and label smoothing, decodes with greedy and beam search, counts the model's parameters and compute, and closes with the architecture families that grew out of it and with encoders used as embedding models for semantic search.
 
 ## Learning goals
 
@@ -13,6 +13,7 @@ Chapter 3 ended with the limits of recurrent networks: they process a sequence o
 - Train a Transformer on a sequence-to-sequence task with teacher forcing, label smoothing, and a warmup schedule, and decode with greedy and beam search.
 - Count the parameters and compute of a Transformer from its configuration, and explain why attention costs grow quadratically with sequence length.
 - Distinguish encoder-decoder and encoder-only Transformers and what each is used for.
+- Use an encoder as an embedding model: extract contextual token vectors, pool them into sentence embeddings, and search a collection by cosine similarity.
 
 ## Outline
 
@@ -174,6 +175,12 @@ q(k) = (1 - \epsilon_{\text{ls}})\, \mathbb{1}[k = y_t] + \frac{\epsilon_{\text{
 - **Decoder-only** models: the decoder stack alone, without cross-attention, the architecture of GPT-style language models covered in the next chapter
 - Beyond text: the Transformer encoder applied to sequences of image patches (Dosovitskiy et al. 2021)
 
+### 13. [Encoders as embedding models](13-encoders-as-embedding-models.md)
+- An encoder's last-layer vectors are contextual embeddings: BERT gives "bank" in "river bank" and in "bank account" clearly different vectors, although both start from the same embedding row (the problem left open in Chapter 4)
+- Sentence embeddings: averaging static word vectors, or pooling an encoder's token vectors (mean pooling with the padding mask, the `[CLS]` vector, or the last token of a decoder)
+- Training for similarity: Sentence-BERT's siamese encoder (Reimers and Gurevych 2019) and contrastive training with in-batch negatives and a temperature
+- Semantic search by cosine similarity, approximate nearest neighbor indexes for large collections, and clustering, near-duplicate detection, and few-label classification on top of frozen embeddings
+
 ## Suggested code labs
 
 1. **Attention from scratch: self and cross.** Implement scaled dot-product attention in PyTorch with an optional mask, and use it for both self-attention ($`m \times m`$ weights) and cross-attention ($`n \times m`$ weights). Check it against `torch.nn.functional.scaled_dot_product_attention` on random inputs. Then remove the $`1/\sqrt{d_k}`$ scaling, increase $`d_k`$ from 16 to 1,024, and plot how the entropy of the attention weights and the size of their gradients change.
@@ -181,6 +188,7 @@ q(k) = (1 - \epsilon_{\text{ls}})\, \mathbb{1}[k = y_t] + \frac{\epsilon_{\text{
 3. **Positional encodings.** Implement sinusoidal encodings, plot them, and plot the dot product between the encodings of every pair of positions. Show that without positional encodings, permuting the encoder's input tokens simply permutes its outputs. Then train the same small encoder-decoder on sequence reversal with no positional information, learned embeddings, and sinusoids, and compare accuracy, including on sequences longer than those seen in training.
 4. **Train a small encoder-decoder Transformer on a toy seq2seq task.** Build the full model from your blocks and train it on date-format conversion (for example "March 7, 2019" to "2019-03-07") or on sorting short sequences of digits, using teacher forcing, label smoothing, and the warmup schedule. Check the initial loss against $`\ln V`$ and that the model can overfit a single batch. Then implement greedy decoding and beam search with a length penalty, and compare their exact-match accuracy and speed on a held-out set.
 5. **Visualize cross-attention alignments.** Using the model from lab 4, plot each decoder layer's cross-attention weights (per head and averaged over heads) as a target-by-source heatmap for several examples. Check whether each output token attends to the source tokens it is derived from (for example, the year digits attending to the source year), and compare the alignments early and late in training.
+6. **Semantic search with an encoder.** Extract BERT's last-layer vectors for an ambiguous word such as "bank" in a dozen sentences and check that they cluster by sense. Then embed a small document collection (a few dozen short texts on several topics) with a sentence embedding model such as `all-MiniLM-L6-v2`, answer queries by cosine similarity, and compare the results with keyword overlap and with mean-pooled vectors from plain BERT. Write ten queries with hand-marked relevant documents and report recall@3 for each method, and cluster the collection with k-means.
 
 ## Key takeaways
 
@@ -191,6 +199,7 @@ q(k) = (1 - \epsilon_{\text{ls}})\, \mathbb{1}[k = y_t] + \frac{\epsilon_{\text{
 - The encoder block is self-attention plus an FFN; the decoder block adds masked self-attention and cross-attention; each sublayer is wrapped in a residual connection with layer normalization.
 - Training uses teacher forcing, label smoothing, and a warmup schedule; inference decodes autoregressively with greedy or beam search.
 - A Transformer's parameters and compute follow directly from its configuration (about $`12d^2`$ per encoder block and $`16d^2`$ per decoder block), and attention adds a cost quadratic in sequence length.
+- Transformer families differ mainly in which stacks they keep and what they are trained to predict; an encoder also serves as an embedding model, and contrastive fine-tuning makes its pooled vectors usable for semantic search.
 
 ## Further reading
 
@@ -219,6 +228,8 @@ Post, Matt. "A Call for Clarity in Reporting BLEU Scores." In *Proceedings of th
 Press, Ofir, and Lior Wolf. "Using the Output Embedding to Improve Language Models." In *Proceedings of the 15th Conference of the European Chapter of the Association for Computational Linguistics*, 2017. https://arxiv.org/abs/1608.05859.
 
 Press, Ofir, Noah A. Smith, and Mike Lewis. "Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation." In *International Conference on Learning Representations*, 2022. https://arxiv.org/abs/2108.12409.
+
+Reimers, Nils, and Iryna Gurevych. "Sentence-BERT: Sentence Embeddings Using Siamese BERT-Networks." In *Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing*, 2019. https://arxiv.org/abs/1908.10084.
 
 Raffel, Colin, et al. "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer." *Journal of Machine Learning Research* 21, no. 140 (2020): 1–67. https://arxiv.org/abs/1910.10683.
 

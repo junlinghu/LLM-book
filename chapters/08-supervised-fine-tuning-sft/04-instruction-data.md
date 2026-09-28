@@ -39,7 +39,7 @@ The similarity filter is easy to implement, and trying it shows both why it is u
 | Describe the rules of chess in simple terms. | 0.14 | keep |
 | List three uses of vinegar. | 0.73 | drop |
 
-The filter removes near-copies of the same template, which a generating model produces constantly. It also drops "Explain how a volcano forms.", a genuinely different task that happens to share most of its words with an existing one, while it would keep a paraphrase that uses different words for the same request. Word-overlap filters measure surface form, not meaning. Production pipelines often add filters based on embeddings (Chapter 4), which compare meaning more directly, and filters that use a strong model to judge the quality of each example.
+The filter removes near-copies of the same template, which a generating model produces constantly. It also drops "Explain how a volcano forms.", a genuinely different task that happens to share most of its words with an existing one, while it would keep a paraphrase that uses different words for the same request. Word-overlap filters measure surface form, not meaning. Production pipelines often add filters based on sentence embeddings (Section 6.13), which compare meaning more directly, and filters that use a strong model to judge the quality of each example.
 
 A common variant uses a stronger model, the **teacher**, to write the responses for a smaller model, the **student**. This is a form of **sequence-level knowledge distillation** (Kim and Rush 2016): instead of matching the teacher's probability distribution token by token, the student is trained on the teacher's outputs as if they were human demonstrations. It is cheap and effective, and a large share of open instruction data is produced this way.
 

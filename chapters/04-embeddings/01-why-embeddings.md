@@ -94,7 +94,64 @@ flowchart LR
 
 Two conclusions follow. First, we never need to build the one-hot vector at all. We can store $`W`$ as a table and **look up** row $`i`$ directly, which costs almost nothing. Second, and more important, the rows of $`W`$ are *learned parameters*. When we train the network by gradient descent, each row moves to wherever it helps the network reduce its loss. If "cat" and "dog" play similar roles in the training data, predicting similar things and being predicted by similar things, then gradient descent has every reason to push their rows toward similar values. The rows of $`W`$ are the network's own dense representation of each word.
 
-That row, a dense vector of $`d`$ learned numbers standing in for a discrete symbol, is an **embedding**, and $`W`$ is an **embedding matrix** (or embedding table). The word "embedding" comes from mathematics: we are placing, or embedding, a discrete set of symbols into a continuous space $`\mathbb{R}^d`$. Section 4.5 shows that the first layer of every LLM is exactly this lookup table.
+That row, a dense vector of $`d`$ learned numbers standing in for a discrete symbol, is an **embedding**, and $`W`$ is an **embedding matrix** (or embedding table). The word "embedding" comes from mathematics: we are placing, or embedding, a discrete set of symbols into a continuous space $`\mathbb{R}^d`$.
+
+## The embedding layer in a neural network
+
+Deep learning libraries provide this table as a layer of its own. In PyTorch it is `nn.Embedding(num_embeddings, embedding_dim)`: a $`V \times d`$ matrix of learned parameters, stored in `.weight`, whose output for a tensor of integer IDs of any shape is the same tensor with one extra dimension of size $`d`$, holding the looked-up rows:
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+torch.manual_seed(0)
+
+V, d = 10, 4
+emb = nn.Embedding(V, d)
+print(emb.weight.shape)
+
+ids = torch.tensor([[3, 7, 3, 1]])            # a batch of one sequence of 4 word IDs
+x = emb(ids)
+print(x.shape)
+
+one_hot = F.one_hot(ids, num_classes=V).float()   # (1, 4, V)
+print(torch.allclose(one_hot @ emb.weight, x))    # lookup == one-hot times matrix
+```
+
+```text
+torch.Size([10, 4])
+torch.Size([1, 4, 4])
+True
+```
+
+A batch of shape `(B, T)`, holding $`B`$ sequences of $`T`$ word IDs, becomes a tensor of shape `(B, T, d)`, one $`d`$-dimensional vector per position, ready for the layers that follow. The last line confirms the equivalence of Figure 4.1: the lookup gives exactly what a bias-free linear layer would compute on one-hot inputs. Notice also that word 3 appears twice in the sequence and receives the same vector both times. The embedding layer gives a word the same vector wherever it occurs; Section 4.4 returns to what that costs.
+
+### Learned end to end
+
+Where do the rows come from? One option is to train them separately, with a method designed only to produce good word vectors, such as the Word2Vec models of Section 4.2, and then plug them into a larger network. The other is to start the table from small random numbers and train it **end to end**: the embedding layer is simply the first layer of the network, and the same loss and the same optimizer that train every other layer also train the table.
+
+Gradients reach the table through backpropagation like any other layer (Section 2.6), with one special property: only the rows that were actually looked up receive a gradient.
+
+```python
+x.sum().backward()                            # any loss that depends on x
+print(emb.weight.grad.abs().sum(dim=1))       # gradient magnitude for each row
+```
+
+```text
+tensor([0., 4., 0., 8., 0., 0., 0., 4., 0., 0.])
+```
+
+Rows 1, 3, and 7, the words in the batch, have gradients. Row 3 has twice as much because word 3 appeared twice, and its gradients from the two positions add up. Every other row has exactly zero gradient. The backward pass of a lookup is a *scatter-add*: each position's gradient is added into the row it came from.
+
+This has practical consequences:
+
+- **Frequent words train fast, rare words train slowly.** A word that appears in almost every batch gets a gradient at almost every step. A word that appears once in a billion gets almost none. If a vocabulary entry is nearly absent from the training data, its row can stay close to its random initialization, and the network may behave strangely when it appears. Chapter 5 returns to such under-trained tokens.
+- **The network learns its own notion of similarity.** When a table is trained end to end, words used in similar ways tend to end up nearby, for the reason given above. But the table is optimized for whatever helps the rest of the network reduce its loss, not for any separate similarity objective.
+- **The table and the layers adapt to each other.** Since the table is learned jointly with the rest of the network, the vectors and the layers that read them are shaped together.
+
+Word2Vec, in the next section, is itself trained this way. It is the simplest case possible: a network that is *only* an embedding table and an output layer, trained end to end so that the table becomes useful to other models afterward. Later chapters use the same `nn.Embedding` layer as the first layer of much larger networks (Chapters 6 and 7).
+
+> **Code Lab 4.4** builds an `nn.Embedding` layer and inspects its weights: it checks that lookup equals one-hot multiplication, confirms the output shape for a batch of sequences, and watches which rows receive gradients, and how much, when some IDs repeat and others never appear.
 
 ## Dense vectors and the distributional idea
 
@@ -139,15 +196,14 @@ The remaining sections build on this idea step by step:
 
 - **Section 4.2** trains word embeddings with Word2Vec, a shallow network that learns vectors by predicting context words, and extends it with fastText's subword pieces.
 - **Section 4.3** explores the geometry of the resulting space: cosine similarity, nearest neighbors, analogies, and the social biases that embeddings absorb from text.
-- **Section 4.4** explains why one vector per word is not enough, and how transformers produce a different vector for each occurrence of a word.
-- **Section 4.5** looks inside an LLM, where the embedding table is its first layer, trained along with everything else.
-- **Section 4.6** moves from words to whole sentences and documents, and to applications such as semantic search and retrieval-augmented generation.
+- **Section 4.4** explains why one vector per word is not enough, what static vectors are still good for, and where the book picks up the problem again, and ends with a summary of the chapter and exercises.
 
 ## Key takeaways
 
 - Networks need numeric inputs, and word IDs are arbitrary labels, so they cannot be fed in as numbers.
 - One-hot vectors treat each word as its own category but are $`V`$-dimensional, sparse, and make every pair of distinct words equally dissimilar, so nothing learned about one word transfers to another.
 - Multiplying a one-hot vector by a weight matrix selects one row; in practice we skip the multiplication and look the row up in an embedding table.
+- `nn.Embedding` stores the table as a $`V \times d`$ parameter and maps IDs of shape `(B, T)` to vectors of shape `(B, T, d)`. Trained end to end, only the rows of words in the batch receive gradients, so rarely seen words train slowly.
 - An embedding is a dense, learned vector of $`d \ll V`$ numbers for each symbol. Training moves words that are used alike to nearby points.
 - The distributional hypothesis, that words in similar contexts have similar meanings, turns plain text into a self-supervised training signal for embeddings.
 

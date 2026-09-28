@@ -1,6 +1,6 @@
 # 7.6 What Pretraining Produces
 
-The last five sections built a GPT, trained it on a large collection of text, and generated from it. The result of all this work is called a **base model** (also a pretrained or foundation model): the network exactly as pretraining left it, before any further training. This section asks what such a model can and cannot do. It can continue any text, and a surprising range of tasks can be posed as text to continue: with the right prompt, a base model summarizes, translates, and answers questions, and it can pick up a new task from a few examples placed in the prompt. It does not, however, reliably do what a user asks, and it has no preference for true or harmless text over likely text. We look at each of these behaviors with GPT-2, at how base models are evaluated, and at how the rest of the book turns a base model into an assistant.
+The last five sections built a GPT, trained it on a large collection of text, and generated from it. The result of all this work is called a **base model** (also a pretrained or foundation model): the network exactly as pretraining left it, before any further training. This section asks what such a model can and cannot do. It can continue any text, and a surprising range of tasks can be posed as text to continue: with the right prompt, a base model summarizes, translates, and answers questions, and it can pick up a new task from a few examples placed in the prompt. It does not, however, reliably do what a user asks, and it has no preference for true or harmless text over likely text. We look at each of these behaviors with GPT-2, at how retrieval can supply knowledge a model lacks, at how base models are evaluated, and at how the rest of the book turns a base model into an assistant.
 
 ## A base model continues text
 
@@ -79,6 +79,48 @@ Everything a base model does, it does because it makes the text more likely. Tha
 
 None of these is a bug in the training code; they follow from the objective. A better base model, trained on more and cleaner data, makes some of them less frequent, but a model that behaves as an assistant needs further training aimed at that behavior.
 
+## Grounding a model in retrieved text
+
+One of those failures has a partial remedy that needs no further training. A pretrained model knows only what was in its training data, frozen at the time the data was collected, and it stores that knowledge imperfectly in its weights. It cannot answer questions about a company's internal documents it never saw, about events after its training data was collected, or about the fine print of a specific contract, and when it lacks the information it produces a plausible continuation anyway. **Retrieval-augmented generation (RAG)** addresses this by combining the model with a search step: before generating, retrieve passages relevant to the question and put them in the prompt, so that the answer can be based on them. The retrieval uses an embedding model such as the encoders of Section 6.13, and the generation is the ordinary text generation of Section 5. Figure 7.6.2 shows the pipeline.
+
+```mermaid
+flowchart LR
+    subgraph offline["Indexing (once, offline)"]
+        D["documents"] --> C["split into chunks"] --> EM1["embed each chunk"] --> IDX[("vector index")]
+    end
+    subgraph online["Answering (per question)"]
+        Q["user question"] --> EM2["embed question<br/>(same model)"] --> R["retrieve top-k chunks<br/>by cosine similarity"]
+        IDX --> R
+        R --> P["prompt = instructions<br/>+ retrieved chunks + question"] --> LLM["language model<br/>generates the answer"]
+    end
+```
+
+*Figure 7.6.2. Retrieval-augmented generation. Documents are chunked, embedded, and indexed once. For each question, the question is embedded with the same model, the most similar chunks are retrieved, and they are placed in the prompt together with the question for the language model to answer from.*
+
+**Retrieval.** Offline, each document is split into chunks of a few hundred tokens, and each chunk is embedded with a sentence embedding model and stored in an index (Section 6.13). For each question, the question is embedded with the same model, and the chunks with the highest cosine similarity are retrieved.
+
+**Generation.** The retrieved chunks are placed in the prompt, together with an instruction and the question. [Code 7.6.4](#code-764-assembling-a-retrieval-augmented-prompt) retrieves the two best passages for "I can't log in to my mailbox" from the small collection of Section 6.13 and assembles:
+
+```text
+Answer the question using only the numbered passages below. Cite the passages you use, and say so if they do not contain the answer.
+
+[1] How to reset a forgotten email password.
+
+[2] Steps for recovering access to your account.
+
+Question: I can't log in to my mailbox. What should I do?
+Answer:
+```
+
+From here, generation proceeds exactly as in Section 5, with the prompt as the document to continue. The format follows the lesson of this section: the prompt is written so that a grounded answer is the likely continuation. A base model may still wander off, as GPT-2 did above, so in practice the generator is usually a model fine-tuned to follow instructions (Chapter 8); the retrieval and the prompt are the same either way.
+
+RAG has several attractive properties. The knowledge lives in the document collection rather than in the model's weights, so updating it means re-indexing documents, not retraining the model. It can use private data that was never in any training set. And because the model is shown its sources, it can cite them, which lets users check the answer. It is only as good as its retrieval, though, and most failures trace back to it:
+
+- **The right chunk was never retrieved.** If the embedding model does not place the question near the passage that answers it, the model never sees the answer. Domain-specific vocabulary, such as legal, medical, or internal jargon, is a common cause, and hybrid keyword-plus-embedding search helps.
+- **Chunking split the answer.** A chunk boundary can separate a statement from the context that qualifies it. Chunk size and overlap are tuning knobs.
+- **Relevant is not the same as similar.** Embedding similarity measures relatedness of use (Section 4.3). A passage stating the opposite of the answer, or answering a closely related but different question, can score highly.
+- **The model may ignore or misuse the context.** Retrieval reduces unsupported answers but does not eliminate them; the model can still misread a passage or fall back on what it learned in pretraining. Chapter 12 discusses how to evaluate systems like this.
+
 ## Evaluating a base model
 
 How do we tell whether one base model is better than another? Three kinds of measurement are common, and later chapters return to each.
@@ -112,7 +154,7 @@ This chapter has followed a GPT from its objective to its outputs: next-token pr
 
 ## Code for this section
 
-The listings below collect the code for this section in the order in which the text refers to them. They need PyTorch and Hugging Face `transformers`, which downloads the GPT-2 models on first use; Code 7.6.2 needs `input.txt` from Code 7.1.2, and Code 7.6.3 needs Hugging Face `datasets` to download SST-2. They run on a CPU; Codes 7.6.2 and 7.6.3 take several minutes.
+The listings below collect the code for this section in the order in which the text refers to them. They need PyTorch and Hugging Face `transformers`, which downloads the GPT-2 models on first use (Code 7.6.4 needs `sentence-transformers` instead); Code 7.6.2 needs `input.txt` from Code 7.1.2, and Code 7.6.3 needs Hugging Face `datasets` to download SST-2. They run on a CPU; Codes 7.6.2 and 7.6.3 take several minutes.
 
 ### Code 7.6.1: A base model continues text
 
@@ -233,6 +275,42 @@ for name in ["gpt2", "gpt2-medium"]:
 # gpt2-medium k=0: 0.770, k=1: 0.697, k=4: 0.573, k=8: 0.630
 ```
 
+### Code 7.6.4: Assembling a retrieval-augmented prompt
+
+Retrieves the two most similar documents for a question with the sentence embedding model and collection of Code 6.13.4, and builds the prompt shown in the text. It needs `sentence-transformers`, which downloads the model on first use. The prompt would then be passed to a model for generation, as in Code 7.6.1.
+
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+docs = [
+    "The cat sat on the windowsill, watching birds.",
+    "Our quarterly revenue grew by twelve percent.",
+    "How to reset a forgotten email password.",
+    "Kittens need to be fed several times a day.",
+    "The central bank raised interest rates again.",
+    "Steps for recovering access to your account.",
+]
+doc_emb = model.encode(docs, normalize_embeddings=True)       # (6, 384), unit length
+
+def search(query, k=2):
+    q = model.encode(query, normalize_embeddings=True)
+    scores = doc_emb @ q                                      # cosine similarities
+    top = scores.argsort()[::-1][:k]
+    return [(float(scores[i]), docs[i]) for i in top]
+
+def build_prompt(question, chunks):
+    context = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(chunks))
+    return (
+        "Answer the question using only the numbered passages below. "
+        "Cite the passages you use, and say so if they do not contain the answer.\n\n"
+        f"{context}\n\nQuestion: {question}\nAnswer:"
+    )
+
+chunks = [doc for _, doc in search("I can't log in to my mailbox", k=2)]
+print(build_prompt("I can't log in to my mailbox. What should I do?", chunks))
+```
+
 ## Key takeaways
 
 - Pretraining produces a base model, which continues text: given a prompt, it produces what would likely come next in a document from its training data.
@@ -240,6 +318,7 @@ for name in ["gpt2", "gpt2-medium"]:
 - Many tasks can be posed as text to continue; GPT-2 summarized when "TL;DR:" followed an article and answered questions about a document, zero-shot (Radford et al. 2019).
 - In-context learning uses examples in the prompt, zero-, one-, or few-shot, to specify a task without any weight updates; the benefit grows with model size (Brown et al. 2020) and is weak or absent at GPT-2's size in our experiment.
 - The language modeling objective is misaligned with being a helpful assistant: base models do not reliably follow instructions, refuse harmful requests, or avoid falsehoods and the biases of their data.
+- Retrieval-augmented generation retrieves passages with an embedding model (Section 6.13) and places them in the prompt, so the model can answer from documents it never trained on; it is only as good as its retrieval.
 - Base models are evaluated by validation loss or perplexity, by bits per byte across tokenizers, and by few-shot benchmarks (Chapter 12).
 - Supervised fine-tuning (Chapter 8) and learning from human preferences (Chapters 9 to 11) turn a base model into an assistant; a small InstructGPT model was preferred to a GPT-3 over 100 times its size (Ouyang et al. 2022).
 

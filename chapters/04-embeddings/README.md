@@ -6,6 +6,8 @@ _Draft in progress._
 
 ### 4.1 [Why embeddings](01-why-embeddings.md)
 - One-hot vectors are huge, sparse, and carry no notion of similarity
+- Multiplying a one-hot vector by a weight matrix selects a row: the embedding layer is a lookup table (`nn.Embedding`)
+- Learned end to end with the rest of the network; only the rows looked up in a batch receive gradients
 - The idea behind dense vectors: words that appear in similar contexts should have similar vectors
 
 ### 4.2 [Learning word embeddings with Word2Vec](02-learning-word-embeddings-with-word2vec.md)
@@ -18,20 +20,11 @@ _Draft in progress._
 - Analogies ("king − man + woman ≈ queen") and where they break down
 - Bias carried in embeddings
 
-### 4.4 [From static to contextual embeddings](04-from-static-to-contextual-embeddings.md)
-- One vector per word can't tell "river bank" from "bank account"
-- How transformers give each occurrence its own vector (preview of Chapter 6)
-
-### 4.5 [Embeddings inside LLMs](05-embeddings-inside-llms.md)
-- The embedding layer as a lookup table of vocabulary size × model dimension
-- Learned end to end with the rest of the model
-- Weight tying with the output layer
-- Adding position information (preview of positional encodings)
-
-### 4.6 [Sentence embeddings and applications](06-sentence-embeddings-and-applications.md)
-- From word vectors to sentence and document embeddings
-- Semantic search, clustering, and retrieval-augmented generation (RAG)
-- Summary and exercises
+### 4.4 [The limits of static embeddings](04-the-limits-of-static-embeddings.md)
+- One vector per word can't tell "river bank" from "bank account"; in pretrained vectors the frequent sense dominates
+- What a contextual representation would need, and where the book builds one (Chapter 6)
+- Why static embeddings are still useful
+- Chapter summary and exercises
 
 ## Code Labs
 
@@ -39,9 +32,8 @@ _Draft in progress._
 |-----|-------|---------|
 | Lab 4.1 | Train a skip-gram model with negative sampling from scratch in PyTorch | 4.2 |
 | Lab 4.2 | Explore pretrained word vectors: nearest neighbors, analogies, and a 2D plot | 4.3 |
-| Lab 4.3 | Compare static and contextual embeddings for the same word in different sentences | 4.4 |
-| Lab 4.4 | Build an `nn.Embedding` layer, inspect its weights, and tie it to an output layer | 4.5 |
-| Lab 4.5 | Build a tiny semantic search with a sentence embedding model | 4.6 |
+| Lab 4.3 | Ambiguous words in pretrained static vectors: find the nearest neighbors of words such as "bank" and "apple" and measure which sense dominates | 4.4 |
+| Lab 4.4 | Build an `nn.Embedding` layer, check that lookup equals one-hot multiplication, and inspect which rows receive gradients | 4.1 |
 
 ## Code
 

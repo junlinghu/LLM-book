@@ -76,7 +76,7 @@ The two models make different tradeoffs. CBOW makes one prediction per position,
 
 The softmax in the skip-gram objective has a problem that has nothing to do with its mathematics: its denominator sums over the entire vocabulary. For a vocabulary of $`V = 100{,}000`$ words and $`d = 300`$, every single (center, context) pair requires 100,000 dot products of length 300 for the forward pass, and the backward pass updates all 100,000 output vectors, because every word's probability appears in $`\mathbf{p} - \mathbf{y}`$. Multiply by ten billion training pairs, and training becomes impractical.
 
-The same issue affects LLMs, whose output layer is also a softmax over the vocabulary (Section 4.5). LLMs pay the full cost, because they need the probabilities themselves to generate text, and their output layer is small compared with the rest of the network. Word2Vec's network is *only* the embedding and the output layer, so the softmax dominates everything. And since Word2Vec does not need calibrated probabilities, just good vectors, it can change the objective.
+The same issue affects language models that generate text one word or token at a time, such as the GPT models of Chapter 7, whose output layer is also a softmax over the vocabulary. They pay the full cost, because they need the probabilities themselves to generate text, and their output layer is small compared with the rest of the network. Word2Vec's network is *only* the embedding and the output layer, so the softmax dominates everything. And since Word2Vec does not need calibrated probabilities, just good vectors, it can change the objective.
 
 ## Negative sampling
 
@@ -166,7 +166,7 @@ unigram^3/4: [0.823  0.1464 0.026  0.0046]
 
 The rarest word's share rises about fivefold, while the most frequent word's falls a little. The same paper suggests $`k`$ between 5 and 20 for small datasets and as few as 2 to 5 for large ones. Occasionally a "negative" happens to be a true context word; with a large vocabulary this is rare, and it only adds a little noise.
 
-A caution about what negative sampling changes: the model no longer defines a normalized probability distribution over context words, so the trained model is not a language model. That is fine, because we only wanted the vectors. It is also why LLMs, which do need calibrated next-token probabilities, keep the full softmax.
+A caution about what negative sampling changes: the model no longer defines a normalized probability distribution over context words, so the trained model is not a language model. That is fine, because we only wanted the vectors. It is also why models that generate text, which do need calibrated next-word probabilities, keep the full softmax (Chapter 7).
 
 ### Subsampling frequent words
 
@@ -180,7 +180,7 @@ where $`f(w)`$ is now the word's *relative* frequency and $`t`$ is a threshold, 
 
 ## Skip-gram with negative sampling in PyTorch
 
-Putting the pieces together, the whole model is two embedding tables and the loss above. `nn.Embedding` is PyTorch's lookup table, which Section 4.5 examines in detail; for now, think of `emb(ids)` as "fetch rows `ids` of the table."
+Putting the pieces together, the whole model is two embedding tables and the loss above. `nn.Embedding` is PyTorch's lookup table from Section 4.1: `emb(ids)` fetches rows `ids` of the table, and only those rows receive gradients.
 
 ```python
 import torch
