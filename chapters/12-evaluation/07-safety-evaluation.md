@@ -52,9 +52,9 @@ For assistant models, the key question is whether the model *complies* with requ
 
 For a set of forbidden prompts $\mathcal{H}$ and a harm judge $J$ that returns 1 if a response is harmful,
 
-$$
+```math
 \text{ASR} = \frac{1}{|\mathcal{H}|}\sum_{x \in \mathcal{H}} J(x, \text{model}(x)),
-$$
+```
 
 the **attack success rate** (or harmful compliance rate). Lower is better. When the model samples, ASR can be reported per sample or as "any of $k$ samples harmful," analogous to pass@k (Section 3), which is the more relevant number when an attacker can simply retry.
 

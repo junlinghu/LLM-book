@@ -33,9 +33,9 @@ The presence or absence of a reference answer is the most important design choic
 
 **Reference-free** judging asks, "Is this a good response?" with only the prompt and rubric. It is the only option for open-ended tasks such as writing, advice, and brainstorming, where there is no single correct answer. The judge must rely on its own knowledge and taste, which means its errors and biases enter directly into the score. Reference-free judges are also poor at catching factual errors they themselves would make. Liu et al.'s G-Eval, an early and influential reference-free framework, prompts the judge to first generate evaluation steps (a chain of thought) from the criteria and then fill in a score form. It also weights each possible score by the probability the judge assigns to it, producing a finer-grained expected score instead of a single integer:
 
-$$
+```math
 \text{score} = \sum_{s=1}^{S} s \cdot p_{\text{judge}}(s \mid \text{prompt, response, criteria}).
-$$
+```
 
 This probability-weighted score breaks ties between responses that would otherwise receive the same integer and reduces the effect of sampling noise.
 

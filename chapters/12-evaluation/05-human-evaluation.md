@@ -55,9 +55,9 @@ They also have limits. A pairwise preference tells you which response is *better
 
 Pairwise results can be summarized as a **win rate**: the fraction of comparisons the new system wins, with ties counted as half.
 
-$$
+```math
 \text{win rate} = \frac{W + \tfrac{1}{2} T}{W + L + T},
-$$
+```
 
 where $W$, $L$, and $T$ are the numbers of wins, losses, and ties. A win rate of 50 percent means the systems are indistinguishable on this evaluation. With many systems, the **Bradley-Terry model** from Section 3 turns all the pairwise results into a single strength score per system, $P(i \succ j) = \sigma(\beta_i - \beta_j)$. This is the same model used for reward modeling in Chapter 10: the reward model is essentially a Bradley-Terry model whose strengths are predicted from the text of each response.
 
@@ -75,15 +75,15 @@ The simplest measure is **percent agreement**: the fraction of items on which tw
 
 **Cohen's kappa** corrects for chance agreement. For two annotators labeling the same items with categorical labels,
 
-$$
+```math
 \kappa = \frac{p_o - p_e}{1 - p_e},
-$$
+```
 
 where $p_o$ is the observed agreement and $p_e$ is the agreement expected by chance if each annotator labeled independently according to their own label frequencies:
 
-$$
+```math
 p_e = \sum_{c} p_{1,c}\, p_{2,c},
-$$
+```
 
 with $p_{a,c}$ the fraction of items annotator $a$ assigned to category $c$. Kappa is 1 for perfect agreement, 0 for agreement no better than chance, and negative for systematic disagreement.
 
@@ -97,9 +97,9 @@ with $p_{a,c}$ the fraction of items annotator $a$ assigned to category $c$. Kap
 
 Observed agreement is $p_o = (70 + 15) / 100 = 0.85$. Annotator 1 says "acceptable" 80 percent of the time and annotator 2 says it 75 percent of the time, so chance agreement is $p_e = 0.80 \times 0.75 + 0.20 \times 0.25 = 0.60 + 0.05 = 0.65$. Therefore
 
-$$
+```math
 \kappa = \frac{0.85 - 0.65}{1 - 0.65} = \frac{0.20}{0.35} \approx 0.57.
-$$
+```
 
 An 85 percent agreement rate sounds high, but after correcting for the fact that most responses are acceptable, agreement is only moderate.
 

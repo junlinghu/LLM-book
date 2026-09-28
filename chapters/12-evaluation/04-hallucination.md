@@ -62,7 +62,7 @@ The training corpus itself is imperfect:
 
 ### Decoding randomness
 
-At inference time, sampling with temperature $T > 0$ (Chapter 7) draws tokens from the model's distribution rather than always taking the most likely one. For creative writing this adds useful variety. For factual questions it means that even when the model's most likely answer is correct, there is some probability of sampling a lower-probability, wrong one. Once a wrong token is generated, the model conditions on it and continues fluently, often elaborating on the error. This *snowballing* is characteristic of autoregressive generation: the model has no built-in mechanism to go back and revise.
+At inference time, sampling with temperature $`T \gt 0`$ (Chapter 7) draws tokens from the model's distribution rather than always taking the most likely one. For creative writing this adds useful variety. For factual questions it means that even when the model's most likely answer is correct, there is some probability of sampling a lower-probability, wrong one. Once a wrong token is generated, the model conditions on it and continues fluently, often elaborating on the error. This *snowballing* is characteristic of autoregressive generation: the model has no built-in mechanism to go back and revise.
 
 ### Fine-tuning and RLHF that reward confident, helpful-sounding answers
 
@@ -76,9 +76,9 @@ Post-training can make things worse as well as better.
 
 The expected-score argument is worth making explicit. Suppose a model is asked a question and believes its best answer is correct with probability $p$. Under binary grading (1 for correct, 0 for wrong or abstain), answering gives expected score $p$ and abstaining gives 0, so answering is always better. Now suppose wrong answers are penalized: correct scores $+1$, wrong scores $-\lambda$, and abstaining scores 0. Answering gives expected score $p - \lambda (1 - p)$, which is positive only when
 
-$$
+```math
 p > \frac{\lambda}{1 + \lambda}.
-$$
+```
 
 With $\lambda = 1$, the model should answer only if it is more than 50 percent confident; with $\lambda = 3$, only if more than 75 percent confident. A scoring rule with a penalty for wrong answers makes abstention rational when confidence is low. This is also the logic behind reporting both accuracy and the rate of confident errors, as SimpleQA does.
 
@@ -158,9 +158,9 @@ Other approaches include:
 
 A long answer usually mixes correct and incorrect statements, so a single "true or false" label is too coarse. **FActScore** (Min et al., 2023) breaks a generation into *atomic facts*, short statements that each convey one piece of information, and checks each against a reliable knowledge source. The score is the fraction of atomic facts that are supported:
 
-$$
+```math
 \text{FActScore}(y) = \frac{1}{|\mathcal{A}_y|} \sum_{a \in \mathcal{A}_y} \mathbf{1}[a \text{ is supported by the knowledge source}],
-$$
+```
 
 where $\mathcal{A}_y$ is the set of atomic facts in response $y$. For example, the sentence "Marie Curie, born in Warsaw in 1867, won two Nobel Prizes, both in chemistry" decomposes into four atomic facts: born in Warsaw (supported), born in 1867 (supported), won two Nobel Prizes (supported), both in chemistry (not supported; the first was in physics). Its FActScore is $3/4$.
 
@@ -211,9 +211,9 @@ Confidence can come from several places: the probability the model assigns to it
 
 The standard summary metric is the **expected calibration error (ECE)**. Partition predictions into $M$ bins by confidence (for example, $[0, 0.1), [0.1, 0.2), \dots$). For each bin $B_m$, compute the average confidence $\text{conf}(B_m)$ and the accuracy $\text{acc}(B_m)$. Then
 
-$$
+```math
 \text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{n} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|,
-$$
+```
 
 the weighted average gap between confidence and accuracy. A perfectly calibrated model has ECE of 0. Guo et al. popularized ECE for modern neural networks and showed that deep classifiers are often overconfident. A plot of accuracy against confidence per bin, a *reliability diagram*, shows the same information visually: a calibrated model lies on the diagonal.
 
@@ -240,7 +240,7 @@ def expected_calibration_error(conf, correct, n_bins: int = 10) -> float:
     return ece
 ```
 
-ECE has known weaknesses: it depends on the number of bins, and it can be small for a useless model that always predicts the base rate. The **Brier score**, $\frac{1}{n}\sum_i (p_i - y_i)^2$ where $y_i \in \{0, 1\}$ indicates correctness, combines calibration and discrimination in one proper scoring rule and is a useful complement. For deciding when to abstain, a *selective prediction* curve, accuracy on the answers the model keeps as a function of the fraction it keeps, is often the most directly useful view.
+ECE has known weaknesses: it depends on the number of bins, and it can be small for a useless model that always predicts the base rate. The **Brier score**, $\frac{1}{n}\sum_i (p_i - y_i)^2$ where $`y_i \in \{0, 1\}`$ indicates correctness, combines calibration and discrimination in one proper scoring rule and is a useful complement. For deciding when to abstain, a *selective prediction* curve, accuracy on the answers the model keeps as a function of the fraction it keeps, is often the most directly useful view.
 
 ## Reducing hallucination
 

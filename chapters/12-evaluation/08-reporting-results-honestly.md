@@ -12,11 +12,11 @@ When we report that a model scores 70 percent on a benchmark, we are really esti
 
 For a benchmark with $n$ independent questions scored right or wrong, the observed accuracy $\hat{p}$ is a sample mean of Bernoulli variables. Its standard error is
 
-$$
+```math
 \text{SE}(\hat{p}) = \sqrt{\frac{\hat{p}(1 - \hat{p})}{n}},
-$$
+```
 
-and an approximate 95 percent confidence interval is $\hat{p} \pm 1.96\,\text{SE}$.
+and an approximate 95 percent confidence interval is $`\hat{p} \pm 1.96\,\text{SE}`$.
 
 **Worked example.** A model answers 140 of 200 questions correctly, so $\hat{p} = 0.70$. The standard error is $\sqrt{0.7 \times 0.3 / 200} \approx 0.032$, and the 95 percent interval is $0.70 \pm 0.064$, or roughly 64 to 76 percent. A second model scoring 73 percent on the same 200 questions is well inside that range.
 
@@ -78,9 +78,9 @@ The Chatbot Arena leaderboard (Section 3) uses exactly this idea, bootstrapping 
 
 Turning the confidence-interval formula around tells you how big an evaluation must be to detect a given difference. For an unpaired comparison of two accuracies near $p$, with significance level 0.05 (two-sided) and 80 percent power, a standard approximation for the number of questions per model is
 
-$$
+```math
 n \approx \frac{(z_{0.975} + z_{0.8})^2 \cdot 2p(1-p)}{\Delta^2} = \frac{(1.96 + 0.84)^2 \cdot 2p(1-p)}{\Delta^2},
-$$
+```
 
 where $\Delta$ is the difference you want to detect. At $p = 0.5$, detecting a 2-point difference ($\Delta = 0.02$) needs about 9,800 questions; detecting a 5-point difference needs about 1,600. Pairing reduces these numbers, often substantially, but the lesson stands: small evaluations can detect only large differences. Card et al. showed that many NLP experiments are *underpowered*, meaning they are too small to reliably detect the effects they claim, and that underpowered studies that do report significant results tend to exaggerate effect sizes.
 

@@ -12,7 +12,7 @@ Before looking at specific benchmarks, it helps to see how many choices hide beh
 2. **Few-shot or zero-shot.** Are worked examples included in the prompt? How many, and which ones?
 3. **Reasoning.** Is the model allowed or encouraged to think step by step before answering (chain of thought)? For reasoning models, how large is the thinking budget?
 4. **Scoring method.** For multiple choice: compare log-likelihoods of the options (Section 2), or let the model generate a letter and parse it? For free-form answers: exact string match, normalized match, symbolic equivalence, unit tests, or a judge model?
-5. **Decoding.** Greedy decoding or sampling? At what temperature? How many samples, and how are they combined (first sample, majority vote, best-of-$n$)?
+5. **Decoding.** Greedy decoding or sampling? At what temperature? How many samples, and how are they combined (first sample, majority vote, best-of-$`n`$)?
 6. **Answer extraction.** If the model writes "The answer is probably (C), though (B) is also plausible," what counts as its answer?
 
 Each choice can move a score by several points, and different papers make different choices. When two reports disagree about the same model on the same benchmark, the cause is usually one of these settings rather than a mistake. Evaluation *harnesses* exist to standardize them.
@@ -71,9 +71,9 @@ Reasoning models are now commonly evaluated on problems from the American Invita
 
 The standard metric is **pass@k**: the probability that at least one of $k$ sampled solutions passes all the tests. The naive estimate (sample exactly $k$ solutions per problem and check whether any pass) has high variance. Chen et al. proposed an unbiased estimator that uses $n \geq k$ samples per problem. If $c$ of the $n$ samples are correct, then
 
-$$
+```math
 \text{pass@}k = \mathbb{E}_{\text{problems}}\left[1 - \frac{\binom{n-c}{k}}{\binom{n}{k}}\right].
-$$
+```
 
 The intuition: $\binom{n-c}{k} / \binom{n}{k}$ is the probability that a random subset of $k$ of the $n$ samples contains *no* correct solution. One minus that is the probability that at least one of the $k$ is correct. Averaging over all subsets uses all $n$ samples and lowers variance.
 
@@ -135,23 +135,23 @@ A simpler preference metric is the **win rate** against a fixed baseline: for ea
 
 How do you turn millions of pairwise votes between many models into a ranking? The classic answer is the **Elo** rating system from chess. Each model $i$ has a rating $R_i$. The expected probability that $A$ beats $B$ is
 
-$$
+```math
 E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}.
-$$
+```
 
 A 400-point gap corresponds to 10:1 odds. After a game with outcome $S_A$ (1 for a win, 0 for a loss, 0.5 for a tie), the ratings update online:
 
-$$
+```math
 R_A \leftarrow R_A + K\,(S_A - E_A), \qquad R_B \leftarrow R_B - K\,(S_A - E_A),
-$$
+```
 
 where $K$ controls the step size. A win against a stronger opponent (low $E_A$) earns many points; a win against a weaker one earns few.
 
 Online Elo was designed for players whose skill changes over time, and its results depend on the order in which games are processed. A model's quality does not change between votes, so a better approach fits all votes at once with the **Bradley-Terry** model, which Chapter 10 used for reward models. Each model has a strength $\beta_i$, and
 
-$$
+```math
 P(i \text{ beats } j) = \frac{e^{\beta_i}}{e^{\beta_i} + e^{\beta_j}} = \sigma(\beta_i - \beta_j),
-$$
+```
 
 where $\sigma$ is the logistic sigmoid. Fitting the $\beta$'s by maximum likelihood is just logistic regression: each vote is a training example whose features are $+1$ for model $i$, $-1$ for model $j$, and 0 elsewhere. The Chatbot Arena paper describes this approach, reports scores on an Elo-like scale for familiarity, and computes confidence intervals by bootstrap resampling of the votes. The Arena has also added "style control," which adds features such as response length and markdown formatting to the regression so that rankings reflect content more than presentation, the same idea as length-controlled AlpacaEval.
 
