@@ -189,7 +189,7 @@ That optimism faded after Marvin Minsky and Seymour Papert published their book 
 
 The comeback came in 1986, when David Rumelhart, Geoffrey Hinton, and Ronald Williams showed in a widely read *Nature* paper that *backpropagation*, an efficient way to compute gradients through a multi-layer network, lets hidden units learn useful internal representations. (The underlying mathematics of reverse-mode differentiation had been discovered earlier, as Section 2.6 notes, but this paper made it the standard training method for neural networks.) Every model in this book, including every LLM, is trained by a descendant of that method.
 
-It is worth being clear about what the biological analogy does and does not buy us. Real neurons are far more complicated than the units in this chapter: they spike in time, their dendrites perform nonlinear computation, and brains do not appear to learn by backpropagation. Modern neural networks are best understood as a family of flexible mathematical functions that happen to have been inspired by neuroscience. From here on we will treat them as mathematics.
+It is worth noting real neurons are far more complicated than the units in this chapter: they spike in time, their dendrites perform nonlinear computation, and brains do not appear to learn by backpropagation. Modern neural networks are best understood as a family of flexible mathematical functions that happen to have been inspired by neuroscience. From here on we will treat them as mathematics.
 
 ## Key takeaways
 
