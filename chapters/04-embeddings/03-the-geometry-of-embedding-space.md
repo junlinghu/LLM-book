@@ -83,7 +83,7 @@ print(nearest(E[idx["banana"]], E, exclude=[idx["banana"]]))
 
 We exclude the query word itself, which would otherwise always be its own nearest neighbor with cosine 1. For a real vocabulary of $`V`$ words, this is one matrix-vector product with $`V \times d`$ multiply-adds, which takes well under a second even for millions of words. For billions of vectors, Section 6.13 introduces approximate search.
 
-What do nearest neighbors look like in a real embedding space trained on a large corpus? You can explore this yourself in Lab 4.2, but some patterns are consistent. The neighbors of a word typically include:
+What do nearest neighbors look like in a real embedding space trained on a large corpus? You can explore this yourself in Lab 4.3, but some patterns are consistent. The neighbors of a word typically include:
 
 - **Synonyms and near-synonyms**, which appear in nearly identical contexts.
 - **Other members of the same category**: the neighbors of a country name are other countries, and the neighbors of a first name are other first names.
@@ -155,7 +155,7 @@ PCA is a linear projection, so it preserves offsets: if "king − queen" and "ma
 
 Either way, remember that a 2-D plot shows a sliver of a space with hundreds of dimensions. Two words that look close in the plot may be far apart in the full space, and vice versa. Use plots to form hypotheses and cosine similarities to check them.
 
-> **Code Lab 4.2** loads a set of pretrained word vectors and explores their geometry: nearest neighbors for words of your choice, analogies with and without excluding the input words, and a 2D PCA plot of several word categories and analogy pairs.
+> **Code Lab 4.3** loads a set of pretrained word vectors and explores their geometry: nearest neighbors for words of your choice, analogies with and without excluding the input words, and a 2D PCA plot of several word categories and analogy pairs.
 
 In the lab, loading pretrained vectors takes one call with the gensim library:
 

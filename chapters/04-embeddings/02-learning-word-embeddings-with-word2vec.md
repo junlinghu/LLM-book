@@ -224,7 +224,7 @@ The initialization follows the original Word2Vec code: small random input vector
 
 After training, the rows of `model.inp.weight` are the word embeddings. Some implementations use the average of the input and output vectors instead; either choice works, but the input vectors are the usual default.
 
-> **Code Lab 4.1** trains this skip-gram model with negative sampling from scratch in PyTorch: building the vocabulary, subsampling, generating pairs, sampling negatives, training, and inspecting nearest neighbors of a few words as training progresses.
+> **Code Lab 4.2** trains this skip-gram model with negative sampling from scratch in PyTorch: building the vocabulary, subsampling, generating pairs, sampling negatives, training, and inspecting nearest neighbors of a few words as training progresses.
 
 ## fastText: vectors from pieces of words
 

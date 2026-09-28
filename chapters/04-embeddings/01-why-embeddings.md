@@ -151,7 +151,7 @@ This has practical consequences:
 
 Word2Vec, in the next section, is itself trained this way. It is the simplest case possible: a network that is *only* an embedding table and an output layer, trained end to end so that the table becomes useful to other models afterward. Later chapters use the same `nn.Embedding` layer as the first layer of much larger networks (Chapters 6 and 7).
 
-> **Code Lab 4.4** builds an `nn.Embedding` layer and inspects its weights: it checks that lookup equals one-hot multiplication, confirms the output shape for a batch of sequences, and watches which rows receive gradients, and how much, when some IDs repeat and others never appear.
+> **Code Lab 4.1** builds an `nn.Embedding` layer and inspects its weights: it checks that lookup equals one-hot multiplication, confirms the output shape for a batch of sequences, and watches which rows receive gradients, and how much, when some IDs repeat and others never appear.
 
 ## Dense vectors and the distributional idea
 

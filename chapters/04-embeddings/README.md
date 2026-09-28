@@ -30,10 +30,10 @@ _Draft in progress._
 
 | Lab | Topic | Section |
 |-----|-------|---------|
-| Lab 4.1 | Train a skip-gram model with negative sampling from scratch in PyTorch | 4.2 |
-| Lab 4.2 | Explore pretrained word vectors: nearest neighbors, analogies, and a 2D plot | 4.3 |
-| Lab 4.3 | Ambiguous words in pretrained static vectors: find the nearest neighbors of words such as "bank" and "apple" and measure which sense dominates | 4.4 |
-| Lab 4.4 | Build an `nn.Embedding` layer, check that lookup equals one-hot multiplication, and inspect which rows receive gradients | 4.1 |
+| Lab 4.1 | Build an `nn.Embedding` layer, check that lookup equals one-hot multiplication, and inspect which rows receive gradients | 4.1 |
+| Lab 4.2 | Train a skip-gram model with negative sampling from scratch in PyTorch | 4.2 |
+| Lab 4.3 | Explore pretrained word vectors: nearest neighbors, analogies, and a 2D plot | 4.3 |
+| Lab 4.4 | Ambiguous words in pretrained static vectors: find the nearest neighbors of words such as "bank" and "apple" and measure which sense dominates | 4.4 |
 
 ## Code
 
