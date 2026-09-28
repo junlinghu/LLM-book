@@ -1,4 +1,4 @@
-# Chapter 6: Tokenizer
+# Chapter 5: Tokenizer
 
 _Draft in progress._
 

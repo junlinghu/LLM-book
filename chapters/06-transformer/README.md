@@ -1,4 +1,4 @@
-# Chapter 5: Transformer
+# Chapter 6: Transformer
 
 _Draft in progress._
 
