@@ -22,7 +22,7 @@ When the target is a real number, such as a house price or tomorrow's temperatur
 L_{\text{MSE}} = \frac{1}{N} \sum_{n=1}^{N} (\hat{y}_n - y_n)^2 .
 ```
 
-Squaring makes every error positive and penalizes large errors much more than small ones: an error of 2 costs four times as much as an error of 1. The derivative with respect to a prediction is simple, $`\partial (\hat{y} - y)^2 / \partial \hat{y} = 2(\hat{y} - y)`$: the gradient is proportional to the error itself. MSE also has a probabilistic justification. If we assume the target equals the model's prediction plus Gaussian noise with a fixed variance, then minimizing MSE is the same as maximizing the likelihood of the data. We fitted the linear regression in Figure 2.5 with MSE. A related loss, the *mean absolute error* $`|\hat{y} - y|`$, is less sensitive to outliers but has a constant-magnitude gradient that does not shrink as the prediction improves.
+Squaring makes every error positive and penalizes large errors much more than small ones: an error of 2 costs four times as much as an error of 1. The derivative with respect to a prediction is simple, $`\partial (\hat{y} - y)^2 / \partial \hat{y} = 2(\hat{y} - y)`$: the gradient is proportional to the error itself. MSE also has a probabilistic justification. If we assume the target equals the model's prediction plus Gaussian noise with a fixed variance, then minimizing MSE is the same as maximizing the likelihood of the data. A neuron with no activation trained with MSE is exactly linear regression (Section 2.1). A related loss, the *mean absolute error* $`|\hat{y} - y|`$, is less sensitive to outliers but has a constant-magnitude gradient that does not shrink as the prediction improves.
 
 ## From scores to probabilities: the softmax
 
@@ -39,7 +39,7 @@ Two properties of softmax are worth knowing:
 - **Shift invariance.** Adding the same constant $c$ to every logit does not change the output, because the factor $`e^{c}`$ cancels between numerator and denominator. Only *differences* between logits matter.
 - **Sharpness depends on scale.** Multiplying all logits by a large number makes the distribution more peaked; multiplying by a small number flattens it toward uniform. Chapter 13 uses this idea, in the form of a *temperature* parameter, to control how random an LLM's generated text is.
 
-Figure 2.14 below illustrates both.
+Figure 2.11 below illustrates both.
 
 ### The numerically stable softmax
 
@@ -49,7 +49,7 @@ The fix uses shift invariance. Subtracting the largest logit from every entry le
 
 ![Softmax turns logits into probabilities](figures/fig2-14-softmax.png)
 
-*Figure 2.14: Softmax applied to three sets of logits. Left and middle: shifting every logit by +8 leaves the probabilities unchanged, which is why subtracting the maximum is safe. Right: equal logits give a uniform distribution.*
+*Figure 2.11: Softmax applied to three sets of logits. Left and middle: shifting every logit by +8 leaves the probabilities unchanged, which is why subtracting the maximum is safe. Right: equal logits give a uniform distribution.*
 
 ## Cross-entropy and negative log-likelihood
 
@@ -87,11 +87,11 @@ When $y = 1$ only the first term survives, and when $y = 0$ only the second. Thi
 
 One could train a classifier by minimizing the squared difference between the predicted probability and the 0/1 label. It works, sort of, but cross-entropy is better for two reasons.
 
-**Reason 1: the penalty matches the stakes.** Figure 2.15 plots both losses as functions of the predicted probability. MSE is bounded: the worst possible prediction costs 1. Cross-entropy grows without limit as the model becomes confidently wrong. A model that says "0.1% chance" for something that happens deserves a much larger penalty than one that says "40% chance," and cross-entropy delivers it.
+**Reason 1: the penalty matches the stakes.** Figure 2.12 plots both losses as functions of the predicted probability. MSE is bounded: the worst possible prediction costs 1. Cross-entropy grows without limit as the model becomes confidently wrong. A model that says "0.1% chance" for something that happens deserves a much larger penalty than one that says "40% chance," and cross-entropy delivers it.
 
 ![MSE versus cross-entropy](figures/fig2-15-mse-vs-ce.png)
 
-*Figure 2.15: Loss as a function of the predicted probability of class 1, for a true label of 1 (left) and 0 (right). Squared error never exceeds 1, while cross-entropy rises steeply as the prediction approaches the wrong extreme.*
+*Figure 2.12: Loss as a function of the predicted probability of class 1, for a true label of 1 (left) and 0 (right). Squared error never exceeds 1, while cross-entropy rises steeply as the prediction approaches the wrong extreme.*
 
 **Reason 2: much better gradients.** What matters for learning is the gradient with respect to the logit $z$, because that is what flows back into the network. For a sigmoid output with BCE, the chain rule gives
 
@@ -105,11 +105,11 @@ The sigmoid's derivative $`\hat{p}(1 - \hat{p})`$ cancels exactly against the de
 \frac{\partial (\hat{p} - y)^2}{\partial z} = 2(\hat{p} - y)\, \hat{p}(1 - \hat{p}) .
 ```
 
-Now suppose the true label is 1 but the model is confidently wrong, with $z = -5$ and $`\hat{p} \approx 0.0067`$. The cross-entropy gradient is $`\hat{p} - y \approx -0.993`$: a strong push in the right direction. The MSE gradient is $`2 \times (-0.993) \times 0.0067 \times 0.993 \approx -0.013`$, about 75 times weaker, because the saturated sigmoid's small derivative multiplies it. The model that most needs to learn gets almost no signal. Figure 2.16 shows this across all logits.
+Now suppose the true label is 1 but the model is confidently wrong, with $z = -5$ and $`\hat{p} \approx 0.0067`$. The cross-entropy gradient is $`\hat{p} - y \approx -0.993`$: a strong push in the right direction. The MSE gradient is $`2 \times (-0.993) \times 0.0067 \times 0.993 \approx -0.013`$, about 75 times weaker, because the saturated sigmoid's small derivative multiplies it. The model that most needs to learn gets almost no signal. Figure 2.13 shows this across all logits.
 
 ![Gradients of MSE and cross-entropy with respect to the logit](figures/fig2-16-ce-vs-mse-grad.png)
 
-*Figure 2.16: Left: the sigmoid output as a function of the logit, for a true label of 1. Right: the gradient of each loss with respect to the logit. The cross-entropy gradient is largest when the model is most wrong; the MSE gradient vanishes at the far left, exactly where the model is confidently wrong.*
+*Figure 2.13: Left: the sigmoid output as a function of the logit, for a true label of 1. Right: the gradient of each loss with respect to the logit. The cross-entropy gradient is largest when the model is most wrong; the MSE gradient vanishes at the far left, exactly where the model is confidently wrong.*
 
 ## The clean gradient of softmax plus cross-entropy
 
@@ -145,11 +145,11 @@ Everything in this section transfers directly to language models. An LLM reads a
 \ell_t = -\ln p_\theta(x_t \mid x_1, \dots, x_{t-1}) ,
 ```
 
-the cross-entropy of a classification problem whose "classes" are the vocabulary entries. Figure 2.17 shows one position with a toy five-token vocabulary.
+the cross-entropy of a classification problem whose "classes" are the vocabulary entries. Figure 2.14 shows one position with a toy five-token vocabulary.
 
 ![Next-token prediction as classification](figures/fig2-17-next-token-loss.png)
 
-*Figure 2.17: One position of next-token prediction with a five-word vocabulary. The model's logits (left) become softmax probabilities (right). The true next token is "cat," which receives probability 0.62, so this position contributes −ln 0.62 ≈ 0.480 to the loss.*
+*Figure 2.14: One position of next-token prediction with a five-word vocabulary. The model's logits (left) become softmax probabilities (right). The true next token is "cat," which receives probability 0.62, so this position contributes −ln 0.62 ≈ 0.480 to the loss.*
 
 The pretraining loss of Chapter 7 is exactly this cross-entropy, averaged over all positions in all training sequences:
 

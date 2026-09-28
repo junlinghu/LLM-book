@@ -9,7 +9,7 @@ import torch
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, BROWN, save, make_moons
 
-# ---------------------------------------------------------------- Figure 2.34: data split
+# ---------------------------------------------------------------- Figure 2.31: data split
 fig, ax = plt.subplots(figsize=(11, 1.9))
 ax.axis("off")
 parts = [("training set (70%)\nfit the weights", 0.70, BLUE),
@@ -69,7 +69,7 @@ def train(width, steps=20000, lr=0.003, log_every=20):
     return m, np.array(its), np.array(tr), np.array(va), best
 
 
-# ---------------------------------------------------------------- Figure 2.35: learning curves
+# ---------------------------------------------------------------- Figure 2.32: learning curves
 m64, its, tr, va, best = train(64)
 print(f"width 64: final train {tr[-1]:.4f} val {va[-1]:.3f}; best val {best[0]:.3f} at step {best[1]}")
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
@@ -101,7 +101,7 @@ ax.set_title("Overfitting vs. early stopping")
 ax.legend(fontsize=9, loc="lower right")
 save(fig, "fig2-35-learning-curves.png")
 
-# ---------------------------------------------------------------- Figure 2.36: capacity
+# ---------------------------------------------------------------- Figure 2.33: capacity
 widths = [1, 3, 8, 64]
 fig, axes = plt.subplots(1, 4, figsize=(15, 3.6), sharey=True)
 summary = []
@@ -120,7 +120,7 @@ fig.suptitle("Model capacity: underfitting (left) to overfitting (right), 20k st
 save(fig, "fig2-36-capacity.png")
 print("capacity summary", summary)
 
-# ---------------------------------------------------------------- Figure 2.37: symmetry
+# ---------------------------------------------------------------- Figure 2.34: symmetry
 X, y = make_moons(n=200, noise=0.15, seed=0)
 Xt = torch.tensor(X, dtype=torch.float32)
 yt = torch.tensor(y, dtype=torch.float32)

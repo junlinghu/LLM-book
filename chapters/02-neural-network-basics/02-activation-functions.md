@@ -18,11 +18,11 @@ Substituting the first equation into the second gives
 
 The composition is again a single affine map $`W\mathbf{x} + \mathbf{b}`$. The same argument applies to any number of layers: a stack of a hundred linear layers computes exactly the same family of functions as one linear layer. Depth adds parameters and computation but no expressive power. In particular, a deep linear network still cannot solve XOR.
 
-A nonlinear activation between layers breaks this collapse. Figure 2.6 makes the point visually. It draws the outputs of four randomly initialized networks with one input, two hidden layers of eight units, and one output. Without activations, every network computes a straight line. With ReLU between the layers, each network computes a piecewise-linear curve with several bends. With tanh, the curves are smooth and wavy. Nothing about training is involved here; these are random networks. The activation alone determines what shapes are even possible.
+A nonlinear activation between layers breaks this collapse. Figure 2.3 makes the point visually. It draws the outputs of four randomly initialized networks with one input, two hidden layers of eight units, and one output. Without activations, every network computes a straight line. With ReLU between the layers, each network computes a piecewise-linear curve with several bends. With tanh, the curves are smooth and wavy. Nothing about training is involved here; these are random networks. The activation alone determines what shapes are even possible.
 
 ![Linear layers collapse; nonlinear activations do not](figures/fig2-06-why-nonlinearity.png)
 
-*Figure 2.6: Outputs of four randomly initialized 1-8-8-1 networks. Left: without activations, every network is a straight line, however many layers it has. Middle: ReLU activations produce piecewise-linear functions. Right: tanh activations produce smooth curves.*
+*Figure 2.3: Outputs of four randomly initialized 1-8-8-1 networks. Left: without activations, every network is a straight line, however many layers it has. Middle: ReLU activations produce piecewise-linear functions. Right: tanh activations produce smooth curves.*
 
 What makes a good activation function? A useful checklist:
 
@@ -96,23 +96,23 @@ The **sigmoid linear unit (SiLU)**, also called **Swish**, uses the sigmoid as t
 
 It was proposed by Elfwing and colleagues for reinforcement learning, and it was independently rediscovered by Ramachandran and colleagues through an automated search over candidate activation functions, where it was named Swish. The name was later generalized to $`z\,\sigma(\beta z)`$ with a parameter $`\beta`$; SiLU is the case $`\beta = 1`$.
 
-GELU and SiLU look nearly identical at a glance. Both are smooth everywhere, both approach $z$ for large positive $z$ and 0 for large negative $z$, and both are *non-monotonic*: they dip slightly below zero for moderately negative inputs. Figure 2.8 below shows that GELU reaches a minimum of about $-0.17$ near $z = -0.75$, and SiLU a minimum of about $-0.28$ near $z = -1.28$. Unlike ReLU, their derivatives are nonzero for small negative inputs, so a unit that is "slightly off" still receives some gradient.
+GELU and SiLU look nearly identical at a glance. Both are smooth everywhere, both approach $z$ for large positive $z$ and 0 for large negative $z$, and both are *non-monotonic*: they dip slightly below zero for moderately negative inputs. Figure 2.5 below shows that GELU reaches a minimum of about $-0.17$ near $z = -0.75$, and SiLU a minimum of about $-0.28$ near $z = -1.28$. Unlike ReLU, their derivatives are nonzero for small negative inputs, so a unit that is "slightly off" still receives some gradient.
 
 Modern LLMs such as LLaMA go one step further and use *gated* feed-forward layers, in which one linear projection is passed through SiLU and multiplied elementwise by a second linear projection. This combination, called SwiGLU, comes back in Chapter 6 when we build the transformer block.
 
 ## Plotting each function and its derivative
 
-The best way to internalize these functions is to look at them. Figure 2.7 plots each activation above its derivative, and Figure 2.8 takes a closer look at ReLU and its smooth relatives near zero. (The NumPy definitions behind both figures, with a table of values at a few sample points, are in [Code 2.2.1](#code-221-activation-functions-and-their-derivatives).)
+The best way to internalize these functions is to look at them. Figure 2.4 plots each activation above its derivative, and Figure 2.5 takes a closer look at ReLU and its smooth relatives near zero. (The NumPy definitions behind both figures, with a table of values at a few sample points, are in [Code 2.2.1](#code-221-activation-functions-and-their-derivatives).)
 
 Read the derivative panels first. Sigmoid and tanh derivatives fall toward zero at both ends: those are the saturated regions. ReLU's derivative is exactly 0 or 1. GELU and SiLU derivatives are close to 1 for positive inputs, are small but nonzero for negative inputs, and even overshoot 1 slightly just above zero; GELU's derivative is about 1.08 at $z = 1$, and SiLU's about 1.09 at $z = 3$.
 
 ![Activation functions and their derivatives](figures/fig2-07-activation-gallery.png)
 
-*Figure 2.7: Six activation functions (top) and their derivatives (bottom). Shaded bands mark where the derivative is below 5% of its maximum: the saturated tails of sigmoid and tanh, the dead negative half of ReLU, and the far negative tails of GELU and SiLU. The step function's derivative is zero everywhere it is defined.*
+*Figure 2.4: Six activation functions (top) and their derivatives (bottom). Shaded bands mark where the derivative is below 5% of its maximum: the saturated tails of sigmoid and tanh, the dead negative half of ReLU, and the far negative tails of GELU and SiLU. The step function's derivative is zero everywhere it is defined.*
 
 ![ReLU, GELU, and SiLU compared near zero](figures/fig2-08-relu-gelu-silu.png)
 
-*Figure 2.8: A closer look at ReLU and its smooth relatives. GELU and SiLU are smooth, dip slightly below zero for negative inputs, and have derivatives that change gradually instead of jumping from 0 to 1.*
+*Figure 2.5: A closer look at ReLU and its smooth relatives. GELU and SiLU are smooth, dip slightly below zero for negative inputs, and have derivatives that change gradually instead of jumping from 0 to 1.*
 
 A practical guide to choosing:
 
@@ -131,7 +131,7 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 2.2.1: Activation functions and their derivatives
 
-NumPy definitions of sigmoid, tanh, ReLU, GELU, and SiLU, each paired with its derivative. The same definitions generate Figures 2.7 and 2.8; the loop prints each function and its derivative at seven sample points.
+NumPy definitions of sigmoid, tanh, ReLU, GELU, and SiLU, each paired with its derivative. The same definitions generate Figures 2.4 and 2.5; the loop prints each function and its derivative at seven sample points.
 
 ```python
 import math

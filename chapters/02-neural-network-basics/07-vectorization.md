@@ -8,11 +8,11 @@ Python is an interpreted language. Each Python-level operation, whether `a * b` 
 
 Libraries such as NumPy and PyTorch avoid this by operating on whole arrays in a single call. `X @ W` hands two blocks of memory to compiled, highly optimized routines (the BLAS family of linear algebra libraries), which use cache-friendly memory access, SIMD instructions that process several numbers per CPU instruction, and multiple cores. The Python interpreter is involved once per array operation, not once per number. This style of programming is called **vectorization**.
 
-The difference is dramatic. Figure 2.28 times the same matrix product computed two ways: a triple loop in plain Python, and one call to NumPy's `@` operator.
+The difference is dramatic. Figure 2.25 times the same matrix product computed two ways: a triple loop in plain Python, and one call to NumPy's `@` operator.
 
 ![Scalar loops versus vectorized matrix multiplication](figures/fig2-28-scalar-vs-vectorized.png)
 
-*Figure 2.28: Time to multiply an n × 32 matrix by a 32 × 64 matrix with a Python triple loop versus NumPy's matrix multiplication, on a log scale. In our runs the vectorized version was between about 3,500 and 13,000 times faster, and the gap grows with the matrix size. Exact numbers depend on the machine.*
+*Figure 2.25: Time to multiply an n × 32 matrix by a 32 × 64 matrix with a Python triple loop versus NumPy's matrix multiplication, on a log scale. In our runs the vectorized version was between about 3,500 and 13,000 times faster, and the gap grows with the matrix size. Exact numbers depend on the machine.*
 
 For whole training steps the story is the same. One forward and backward pass over 64 two-moons examples through a 16-unit network took about 12.5 milliseconds with the `Scalar` engine and about 0.036 milliseconds with the vectorized NumPy code of this section, a factor of roughly 350 in our test. For larger layers the gap widens, because the scalar engine's cost grows with the number of multiplications while the vectorized code's cost is dominated by fixed per-call overhead until the matrices are large.
 
@@ -24,11 +24,11 @@ Section 2.3 already wrote the forward pass for a batch: stack $B$ examples as th
 Z^{(1)} = X W^{(1)} + \mathbf{b}^{(1)}, \qquad H = g\bigl(Z^{(1)}\bigr), \qquad Z^{(2)} = H W^{(2)} + \mathbf{b}^{(2)} .
 ```
 
-Row $n$ of $`Z^{(1)}`$ is exactly the pre-activation vector of example $n$; the matrix product computes all $B$ examples' weighted sums at once. Figure 2.29 shows the shapes for a batch of 32 two-dimensional inputs, 8 hidden units, and 2 classes.
+Row $n$ of $`Z^{(1)}`$ is exactly the pre-activation vector of example $n$; the matrix product computes all $B$ examples' weighted sums at once. Figure 2.26 shows the shapes for a batch of 32 two-dimensional inputs, 8 hidden units, and 2 classes.
 
 ![Shapes in a vectorized forward pass](figures/fig2-29-shapes.png)
 
-*Figure 2.29: Shapes flowing through a vectorized MLP forward pass. Each bias vector is added to every row of the batch.*
+*Figure 2.26: Shapes flowing through a vectorized MLP forward pass. Each bias vector is added to every row of the batch.*
 
 ## Tensors, shapes, and broadcasting
 
@@ -66,11 +66,11 @@ So the backward pass of a matrix product is two more matrix products:
 \boxed{\;\frac{\partial L}{\partial W} = H^\top G, \qquad \frac{\partial L}{\partial H} = G\, W^\top\;}
 ```
 
-This is the **transpose pattern**: to send a gradient backward through a multiplication by $W$, multiply by $`W^\top`$; to get the gradient of $W$ itself, multiply the transposed input by the upstream gradient. The formula $`H^\top G`$ also has a nice reading: it is the sum over the batch of outer products $`\mathbf{h}_n^\top \mathbf{g}_n`$, the matrix version of "input on the edge times gradient at the unit" from Section 2.6. You do not need to memorize the formulas, because the shapes force them. $`\partial L/\partial W`$ must have the shape of $W$, $`D \times K`$, and the only way to combine $H$ (of shape $`B \times D`$) and $G$ (of shape $`B \times K`$) into a $`D \times K`$ matrix is $`H^\top G`$. Figure 2.30 summarizes.
+This is the **transpose pattern**: to send a gradient backward through a multiplication by $W$, multiply by $`W^\top`$; to get the gradient of $W$ itself, multiply the transposed input by the upstream gradient. The formula $`H^\top G`$ also has a nice reading: it is the sum over the batch of outer products $`\mathbf{h}_n^\top \mathbf{g}_n`$, the matrix version of "input on the edge times gradient at the unit" from Section 2.6. You do not need to memorize the formulas, because the shapes force them. $`\partial L/\partial W`$ must have the shape of $W$, $`D \times K`$, and the only way to combine $H$ (of shape $`B \times D`$) and $G$ (of shape $`B \times K`$) into a $`D \times K`$ matrix is $`H^\top G`$. Figure 2.27 summarizes.
 
 ![The transpose pattern of matrix backpropagation](figures/fig2-30-transpose-pattern.png)
 
-*Figure 2.30: Backpropagation through Z = HW. The gradient with respect to W is Hᵀ times the upstream gradient; the gradient with respect to H is the upstream gradient times Wᵀ. Checking that the shapes multiply out correctly is a reliable way to get these right.*
+*Figure 2.27: Backpropagation through Z = HW. The gradient with respect to W is Hᵀ times the upstream gradient; the gradient with respect to H is the upstream gradient times Wᵀ. Checking that the shapes multiply out correctly is a reliable way to get these right.*
 
 The other two pieces of the MLP are easier:
 
@@ -94,11 +94,11 @@ G^{(1)} &= \bigl(G^{(2)} W^{(2)\top}\bigr) \odot g'\bigl(Z^{(1)}\bigr), & \frac{
 
 A minibatch training loop ties together Sections 2.4, 2.5, and this one ([Code 2.7.3](#code-273-minibatch-sgd-training-loop)). Each epoch reshuffles the training data and cuts it into minibatches; for each minibatch the loop runs the forward pass, computes the loss and its gradient with respect to the logits, runs the backward pass, and takes an SGD step. After every epoch it records the loss on the full training set.
 
-Figure 2.31 uses this loop to repeat the learning-rate experiment of Section 2.5 on a real network: 400 two-moons points, 16 ReLU hidden units, batch size 32, 60 epochs, and five learning rates spaced by factors of about 3 to 10.
+Figure 2.28 uses this loop to repeat the learning-rate experiment of Section 2.5 on a real network: 400 two-moons points, 16 ReLU hidden units, batch size 32, 60 epochs, and five learning rates spaced by factors of about 3 to 10.
 
 ![Learning-rate sweep for the vectorized MLP](figures/fig2-31-lr-sweep.png)
 
-*Figure 2.31: Training loss of the vectorized MLP under minibatch SGD with five learning rates. η = 0.003 and 0.03 are slow. η = 0.3 decreases steadily, and η = 3.0 reaches the lowest loss but noisily. η = 8.0 is unstable: the loss jumps around and ends up worse than the smallest learning rate.*
+*Figure 2.28: Training loss of the vectorized MLP under minibatch SGD with five learning rates. η = 0.003 and 0.03 are slow. η = 0.3 decreases steadily, and η = 3.0 reaches the lowest loss but noisily. η = 8.0 is unstable: the loss jumps around and ends up worse than the smallest learning rate.*
 
 The pattern matches the one-dimensional analysis. The small learning rates are safe but slow; after 60 epochs their losses are 0.369 and 0.261. The loss at $`\eta = 0.3`$ is 0.119, and $`\eta = 3.0`$ reaches 0.091 but with large spikes. At $`\eta = 8.0`$ training is erratic and the final loss, 0.594, is worse than where the slowest run ended. A reasonable choice here is somewhere between 0.3 and 3; in practice you would pick the largest value that trains smoothly, then consider decaying it over time (Chapter 3).
 
@@ -120,11 +120,11 @@ We compare the two gradients with a **relative error**, which is insensitive to 
 
 In 64-bit floating point, a correct implementation typically gives relative errors around $`10^{-7}`$ or smaller. Values around $`10^{-2}`$ or larger almost always mean a bug. (Kinks such as ReLU's corner at 0 can occasionally produce larger discrepancies if a finite-difference step crosses a kink.)
 
-We apply the check to a small 2-5-2 network on a batch of 20 random examples, with random hidden biases so that some ReLUs are inactive ([Code 2.7.4](#code-274-gradient-checking-with-finite-differences)). The relative errors are $`9.1 \times 10^{-11}`$ for $`W^{(1)}`$, $`4.8 \times 10^{-11}`$ for $`\mathbf{b}^{(1)}`$, $`3.4 \times 10^{-11}`$ for $`W^{(2)}`$, and $`5.5 \times 10^{-12}`$ for $`\mathbf{b}^{(2)}`$. All four errors are $`10^{-10}`$ or smaller: the backward pass is correct. To see that the check has teeth, introduce a plausible bug: forget the ReLU mask, so that `dZ1 = dH` instead of `dH * (Z1 > 0)`. Figure 2.32 shows what happens.
+We apply the check to a small 2-5-2 network on a batch of 20 random examples, with random hidden biases so that some ReLUs are inactive ([Code 2.7.4](#code-274-gradient-checking-with-finite-differences)). The relative errors are $`9.1 \times 10^{-11}`$ for $`W^{(1)}`$, $`4.8 \times 10^{-11}`$ for $`\mathbf{b}^{(1)}`$, $`3.4 \times 10^{-11}`$ for $`W^{(2)}`$, and $`5.5 \times 10^{-12}`$ for $`\mathbf{b}^{(2)}`$. All four errors are $`10^{-10}`$ or smaller: the backward pass is correct. To see that the check has teeth, introduce a plausible bug: forget the ReLU mask, so that `dZ1 = dH` instead of `dH * (Z1 > 0)`. Figure 2.29 shows what happens.
 
 ![Gradient check catching a bug](figures/fig2-32-gradcheck.png)
 
-*Figure 2.32: Relative error between analytic and finite-difference gradients for each parameter of a small 2-5-2 network. The correct backward pass (green) agrees to about 10⁻¹¹. With the ReLU mask dropped (red), the error for W⁽¹⁾ jumps to about 0.4, while the other parameters, which the bug does not affect, still pass. The check not only detects the bug but also localizes it.*
+*Figure 2.29: Relative error between analytic and finite-difference gradients for each parameter of a small 2-5-2 network. The correct backward pass (green) agrees to about 10⁻¹¹. With the ReLU mask dropped (red), the error for W⁽¹⁾ jumps to about 0.4, while the other parameters, which the bug does not affect, still pass. The check not only detects the bug but also localizes it.*
 
 The buggy gradient for $`W^{(1)}`$ has a relative error of about 0.4, while $`\mathbf{b}^{(1)}`$, $`W^{(2)}`$, and $`\mathbf{b}^{(2)}`$ still pass. (In this bug only $`W^{(1)}`$'s gradient was recomputed without the mask, so only it fails.) Checking each parameter separately tells you where to look. It is good practice to run a gradient check whenever you write or modify a backward pass, and Lab 6 asks you to do so for both the `Scalar` engine and the vectorized network.
 
@@ -211,7 +211,7 @@ def backward(P, cache, dZ2):
 
 ### Code 2.7.3: Minibatch SGD training loop
 
-Trains the network of Code 2.7.2 with shuffled minibatches and records the full training loss after every epoch. Figure 2.31 was produced with this loop.
+Trains the network of Code 2.7.2 with shuffled minibatches and records the full training loss after every epoch. Figure 2.28 was produced with this loop.
 
 ```python
 def train_sgd(P, X, y, lr=0.1, epochs=100, batch_size=32, seed=0, X_val=None, y_val=None):

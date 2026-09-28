@@ -62,11 +62,11 @@ So gradient descent on this parabola converges if and only if $`\eta \lt 2/a`$. 
 | $`\eta = 0.35`$ | −0.4 | 2.5, −1.0, 0.4, −0.16, 0.064, −0.026 | fast, oscillating |
 | $`\eta = 0.55`$ | −1.2 | 2.5, −3.0, 3.6, −4.32, 5.18, −6.22 | diverges |
 
-Figure 2.18 draws these three runs.
+Figure 2.15 draws these three runs.
 
 ![Gradient descent with three learning rates in one dimension](figures/fig2-18-lr-1d.png)
 
-*Figure 2.18: Gradient descent on L(w) = ½·4w² from w = 2.5. Too small a learning rate creeps toward the minimum; a good one gets there in a few oscillating steps; too large a learning rate overshoots further on every step and diverges. Note the different vertical scale in the right panel.*
+*Figure 2.15: Gradient descent on L(w) = ½·4w² from w = 2.5. Too small a learning rate creeps toward the minimum; a good one gets there in a few oscillating steps; too large a learning rate overshoots further on every step and diverges. Note the different vertical scale in the right panel.*
 
 The quantity $a$ is the *curvature* of the loss, its second derivative. Sharply curved directions need small steps, and gently curved ones tolerate large steps. Real losses have many directions with very different curvatures, and that makes choosing $`\eta`$ harder. Consider the two-dimensional bowl
 
@@ -74,11 +74,11 @@ The quantity $a$ is the *curvature* of the loss, its second derivative. Sharply 
 L(w_1, w_2) = \tfrac{1}{2}\left(4 w_1^2 + w_2^2\right),
 ```
 
-which is four times more curved along $`w_1`$ than along $`w_2`$. The update acts on each coordinate separately: $`w_1`$ is multiplied by $`1 - 4\eta`$ and $`w_2`$ by $`1 - \eta`$. Stability requires $`\eta \lt 0.5`$ because of the steep direction, but the shallow direction then shrinks by a factor of at least $1 - 0.5 = 0.5$ per step, and by much less when we pick a safe, smaller $`\eta`$. Figure 2.19 shows four learning rates.
+which is four times more curved along $`w_1`$ than along $`w_2`$. The update acts on each coordinate separately: $`w_1`$ is multiplied by $`1 - 4\eta`$ and $`w_2`$ by $`1 - \eta`$. Stability requires $`\eta \lt 0.5`$ because of the steep direction, but the shallow direction then shrinks by a factor of at least $1 - 0.5 = 0.5$ per step, and by much less when we pick a safe, smaller $`\eta`$. Figure 2.16 shows four learning rates.
 
 ![Gradient descent paths on a 2-D quadratic loss](figures/fig2-19-lr-2d.png)
 
-*Figure 2.19: Gradient descent paths from (2.5, 2.5) on an elongated quadratic bowl, whose contours are ellipses. With η = 0.05 progress is slow along the shallow w₂ direction. With η = 0.35 the path converges in a few steps. With η = 0.48 the steep w₁ direction oscillates back and forth across the valley while w₂ converges. With η = 0.53, just above the stability limit of 0.5, the w₁ oscillation grows and the path leaves the plot.*
+*Figure 2.16: Gradient descent paths from (2.5, 2.5) on an elongated quadratic bowl, whose contours are ellipses. With η = 0.05 progress is slow along the shallow w₂ direction. With η = 0.35 the path converges in a few steps. With η = 0.48 the steep w₁ direction oscillates back and forth across the valley while w₂ converges. With η = 0.53, just above the stability limit of 0.5, the w₁ oscillation grows and the path leaves the plot.*
 
 The oscillating path at $`\eta = 0.48`$ is typical of real training: the learning rate is limited by the most sharply curved direction, while progress in flat directions stays slow. This mismatch is the main motivation for the improved optimizers in Chapter 3. *Momentum* averages successive gradients so that oscillations cancel and consistent directions accumulate speed, and *Adam* rescales each parameter's step by a running estimate of its gradient magnitude.
 
@@ -112,11 +112,11 @@ Because $n$ is chosen uniformly at random, the expected value of the single-exam
 
 This estimate is still unbiased, and its variance is about $1/B$ times the variance of the single-example estimate (for sampling with replacement it is exactly $1/B$). Somewhat confusingly, the minibatch method is also usually called "SGD," and PyTorch's `torch.optim.SGD` implements it: the optimizer does not care how many examples went into the gradient you give it.
 
-Figure 2.20 compares the three methods on a simple problem: fitting the slope $w$ of the line $`y \approx wx`$ to 200 noisy points, with the same learning rate for all three.
+Figure 2.17 compares the three methods on a simple problem: fitting the slope $w$ of the line $`y \approx wx`$ to 200 noisy points, with the same learning rate for all three.
 
 ![Batch, stochastic, and minibatch gradient descent](figures/fig2-20-sgd-vs-batch.png)
 
-*Figure 2.20: Fitting y ≈ wx to 200 points with learning rate 0.1. Left: the weight over time. Batch gradient descent moves smoothly to the optimum, w ≈ 1.94; single-example SGD follows the same general course but jitters around the optimum; minibatches of 16 are nearly as smooth as the full batch. Right: the loss on the whole training set. After 150 steps, the batch and minibatch runs sit close to the optimum, while SGD keeps fluctuating around it.*
+*Figure 2.17: Fitting y ≈ wx to 200 points with learning rate 0.1. Left: the weight over time. Batch gradient descent moves smoothly to the optimum, w ≈ 1.94; single-example SGD follows the same general course but jitters around the optimum; minibatches of 16 are nearly as smooth as the full batch. Right: the loss on the whole training set. After 150 steps, the batch and minibatch runs sit close to the optimum, while SGD keeps fluctuating around it.*
 
 The jitter in SGD is not only a cost. Notice that with a constant learning rate, SGD never settles exactly at the optimum: the noise keeps kicking it around. That is why training schedules usually *decay* the learning rate over time (Chapter 3). On the other hand, noise can help a non-convex optimization escape from shallow regions, and there is evidence that the noise of small-batch training can act as a mild regularizer.
 
@@ -144,11 +144,11 @@ They are related by
 \text{iterations per epoch} = \left\lceil \frac{N}{B} \right\rceil .
 ```
 
-With $N = 400$ examples and $B = 32$, one epoch is $`\lceil 12.5 \rceil = 13`$ iterations, the last one using the 16 leftover examples. Figure 2.21 draws the relationship.
+With $N = 400$ examples and $B = 32$, one epoch is $`\lceil 12.5 \rceil = 13`$ iterations, the last one using the 16 leftover examples. Figure 2.18 draws the relationship.
 
 ![Epochs and iterations](figures/fig2-21-epoch-iteration.png)
 
-*Figure 2.21: A training set split into four minibatches. Each minibatch produces one iteration (one update); one pass through all four minibatches is one epoch. The data are reshuffled between epochs, so the minibatches differ from epoch to epoch.*
+*Figure 2.18: A training set split into four minibatches. Each minibatch produces one iteration (one update); one pass through all four minibatches is one epoch. The data are reshuffled between epochs, so the minibatches differ from epoch to epoch.*
 
 A shuffled minibatch iterator is short enough to write from scratch ([Code 2.5.2](#code-252-a-shuffled-minibatch-iterator)). On 400 examples with batch size 32, it produces twelve minibatches of 32 and a final one of 16: the 13 iterations per epoch computed above.
 
@@ -166,7 +166,7 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 2.5.1: Gradient descent on an elongated quadratic bowl
 
-Runs 25 steps of gradient descent on $`L = \tfrac{1}{2}(4 w_1^2 + w_2^2)`$ from (2.5, 2.5) with the four learning rates of Figure 2.19 and prints the final position.
+Runs 25 steps of gradient descent on $`L = \tfrac{1}{2}(4 w_1^2 + w_2^2)`$ from (2.5, 2.5) with the four learning rates of Figure 2.16 and prints the final position.
 
 ```python
 import numpy as np

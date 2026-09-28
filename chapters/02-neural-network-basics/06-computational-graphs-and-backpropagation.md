@@ -18,11 +18,11 @@ Breaking it into elementary steps and naming every intermediate value:
 u = w \cdot x, \quad z = u + b, \quad h = \tanh(z), \quad e = h - y, \quad L = e^2 .
 ```
 
-With $x = 0.5$, $w = 1.2$, $b = -0.3$, and $y = 0.8$, the **forward pass** evaluates the nodes from left to right: $u = 0.6$, $z = 0.3$, $`h = \tanh(0.3) \approx 0.2913`$, $`e \approx -0.5087`$, and $`L \approx 0.2588`$. Figure 2.22 shows the graph with these values in green.
+With $x = 0.5$, $w = 1.2$, $b = -0.3$, and $y = 0.8$, the **forward pass** evaluates the nodes from left to right: $u = 0.6$, $z = 0.3$, $`h = \tanh(0.3) \approx 0.2913`$, $`e \approx -0.5087`$, and $`L \approx 0.2588`$. Figure 2.19 shows the graph with these values in green.
 
 ![A computational graph with forward and backward values](figures/fig2-22-comp-graph.png)
 
-*Figure 2.22: The computational graph of L = (tanh(wx + b) − y)². Green numbers are forward values; red numbers are the gradient of L with respect to each node, computed by the backward pass described next.*
+*Figure 2.19: The computational graph of L = (tanh(wx + b) − y)². Green numbers are forward values; red numbers are the gradient of L with respect to each node, computed by the backward pass described next.*
 
 ## The chain rule, one node at a time
 
@@ -63,7 +63,7 @@ For our example, going right to left:
 \end{aligned}
 ```
 
-These are the red numbers in Figure 2.22. The **backward pass** visits each node once, does a small constant amount of work there, and produces the gradient with respect to *every* input of the graph. Notice that the tanh node needed its forward output $h$ to compute its local derivative. Backpropagation must therefore remember intermediate values from the forward pass, which is why training uses much more memory than inference.
+These are the red numbers in Figure 2.19. The **backward pass** visits each node once, does a small constant amount of work there, and produces the gradient with respect to *every* input of the graph. Notice that the tanh node needed its forward output $h$ to compute its local derivative. Backpropagation must therefore remember intermediate values from the forward pass, which is why training uses much more memory than inference.
 
 ## Forward mode versus reverse mode
 
@@ -75,7 +75,7 @@ The chain rule does not dictate the order in which the product of local derivati
 
 ![Forward-mode versus reverse-mode automatic differentiation](figures/fig2-23-fwd-vs-rev.png)
 
-*Figure 2.23: Forward-mode AD seeds one input and pushes a directional derivative toward the output; one pass yields the derivatives of all outputs with respect to that single input. Reverse-mode AD seeds the scalar loss and pulls gradients back toward the inputs; one pass yields the derivatives of that single output with respect to all inputs.*
+*Figure 2.20: Forward-mode AD seeds one input and pushes a directional derivative toward the output; one pass yields the derivatives of all outputs with respect to that single input. Reverse-mode AD seeds the scalar loss and pulls gradients back toward the inputs; one pass yields the derivatives of that single output with respect to all inputs.*
 
 Neural network training has exactly one scalar output, the loss, and a huge number of inputs, the parameters. Reverse mode computes the entire gradient in one backward pass whose cost is a small constant multiple of the forward pass (typically quoted as about two to three times). Forward mode would need one pass per parameter, billions of passes for an LLM. That asymmetry is why reverse mode, known in the neural network community as **backpropagation**, is the engine of deep learning. The general technique was described by Seppo Linnainmaa in 1970 and applied to neural networks by Paul Werbos in the 1970s, before the 1986 paper by Rumelhart, Hinton, and Williams made it widely known. Forward mode is still useful when a function has few inputs and many outputs; the survey by Baydin and colleagues covers both modes in depth.
 
@@ -89,7 +89,7 @@ The multivariable chain rule answers: **sum the contributions from every path**.
 \frac{\partial L}{\partial a} = \frac{\partial L}{\partial u} \frac{\partial u}{\partial a} + \frac{\partial L}{\partial v} \frac{\partial v}{\partial a} .
 ```
 
-Consider $f = a^2 + 3a$ at $a = 3$. The value $a$ is used by two branches. Figure 2.24 shows the graph.
+Consider $f = a^2 + 3a$ at $a = 3$. The value $a$ is used by two branches. Figure 2.21 shows the graph.
 
 ```mermaid
 flowchart LR
@@ -103,7 +103,7 @@ flowchart LR
     v -->|"local ∂f/∂v = 1"| f
 ```
 
-*Figure 2.24: Gradients accumulate on fan-out. The value a feeds two branches, so its gradient is the sum of the contributions arriving along both: 6 × 1 + 3 × 1 = 9, which matches the derivative 2a + 3 at a = 3.*
+*Figure 2.21: Gradients accumulate on fan-out. The value a feeds two branches, so its gradient is the sum of the contributions arriving along both: 6 × 1 + 3 × 1 = 9, which matches the derivative 2a + 3 at a = 3.*
 
 In an implementation, this means a node's gradient must be *accumulated* with `+=`, not assigned with `=`, and it must start at zero. It also means we should finish accumulating a node's gradient from all of its consumers before passing it further back. Processing nodes in reverse **topological order**, so that every node comes after all the nodes that use it, guarantees this.
 
@@ -167,11 +167,11 @@ Let us plug in the worked example from Section 2.3: $`\mathbf{x} = (1.0, 0.5)`$,
 \frac{\partial L}{\partial W^{(1)}} = \begin{pmatrix} 1.0 \\ 0.5 \end{pmatrix} \begin{pmatrix} -0.1247 & 0.3805 \end{pmatrix} = \begin{pmatrix} -0.1247 & 0.3805 \\ -0.0624 & 0.1902 \end{pmatrix}, \qquad \frac{\partial L}{\partial \mathbf{b}^{(1)}} = (-0.1247,\ 0.3805).
 ```
 
-Figure 2.25 places these numbers on the network.
+Figure 2.22 places these numbers on the network.
 
 ![Backward pass through the 2-2-1 worked example](figures/fig2-25-worked-backward.png)
 
-*Figure 2.25: The backward pass of the worked example. Red numbers on the edges are the gradients of the loss with respect to each weight; numbers inside the hidden nodes are ∂L/∂h, and the output node shows ∂L/∂z⁽²⁾. Purple labels give the gradients of the pre-activations, which equal the gradients of the biases.*
+*Figure 2.22: The backward pass of the worked example. Red numbers on the edges are the gradients of the loss with respect to each weight; numbers inside the hidden nodes are ∂L/∂h, and the output node shows ∂L/∂z⁽²⁾. Purple labels give the gradients of the pre-activations, which equal the gradients of the biases.*
 
 The signs make intuitive sense. The target is 1 and the prediction is 0.744, so the loss decreases if the output logit rises. Hidden unit 1 has a positive weight to the output and hidden unit 2 a negative one, so gradient descent wants $`h_1`$ to increase (its gradient is negative) and $`h_2`$ to decrease (its gradient is positive). One gradient-descent step with learning rate $`\eta`$ moves every parameter by $`-\eta`$ times its gradient; for example, $`W^{(1)}_{11}`$ goes from 0.5 to $`0.5 + 0.1247\,\eta`$.
 
@@ -185,7 +185,7 @@ The design has three ideas:
 2. **Local derivatives are computed eagerly.** When an operation creates a new `Scalar`, it stores each input *together with the local derivative with respect to that input*, evaluated right away using the forward values. For $`c = a \times b`$, it stores the pairs $`(a, b.\text{value})`$ and $`(b, a.\text{value})`$. The backward pass then never needs to know which operation produced a node: it only multiplies and adds.
 3. **A topological sort** orders the nodes so that each one is processed after every node that consumes it. Walking that order backward and applying `parent.grad += local * node.grad` implements the chain rule with accumulation.
 
-The complete engine is listed in [Code 2.6.1](#code-261-the-scalar-autograd-engine). A few design notes are in order. Subtraction, negation, and division are not given their own derivative rules; they are built from addition, multiplication, and powers, so they inherit correct gradients for free. The `__radd__` and `__rmul__` aliases let expressions such as `3 * a` or `1 + a` work when the left operand is a plain number. The topological sort is iterative rather than recursive, so deep graphs do not hit Python's recursion limit. Figure 2.26 summarizes what `backward()` does.
+The complete engine is listed in [Code 2.6.1](#code-261-the-scalar-autograd-engine). A few design notes are in order. Subtraction, negation, and division are not given their own derivative rules; they are built from addition, multiplication, and powers, so they inherit correct gradients for free. The `__radd__` and `__rmul__` aliases let expressions such as `3 * a` or `1 + a` work when the left operand is a plain number. The topological sort is iterative rather than recursive, so deep graphs do not hit Python's recursion limit. Figure 2.23 summarizes what `backward()` does.
 
 ```mermaid
 flowchart TD
@@ -197,13 +197,13 @@ flowchart TD
     D -->|"no"| F["Done: every node's grad<br/>holds ∂loss/∂node"]
 ```
 
-*Figure 2.26: The backward pass of the Scalar engine. Reverse topological order guarantees that a node's gradient is complete, with contributions from all of its consumers summed, before it is propagated to that node's own inputs.*
+*Figure 2.23: The backward pass of the Scalar engine. Reverse topological order guarantees that a node's gradient is complete, with contributions from all of its consumers summed, before it is propagated to that node's own inputs.*
 
 ### Testing the engine on expressions we can check by hand
 
-We first test the engine on the fan-out example $f = a^2 + 3a$ at $a = 3$, whose derivative is $2a + 3 = 9$, and then on the single-neuron graph of Figure 2.22 ([Code 2.6.2](#code-262-testing-the-engine-on-small-expressions)). The engine returns $f = 18$ with $df/da = 9$, and $L = 0.2588$ with $`\partial L / \partial w = -0.4655`$ and $`\partial L / \partial b = -0.9310`$. Both agree with our hand calculations.
+We first test the engine on the fan-out example $f = a^2 + 3a$ at $a = 3$, whose derivative is $2a + 3 = 9$, and then on the single-neuron graph of Figure 2.19 ([Code 2.6.2](#code-262-testing-the-engine-on-small-expressions)). The engine returns $f = 18$ with $df/da = 9$, and $L = 0.2588$ with $`\partial L / \partial w = -0.4655`$ and $`\partial L / \partial b = -0.9310`$. Both agree with our hand calculations.
 
-Next, we write the 2-2-1 MLP example directly with `Scalar` operations ([Code 2.6.3](#code-263-backpropagating-through-the-2-2-1-worked-example)). The engine reproduces every number in Figure 2.25, from the loss of 0.2960 to each of the nine parameter gradients. Every gradient matches the hand derivation, even though the engine knows nothing about sigmoids or cross-entropy: it built the sigmoid from `exp`, addition, and division, and differentiated through each piece.
+Next, we write the 2-2-1 MLP example directly with `Scalar` operations ([Code 2.6.3](#code-263-backpropagating-through-the-2-2-1-worked-example)). The engine reproduces every number in Figure 2.22, from the loss of 0.2960 to each of the nine parameter gradients. Every gradient matches the hand derivation, even though the engine knows nothing about sigmoids or cross-entropy: it built the sigmoid from `exp`, addition, and division, and differentiated through each piece.
 
 ### Training a network with the engine
 
@@ -211,11 +211,11 @@ With gradients available automatically, a complete training loop is short. The f
 
 The loss function deserves a comment. Computing $`\sigma(z)`$ and then $`\ln \sigma(z)`$ would overflow or return $`\ln 0`$ for large $|z|$. Instead, `bce_from_logit` uses the identity $`\ell = \ln(1 + e^{z}) - y z`$ and rewrites it for positive $z$ so that `exp` only ever receives a non-positive argument. Section 2.9 shows that PyTorch's built-in losses use the same trick.
 
-On XOR, a network with four hidden units trained this way (learning rate 1.0, 300 steps) reduces the loss from 0.7330 at the start to 0.0155 after 200 steps. Its final predicted probabilities of class 1 for the inputs $(0,0)$, $(0,1)$, $(1,0)$, and $(1,1)$ are 0.003, 0.988, 0.991, and 0.011, so every point is classified correctly and confidently ([Code 2.6.5](#code-265-training-on-xor)). Figure 2.27 shows the loss curves for XOR and for a 100-point two-moons dataset, and the decision boundaries the engine learned.
+On XOR, a network with four hidden units trained this way (learning rate 1.0, 300 steps) reduces the loss from 0.7330 at the start to 0.0155 after 200 steps. Its final predicted probabilities of class 1 for the inputs $(0,0)$, $(0,1)$, $(1,0)$, and $(1,1)$ are 0.003, 0.988, 0.991, and 0.011, so every point is classified correctly and confidently ([Code 2.6.5](#code-265-training-on-xor)). Figure 2.24 shows the loss curves for XOR and for a 100-point two-moons dataset, and the decision boundaries the engine learned.
 
 ![Training with the Scalar engine](figures/fig2-27-scalar-train.png)
 
-*Figure 2.27: Networks trained entirely with the Scalar engine and full-batch gradient descent (learning rate 1.0, 300 steps). Left: training loss for XOR (4 hidden units) and two moons (100 points, 8 hidden units). Middle and right: the learned decision boundaries. The two-moons network classifies all 100 training points correctly.*
+*Figure 2.24: Networks trained entirely with the Scalar engine and full-batch gradient descent (learning rate 1.0, 300 steps). Left: training loss for XOR (4 hidden units) and two moons (100 points, 8 hidden units). Middle and right: the learned decision boundaries. The two-moons network classifies all 100 training points correctly.*
 
 The engine works, but it is slow: training the two-moons network took about 9 seconds in our test run for only 100 examples and 33 parameters, because every multiplication creates a Python object. Section 2.7 fixes this with matrices.
 
@@ -331,7 +331,7 @@ class Scalar:
 
 ### Code 2.6.2: Testing the engine on small expressions
 
-The fan-out example $f = a^2 + 3a$ at $a = 3$ and the single-neuron graph of Figure 2.22. The expected output is shown in the comments.
+The fan-out example $f = a^2 + 3a$ at $a = 3$ and the single-neuron graph of Figure 2.19. The expected output is shown in the comments.
 
 ```python
 a = Scalar(3.0)

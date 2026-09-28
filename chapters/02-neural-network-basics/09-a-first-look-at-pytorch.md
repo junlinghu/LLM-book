@@ -28,7 +28,7 @@ Every component we built has a direct counterpart:
 | `softmax_cross_entropy(Z, y)` on logits | `nn.CrossEntropyLoss()` on logits |
 | Hand-written `backward(P, cache, dZ)` | Not needed: autograd derives it |
 
-Figure 2.38 shows how the pieces fit together in a PyTorch training step.
+Figure 2.35 shows how the pieces fit together in a PyTorch training step.
 
 ```mermaid
 flowchart LR
@@ -44,11 +44,11 @@ flowchart LR
     G -->|"optimizer.step() updates the weights"| model
 ```
 
-*Figure 2.38: A PyTorch training step for the two-moons MLP. The model is a stack of modules; the loss takes raw logits and integer class labels; backward() fills in every parameter's gradient; the optimizer uses those gradients to update the parameters.*
+*Figure 2.35: A PyTorch training step for the two-moons MLP. The model is a stack of modules; the loss takes raw logits and integer class labels; backward() fills in every parameter's gradient; the optimizer uses those gradients to update the parameters.*
 
 ## The worked example, one more time
 
-As a first check, let us rerun the 2-2-1 worked example of Sections 2.3 and 2.6 in PyTorch ([Code 2.9.2](#code-292-the-2-2-1-worked-example-in-pytorch)). We use 64-bit floats (`torch.float64`) so that comparisons with our NumPy results are not limited by 32-bit precision. PyTorch returns the loss 0.2960 and the same nine gradients shown in Figure 2.25. Hand derivation, `Scalar` engine, and PyTorch all agree. Note the function name `binary_cross_entropy_with_logits`: like our `bce_from_logit`, it takes the logit rather than the probability and computes the loss in a numerically stable way.
+As a first check, let us rerun the 2-2-1 worked example of Sections 2.3 and 2.6 in PyTorch ([Code 2.9.2](#code-292-the-2-2-1-worked-example-in-pytorch)). We use 64-bit floats (`torch.float64`) so that comparisons with our NumPy results are not limited by 32-bit precision. PyTorch returns the loss 0.2960 and the same nine gradients shown in Figure 2.22. Hand derivation, `Scalar` engine, and PyTorch all agree. Note the function name `binary_cross_entropy_with_logits`: like our `bce_from_logit`, it takes the logit rather than the probability and computes the loss in a numerically stable way.
 
 ## Building the same MLP with `torch.nn`
 
@@ -62,11 +62,11 @@ Writing out weight tensors by hand does not scale. PyTorch's `torch.nn` package 
 
 ## Training with `torch.optim.SGD`
 
-A PyTorch training loop has exactly the structure of Figure 2.33. The optimizer object holds references to the model's parameters; `zero_grad()` clears their gradients, and `step()` applies the update rule. For each minibatch, the loop computes the loss with a forward pass and then calls `opt.zero_grad()`, `loss.backward()`, and `opt.step()`, in that order ([Code 2.9.4](#code-294-training-side-by-side-with-the-numpy-network)). We train the PyTorch model this way for 40 epochs with learning rate 0.3 and batch size 32, and train our NumPy network with `train_sgd` from Section 2.7 using the same settings and the same shuffling. Both runs end with a training loss of 0.139024, and the largest per-epoch difference between them is $`1.1 \times 10^{-16}`$. Figure 2.39 plots the two loss curves.
+A PyTorch training loop has exactly the structure of Figure 2.30. The optimizer object holds references to the model's parameters; `zero_grad()` clears their gradients, and `step()` applies the update rule. For each minibatch, the loop computes the loss with a forward pass and then calls `opt.zero_grad()`, `loss.backward()`, and `opt.step()`, in that order ([Code 2.9.4](#code-294-training-side-by-side-with-the-numpy-network)). We train the PyTorch model this way for 40 epochs with learning rate 0.3 and batch size 32, and train our NumPy network with `train_sgd` from Section 2.7 using the same settings and the same shuffling. Both runs end with a training loss of 0.139024, and the largest per-epoch difference between them is $`1.1 \times 10^{-16}`$. Figure 2.36 plots the two loss curves.
 
 ![From-scratch NumPy MLP versus PyTorch](figures/fig2-39-numpy-vs-torch.png)
 
-*Figure 2.39: Left: training loss per epoch for the from-scratch NumPy network (thick blue) and the PyTorch network (dashed red), both starting from the same weights and seeing the same minibatches. The curves coincide. Right: the absolute difference between them, which stays at the level of 64-bit round-off for all 40 epochs; in most epochs it is exactly zero.*
+*Figure 2.36: Left: training loss per epoch for the from-scratch NumPy network (thick blue) and the PyTorch network (dashed red), both starting from the same weights and seeing the same minibatches. The curves coincide. Right: the absolute difference between them, which stays at the level of 64-bit round-off for all 40 epochs; in most epochs it is exactly zero.*
 
 After 40 epochs and 520 SGD updates, the two implementations differ by about $`10^{-16}`$, the smallest difference representable near these loss values. Everything PyTorch did in this loop, we could have done (much more slowly) ourselves.
 

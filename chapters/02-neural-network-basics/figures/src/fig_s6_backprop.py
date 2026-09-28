@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Circle
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, BROWN, save
 
-# ---------------------------------------------------------------- Figure 2.22: forward/backward on a tiny expression
+# ---------------------------------------------------------------- Figure 2.19: forward/backward on a tiny expression
 # Compute L = (tanh(w*x + b) - y)^2 with concrete numbers; draw the graph.
 # x=0.5, w=1.2, b=-0.3, y=0.8
 x, w, b, y = 0.5, 1.2, -0.3, 0.8
@@ -76,7 +76,7 @@ ax.text(6, 4.5, "green = forward value · red = gradient of $L$ with respect to 
         ha="center", fontsize=10, color=GRAY)
 save(fig, "fig2-22-comp-graph.png")
 
-# ---------------------------------------------------------------- Figure 2.23: forward vs reverse mode cartoon
+# ---------------------------------------------------------------- Figure 2.20: forward vs reverse mode cartoon
 fig, axes = plt.subplots(1, 2, figsize=(11, 3.6))
 for ax in axes:
     ax.set_xlim(0, 6)

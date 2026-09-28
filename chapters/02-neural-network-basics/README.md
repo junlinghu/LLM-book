@@ -17,7 +17,7 @@ Every large language model is, at its core, a neural network trained by gradient
 
 1. **[From Biological Inspiration to the Artificial Neuron](01-the-artificial-neuron.md)**
 
-   A short history from McCulloch-Pitts to Rosenblatt, the neuron as a weighted sum plus bias followed by an activation, the perceptron learning rule and why it fails on XOR, decision boundaries as hyperplanes, and how a single neuron is really linear or logistic regression.
+   A quick introduction to the neuron as a weighted sum plus bias followed by an activation, the perceptron learning rule and why its straight-line decision boundary fails on XOR, how a single neuron is really linear or logistic regression, and a brief history from McCulloch-Pitts to backpropagation.
 
 2. **[Activation Functions](02-activation-functions.md)**
 
