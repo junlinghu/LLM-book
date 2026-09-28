@@ -69,7 +69,51 @@ It is largest at $`k = 0`$ and generally falls as $`|k|`$ grows, with ripples. T
 
 **Defined for any position.** The formula can be evaluated at positions never seen in training, which Vaswani et al. suggested might let the model handle longer sequences than those it was trained on.
 
-The code below computes the encodings and checks the norm, the offset property, and the dependence of the dot product on the offset alone:
+All three properties are easy to confirm numerically. The appendix computes the encodings and checks that every encoding has squared norm $`d/2`$, that one fixed rotation maps each encoding to the encoding $`k`$ positions later, and that the dot product of two encodings depends only on their offset.
+
+## Learned absolute embeddings
+
+The simplest alternative is to learn the position vectors: a second embedding table $`P \in \mathbb{R}^{n_{\max} \times d}`$ with one trainable row per position, added to the token embeddings exactly like the sinusoids. Vaswani et al. tried this and found that it produced **nearly identical results** to sinusoidal encodings on their translation task. BERT (Section 12) uses learned position embeddings.
+
+Learned embeddings are flexible, but they have a hard limit: a table with $`n_{\max}`$ rows has no vector for position $`n_{\max}`$ or beyond, so the model cannot process longer inputs at all. Rows for rarely seen positions (near $`n_{\max}`$, if most training sequences are short) are also poorly trained.
+
+## Relative positions
+
+Absolute encodings tell each token *where it is*. For many relationships, what matters is *how far apart* two tokens are: an adjective usually modifies a nearby noun wherever the phrase sits in the sentence. Several methods put relative position directly into attention:
+
+- **Relative position representations** (Shaw et al. 2018) add learned vectors, indexed by the clipped offset $`s - t`$ between query and key positions, to the keys (and optionally the values) inside each attention layer. Shaw et al. reported improved translation quality over absolute sinusoidal encodings on the benchmarks they studied.
+- **Rotary position embeddings (RoPE)** (Su et al. 2024) rotate each pair of query and key dimensions by an angle proportional to the token's position, using the same frequencies as the sinusoids. Because rotating both vectors and taking their dot product leaves only the *difference* of the angles, the score $`\mathbf{q}_t^\top \mathbf{k}_s`$ depends on positions only through $`t - s`$. No vector is added to the embeddings.
+- **Attention with linear biases (ALiBi)** (Press et al. 2022) adds no position vectors either. Instead, it subtracts from each attention score a penalty proportional to the distance between query and key, with a different slope per head, so nearby tokens are favored by default.
+
+RoPE's relative property takes only a few lines to verify: rotating the same query and key as if they were at positions 12 and 5, or at positions 107 and 100, gives exactly the same score, since both pairs are 7 positions apart (code in the appendix).
+
+## Longer sequences than in training
+
+A model trained on sentences of up to, say, 50 tokens may be given a 100-token sentence at test time. How well it copes depends on the position scheme:
+
+| Scheme | Positions beyond training length | Notes |
+|---|---|---|
+| Learned absolute | Not representable | Table has no rows for them |
+| Sinusoidal | Defined, but never seen in training | The model may not generalize to unfamiliar encodings |
+| Relative (Shaw et al.) | Offsets beyond the clipping distance share one vector | Designed to generalize across lengths |
+| RoPE | Defined; only offsets matter | Unseen large offsets can still behave poorly |
+| ALiBi | Defined; penalty keeps growing with distance | Press et al. designed it for training on short sequences and testing on longer ones |
+
+A formula that *can* be evaluated at a new position does not guarantee that the model has learned to *use* it. Press et al. (2022) measured this directly and found that sinusoidal encodings extrapolated poorly beyond the training length in their language-modeling experiments, which motivated ALiBi. Testing on sequences longer than those in training, as the third code lab does, is the only way to know.
+
+## Key takeaways
+
+- Self-attention ignores order, so the Transformer adds a positional encoding to each token embedding before the first block.
+- Sinusoidal encodings use sines and cosines at geometrically spaced frequencies; every encoding has the same norm, an offset corresponds to a fixed rotation, and the dot product between two encodings depends only on their distance.
+- Learned absolute embeddings performed about the same as sinusoids in the original paper but cannot represent positions beyond their table.
+- Relative schemes (Shaw et al. relative representations, RoPE, ALiBi) put the distance between tokens directly into attention.
+- Being defined at unseen positions is not the same as generalizing to them; test on longer sequences to find out.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Sinusoidal encodings: norm, rotation and offset checks
 
 ```python
 import torch
@@ -98,21 +142,7 @@ print(torch.allclose(pe[k:] , pe[:-k] @ R.T))                          # True fo
 print(torch.allclose(pe[10] @ pe[10 + k], pe[100] @ pe[100 + k]))       # True
 ```
 
-## Learned absolute embeddings
-
-The simplest alternative is to learn the position vectors: a second embedding table $`P \in \mathbb{R}^{n_{\max} \times d}`$ with one trainable row per position, added to the token embeddings exactly like the sinusoids. Vaswani et al. tried this and found that it produced **nearly identical results** to sinusoidal encodings on their translation task. BERT (Section 12) uses learned position embeddings.
-
-Learned embeddings are flexible, but they have a hard limit: a table with $`n_{\max}`$ rows has no vector for position $`n_{\max}`$ or beyond, so the model cannot process longer inputs at all. Rows for rarely seen positions (near $`n_{\max}`$, if most training sequences are short) are also poorly trained.
-
-## Relative positions
-
-Absolute encodings tell each token *where it is*. For many relationships, what matters is *how far apart* two tokens are: an adjective usually modifies a nearby noun wherever the phrase sits in the sentence. Several methods put relative position directly into attention:
-
-- **Relative position representations** (Shaw et al. 2018) add learned vectors, indexed by the clipped offset $`s - t`$ between query and key positions, to the keys (and optionally the values) inside each attention layer. Shaw et al. reported improved translation quality over absolute sinusoidal encodings on the benchmarks they studied.
-- **Rotary position embeddings (RoPE)** (Su et al. 2024) rotate each pair of query and key dimensions by an angle proportional to the token's position, using the same frequencies as the sinusoids. Because rotating both vectors and taking their dot product leaves only the *difference* of the angles, the score $`\mathbf{q}_t^\top \mathbf{k}_s`$ depends on positions only through $`t - s`$. No vector is added to the embeddings.
-- **Attention with linear biases (ALiBi)** (Press et al. 2022) adds no position vectors either. Instead, it subtracts from each attention score a penalty proportional to the distance between query and key, with a different slope per head, so nearby tokens are favored by default.
-
-RoPE's relative property takes only a few lines to verify:
+### RoPE: the score depends only on the offset
 
 ```python
 import torch
@@ -134,28 +164,6 @@ s1 = rope(q, 12.0) @ rope(k, 5.0)       # positions 12 and 5 (offset 7)
 s2 = rope(q, 107.0) @ rope(k, 100.0)    # positions 107 and 100 (offset 7)
 print(torch.allclose(s1, s2))           # True: the score depends only on the offset
 ```
-
-## Longer sequences than in training
-
-A model trained on sentences of up to, say, 50 tokens may be given a 100-token sentence at test time. How well it copes depends on the position scheme:
-
-| Scheme | Positions beyond training length | Notes |
-|---|---|---|
-| Learned absolute | Not representable | Table has no rows for them |
-| Sinusoidal | Defined, but never seen in training | The model may not generalize to unfamiliar encodings |
-| Relative (Shaw et al.) | Offsets beyond the clipping distance share one vector | Designed to generalize across lengths |
-| RoPE | Defined; only offsets matter | Unseen large offsets can still behave poorly |
-| ALiBi | Defined; penalty keeps growing with distance | Press et al. designed it for training on short sequences and testing on longer ones |
-
-A formula that *can* be evaluated at a new position does not guarantee that the model has learned to *use* it. Press et al. (2022) measured this directly and found that sinusoidal encodings extrapolated poorly beyond the training length in their language-modeling experiments, which motivated ALiBi. Testing on sequences longer than those in training, as the third code lab does, is the only way to know.
-
-## Key takeaways
-
-- Self-attention ignores order, so the Transformer adds a positional encoding to each token embedding before the first block.
-- Sinusoidal encodings use sines and cosines at geometrically spaced frequencies; every encoding has the same norm, an offset corresponds to a fixed rotation, and the dot product between two encodings depends only on their distance.
-- Learned absolute embeddings performed about the same as sinusoids in the original paper but cannot represent positions beyond their table.
-- Relative schemes (Shaw et al. relative representations, RoPE, ALiBi) put the distance between tokens directly into attention.
-- Being defined at unseen positions is not the same as generalizing to them; test on longer sequences to find out.
 
 ## Further reading
 

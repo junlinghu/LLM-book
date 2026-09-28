@@ -90,7 +90,40 @@ The difference matters for training. In post-norm, the gradient flowing back to 
 
 ## Implementation
 
-The block takes about twenty lines. The version below supports both arrangements and is checked against PyTorch's `nn.TransformerEncoderLayer` by copying weights:
+In code, the block takes about twenty lines. The version in the appendix supports both the post-norm and the pre-norm arrangement; with its weights copied into PyTorch's `nn.TransformerEncoderLayer`, the two produce the same outputs. Like PyTorch's layer, it also applies dropout to the FFN's hidden activations, a detail not described in the paper. For $`d = 512`$ and $`d_{\text{ff}} = 2048`$, one block has 3,152,384 parameters: $`12d^2 = 3{,}145{,}728`$ weights plus $`6{,}656`$ biases and LayerNorm parameters.
+
+## The encoder stack
+
+The encoder is $`N`$ identical blocks applied in sequence, each with its own parameters ($`N = 6`$ in the original model):
+
+```math
+H^{(0)} = \mathrm{Dropout}\big(\sqrt{d}\, E_{\mathbf{x}} + \mathrm{PE}\big), \qquad H^{(\ell)} = \mathrm{EncoderBlock}_\ell\big(H^{(\ell-1)}\big), \quad \ell = 1, \dots, N.
+```
+
+The final output $`H^{(N)} \in \mathbb{R}^{m \times d}`$ has one contextual vector per source token. It is often called the **memory**, because the decoder consults it at every layer and every decoding step through cross-attention (Section 8). The encoder runs **once** per source sentence, in parallel over all its positions; the memory is then reused for however many decoding steps the output needs.
+
+```mermaid
+flowchart BT
+    S["source tokens x₁ … x_m"] --> EMB["embedding × √d + positional encoding, dropout"]
+    EMB --> B1["Encoder block 1"] --> B2["Encoder block 2"] --> BD["⋮"] --> BN["Encoder block N"]
+    BN --> MEM["memory: m × d contextual vectors"]
+```
+
+*Figure 6.7.3. The encoder stack.*
+
+## Key takeaways
+
+- An encoder block has two sublayers: multi-head self-attention (with the source padding mask) and a position-wise FFN with hidden width $`d_{\text{ff}} = 4d`$.
+- Attention moves information between positions; the FFN transforms each position independently and holds two thirds of the block's weights.
+- Each sublayer is wrapped in dropout, a residual connection, and LayerNorm; the original model normalizes after the addition (post-norm).
+- Pre-norm normalizes each sublayer's input instead, keeping a clean identity path; it trains more stably and is common in deep Transformers.
+- The encoder stacks $`N`$ blocks and produces the memory, one contextual vector per source token, computed once and reused by the decoder.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Encoder block, checked against nn.TransformerEncoderLayer
 
 ```python
 import torch
@@ -134,34 +167,7 @@ print(torch.allclose(block(x, pad)[:, :4], ref(x, src_key_padding_mask=pad)[:, :
 print(sum(p.numel() for p in block.parameters()))   # 3152384 = 12 d^2 + biases and LayerNorm
 ```
 
-PyTorch's layer (and the code above) also applies dropout to the FFN's hidden activations, a detail not described in the paper. The parameter count is $`12d^2 = 3{,}145{,}728`$ weights plus $`6{,}656`$ biases and LayerNorm parameters. The comparison is restricted to non-padding positions because PyTorch may skip computing outputs at padding positions in evaluation mode; those outputs are never used.
-
-## The encoder stack
-
-The encoder is $`N`$ identical blocks applied in sequence, each with its own parameters ($`N = 6`$ in the original model):
-
-```math
-H^{(0)} = \mathrm{Dropout}\big(\sqrt{d}\, E_{\mathbf{x}} + \mathrm{PE}\big), \qquad H^{(\ell)} = \mathrm{EncoderBlock}_\ell\big(H^{(\ell-1)}\big), \quad \ell = 1, \dots, N.
-```
-
-The final output $`H^{(N)} \in \mathbb{R}^{m \times d}`$ has one contextual vector per source token. It is often called the **memory**, because the decoder consults it at every layer and every decoding step through cross-attention (Section 8). The encoder runs **once** per source sentence, in parallel over all its positions; the memory is then reused for however many decoding steps the output needs.
-
-```mermaid
-flowchart BT
-    S["source tokens x₁ … x_m"] --> EMB["embedding × √d + positional encoding, dropout"]
-    EMB --> B1["Encoder block 1"] --> B2["Encoder block 2"] --> BD["⋮"] --> BN["Encoder block N"]
-    BN --> MEM["memory: m × d contextual vectors"]
-```
-
-*Figure 6.7.3. The encoder stack.*
-
-## Key takeaways
-
-- An encoder block has two sublayers: multi-head self-attention (with the source padding mask) and a position-wise FFN with hidden width $`d_{\text{ff}} = 4d`$.
-- Attention moves information between positions; the FFN transforms each position independently and holds two thirds of the block's weights.
-- Each sublayer is wrapped in dropout, a residual connection, and LayerNorm; the original model normalizes after the addition (post-norm).
-- Pre-norm normalizes each sublayer's input instead, keeping a clean identity path; it trains more stably and is common in deep Transformers.
-- The encoder stacks $`N`$ blocks and produces the memory, one contextual vector per source token, computed once and reused by the decoder.
+The comparison is restricted to non-padding positions because PyTorch may skip computing outputs at padding positions in evaluation mode; those outputs are never used.
 
 ## Further reading
 

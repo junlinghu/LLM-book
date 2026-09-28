@@ -106,7 +106,40 @@ For English-French, the big model used dropout 0.1 instead of 0.3. Both configur
 
 ## Implementation
 
-The decoder block follows the same pattern as the encoder block. Below, it is checked against PyTorch's `nn.TransformerDecoderLayer`, and then combined with the encoder block from Section 7 into a complete model:
+The decoder block follows the same pattern as the encoder block. The appendix implements it, checks it against PyTorch's `nn.TransformerDecoderLayer` by copying weights, and combines it with the encoder block of Section 7 into a complete model. That from-scratch model, with the base configuration and a 37,000-token vocabulary has about 63.1 million parameters, close to the 65 million the paper reports; Section 11 discusses the difference. For a notation-level description of the same encoder-decoder forward pass, see the pseudocode in Phuong and Hutter (2022). PyTorch's attention modules use the "True means masked" convention for `attn_mask` and `key_padding_mask` (Section 4), so a causal mask for them marks the positions *above* the diagonal, as `torch.triu(..., diagonal=1)` produces.
+
+## PyTorch's built-in modules
+
+PyTorch provides the same architecture as `nn.Transformer`, built from `nn.TransformerEncoderLayer` and `nn.TransformerDecoderLayer`:
+
+| Argument | Meaning in this chapter |
+|---|---|
+| `d_model` | $`d`$ |
+| `nhead` | $`h`$ |
+| `num_encoder_layers`, `num_decoder_layers` | $`N`$ for each stack |
+| `dim_feedforward` | $`d_{\text{ff}}`$ |
+| `dropout` | $`P_{\text{drop}}`$ |
+| `activation` | the FFN nonlinearity (default ReLU) |
+| `norm_first` | `False` for post-norm (default), `True` for pre-norm |
+| `batch_first` | `True` for `(B, n, d)` tensors |
+| `tgt_mask` | causal mask for decoder self-attention |
+| `src_key_padding_mask`, `tgt_key_padding_mask`, `memory_key_padding_mask` | the three padding masks of Section 4 |
+
+`nn.Transformer` contains only the two stacks. The embeddings, positional encodings, and output projection must be added separately, as in the toy model of `figures/make_figures.py`. Its encoder and decoder each end with an extra final LayerNorm, which the paper's post-norm description does not include; for post-norm stacks it is redundant but harmless.
+
+## Key takeaways
+
+- A decoder block has three sublayers: masked self-attention over the target prefix, cross-attention from the target to the encoder memory, and a position-wise FFN, each with dropout, a residual connection, and LayerNorm.
+- Every decoder block cross-attends to the same final encoder output.
+- The encoder runs once per source; the decoder runs once per sentence pair in training (all positions in parallel) and once per output token in generation.
+- The base model uses $`N = 6`$, $`d = 512`$, $`d_{\text{ff}} = 2048`$, $`h = 8`$; the big model doubles $`d`$, $`d_{\text{ff}}`$, and $`h`$.
+- The complete model is a few dozen lines of PyTorch; `nn.Transformer` provides the two stacks, with embeddings, positions, and the output layer added separately.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Decoder block and the complete model
 
 ```python
 import math
@@ -198,35 +231,6 @@ tgt_in = torch.randint(3, 37000, (2, 9))
 print(model(src, tgt_in).shape)                                    # (2, 9, 37000)
 print(f"{sum(p.numel() for p in model.parameters()) / 1e6:.1f}M parameters")
 ```
-
-This from-scratch model with the base configuration and a 37,000-token vocabulary has about 63.1 million parameters, close to the 65 million the paper reports; Section 11 discusses the difference. For a notation-level description of the same encoder-decoder forward pass, see the pseudocode in Phuong and Hutter (2022). PyTorch's attention modules use the "True means masked" convention for `attn_mask` and `key_padding_mask` (Section 4), which is why the causal mask here is built with `triu(..., diagonal=1)`.
-
-## PyTorch's built-in modules
-
-PyTorch provides the same architecture as `nn.Transformer`, built from `nn.TransformerEncoderLayer` and `nn.TransformerDecoderLayer`:
-
-| Argument | Meaning in this chapter |
-|---|---|
-| `d_model` | $`d`$ |
-| `nhead` | $`h`$ |
-| `num_encoder_layers`, `num_decoder_layers` | $`N`$ for each stack |
-| `dim_feedforward` | $`d_{\text{ff}}`$ |
-| `dropout` | $`P_{\text{drop}}`$ |
-| `activation` | the FFN nonlinearity (default ReLU) |
-| `norm_first` | `False` for post-norm (default), `True` for pre-norm |
-| `batch_first` | `True` for `(B, n, d)` tensors |
-| `tgt_mask` | causal mask for decoder self-attention |
-| `src_key_padding_mask`, `tgt_key_padding_mask`, `memory_key_padding_mask` | the three padding masks of Section 4 |
-
-`nn.Transformer` contains only the two stacks. The embeddings, positional encodings, and output projection must be added separately, as in the toy model of `figures/make_figures.py`. Its encoder and decoder each end with an extra final LayerNorm, which the paper's post-norm description does not include; for post-norm stacks it is redundant but harmless.
-
-## Key takeaways
-
-- A decoder block has three sublayers: masked self-attention over the target prefix, cross-attention from the target to the encoder memory, and a position-wise FFN, each with dropout, a residual connection, and LayerNorm.
-- Every decoder block cross-attends to the same final encoder output.
-- The encoder runs once per source; the decoder runs once per sentence pair in training (all positions in parallel) and once per output token in generation.
-- The base model uses $`N = 6`$, $`d = 512`$, $`d_{\text{ff}} = 2048`$, $`h = 8`$; the big model doubles $`d`$, $`d_{\text{ff}}`$, and $`h`$.
-- The complete model is a few dozen lines of PyTorch; `nn.Transformer` provides the two stacks, with embeddings, positions, and the output layer added separately.
 
 ## Further reading
 

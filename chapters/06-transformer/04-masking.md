@@ -85,9 +85,30 @@ If every key in a row is masked, the row's scores are all $`-\infty`$, and the s
 
 Common defenses are to use a large finite negative number instead of $`-\infty`$ (the row then becomes a uniform distribution, which is harmless for a position whose output is ignored), to make sure no sequence is empty, or to rely on library implementations that handle fully masked rows. Whatever the choice, a NaN appearing in the first forward pass is a strong hint to check the masks.
 
-## Implementation and leak tests
+## Testing masks for leaks
 
-The following code builds both kinds of masks as boolean "allowed" tensors, applies them, and then *tests* that no information leaks, which is the only reliable way to know a mask is right:
+A wrong mask fails silently: the model still trains, and a decoder that can see the future may even look unusually good. The only reliable way to know a mask is right is to *test* that no information leaks: change an input that a position should not be able to see, and check that the outputs it must not affect stay exactly the same. Two tests cover the Transformer's masks:
+
+- **Causal mask.** Change the target tokens after position $`t`$. The decoder self-attention outputs at positions up to $`t`$ must not change.
+- **Padding mask.** Keep the mask computed from the original source and overwrite only the tokens at padding positions, simulating "whatever is at a padding position must not matter." No cross-attention output may change.
+
+With masks built as boolean "allowed" tensors and applied before the softmax, both tests pass; running them with the masks removed makes them fail, which confirms the tests are sensitive (code in the appendix). The code labs extend these tests to full encoder and decoder blocks, where leaks can also enter through layers other than attention.
+
+In PyTorch's `nn.Transformer` and `nn.MultiheadAttention`, the conventions are the reverse of the "True means allowed" convention used in this section's code: a boolean `attn_mask` or `key_padding_mask` marks positions that are **not** allowed (True means "mask out"), and `nn.Transformer.generate_square_subsequent_mask(n)` returns a float causal mask with $`-\infty`$ above the diagonal. Getting a convention backward is one of the most common Transformer bugs, and the leak tests above catch it.
+
+## Key takeaways
+
+- A mask adds $`-\infty`$ to forbidden attention scores before the softmax, so forbidden keys get exactly zero weight and the rest are renormalized.
+- Padding masks hide padding keys in all three attention layers; in cross-attention the mask comes from the **source** padding.
+- The causal mask makes decoder position $`t`$ depend only on target inputs up to $`t`$, which allows all target positions to be trained in parallel without seeing the answer.
+- The encoder and cross-attention need no causal mask, because the whole source is known in advance.
+- Rows with every key masked produce NaN; and mask conventions differ between libraries, so test for leaks directly.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Building masks and testing them for leaks
 
 ```python
 import math
@@ -136,18 +157,6 @@ Xs2 = emb(src2)
 cross2 = attention(Yd, Xs2, Xs2, key_padding_mask(src))             # same mask as before
 print(torch.allclose(cross, cross2))                                # True
 ```
-
-The second test keeps the mask computed from the original source and changes only the embeddings at padding positions, simulating "whatever is at a padding position must not matter." Running both tests with the masks removed makes them fail, which confirms the tests are sensitive. The code labs extend these tests to full encoder and decoder blocks, where leaks can also enter through layers other than attention.
-
-In PyTorch's `nn.Transformer` and `nn.MultiheadAttention`, the conventions are the reverse of the code above: a boolean `attn_mask` or `key_padding_mask` marks positions that are **not** allowed (True means "mask out"), and `nn.Transformer.generate_square_subsequent_mask(n)` returns a float causal mask with $`-\infty`$ above the diagonal. Getting a convention backward is one of the most common Transformer bugs, and the leak tests above catch it.
-
-## Key takeaways
-
-- A mask adds $`-\infty`$ to forbidden attention scores before the softmax, so forbidden keys get exactly zero weight and the rest are renormalized.
-- Padding masks hide padding keys in all three attention layers; in cross-attention the mask comes from the **source** padding.
-- The causal mask makes decoder position $`t`$ depend only on target inputs up to $`t`$, which allows all target positions to be trained in parallel without seeing the answer.
-- The encoder and cross-attention need no causal mask, because the whole source is known in advance.
-- Rows with every key masked produce NaN; and mask conventions differ between libraries, so test for leaks directly.
 
 ## Further reading
 

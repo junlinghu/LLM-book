@@ -134,7 +134,23 @@ The same function computes both. Only the inputs differ.
 
 ## Implementation
 
-Attention takes a few lines of PyTorch. The version below supports batches, an optional additive mask, and arbitrary numbers of queries and keys, so it handles self- and cross-attention alike (Phuong and Hutter 2022 give precise pseudocode for this and the other algorithms of this chapter):
+Attention takes only a few lines of code: two matrix multiplications, a scaling, an optional mask and a softmax. Written to accept batches and arbitrary numbers of queries and keys, one function serves for self- and cross-attention alike (Phuong and Hutter 2022 give precise pseudocode for this and the other algorithms of this chapter). The appendix implements it from scratch and confirms three properties: every row of attention weights sums to 1; the output matches PyTorch's built-in `F.scaled_dot_product_attention`; and permuting the inputs of self-attention permutes its outputs in exactly the same way, the permutation equivariance described above.
+
+In a real layer, the query, key and value inputs would first be multiplied by the learned $`W_Q, W_K, W_V`$; Section 5 adds those projections along with multiple heads. `F.scaled_dot_product_attention` computes the same result with fused, memory-efficient kernels, and is what production code should call; a from-scratch version is for understanding and testing.
+
+## Key takeaways
+
+- Attention projects inputs into queries, keys, and values; each query scores every key, a softmax turns scores into weights, and the output is a weighted average of values.
+- Dot products of random $`d_k`$-dimensional vectors have variance $`d_k`$; dividing by $`\sqrt{d_k}`$ keeps the softmax out of saturation, where its gradients vanish.
+- The attention matrix is $`n_q \times n_k`$ and the output has one row per query; the Transformer uses $`m \times m`$, $`n \times n`$, and $`n \times m`$ attention matrices.
+- Each output is a convex combination of values, and self-attention is permutation-equivariant, so it needs positional information.
+- Self-attention takes queries, keys, and values from one sequence; cross-attention takes queries from the decoder and keys and values from the encoder output.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Attention from scratch, with three checks
 
 ```python
 import math
@@ -170,16 +186,6 @@ perm = torch.randperm(m)
 out_perm, _ = attention(src[:, perm], src[:, perm], src[:, perm])
 print(torch.allclose(out_perm, self_out[:, perm], atol=1e-6))   # True
 ```
-
-In a real layer, `src` and `tgt` would first be multiplied by the learned $`W_Q, W_K, W_V`$; Section 5 adds those projections along with multiple heads. `F.scaled_dot_product_attention` computes the same result with fused, memory-efficient kernels, and is what production code should call; the from-scratch version is for understanding and testing.
-
-## Key takeaways
-
-- Attention projects inputs into queries, keys, and values; each query scores every key, a softmax turns scores into weights, and the output is a weighted average of values.
-- Dot products of random $`d_k`$-dimensional vectors have variance $`d_k`$; dividing by $`\sqrt{d_k}`$ keeps the softmax out of saturation, where its gradients vanish.
-- The attention matrix is $`n_q \times n_k`$ and the output has one row per query; the Transformer uses $`m \times m`$, $`n \times n`$, and $`n \times m`$ attention matrices.
-- Each output is a convex combination of values, and self-attention is permutation-equivariant, so it needs positional information.
-- Self-attention takes queries, keys, and values from one sequence; cross-attention takes queries from the decoder and keys and values from the encoder output.
 
 ## Further reading
 

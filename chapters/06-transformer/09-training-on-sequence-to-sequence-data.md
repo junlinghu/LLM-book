@@ -69,7 +69,60 @@ The correct token gets probability $`1 - \epsilon_{\text{ls}} + \epsilon_{\text{
 
 The original Transformer used $`\epsilon_{\text{ls}} = 0.1`$. Vaswani et al. (2017) reported that this **hurt perplexity**, because the model learns to be more unsure, **but improved accuracy and BLEU**. The perplexity result is expected: perplexity measures how much probability the model assigns to the reference tokens, and label smoothing deliberately holds some probability back. Müller et al. (2019) studied why label smoothing helps and found that it improves calibration (predicted probabilities better match actual accuracy) and makes representations of different classes more tightly clustered. They also found that a teacher network trained with label smoothing is worse for knowledge distillation.
 
-PyTorch's cross-entropy has label smoothing built in. The check below confirms that it matches the formula above:
+PyTorch's cross-entropy has label smoothing built in, through the `label_smoothing` argument of `nn.CrossEntropyLoss`, and it matches the formula above exactly (check in the appendix).
+
+## The optimization recipe
+
+The original Transformer was trained with Adam (Chapter 3) using $`\beta_1 = 0.9`$, $`\beta_2 = 0.98`$, and $`\epsilon = 10^{-9}`$, and a learning rate that changes every step (Vaswani et al. 2017):
+
+```math
+\eta_t = d^{-0.5} \cdot \min\!\left(t^{-0.5},\; t \cdot T_{\text{warmup}}^{-1.5}\right), \qquad T_{\text{warmup}} = 4000.
+```
+
+For $`t \lt T_{\text{warmup}}`$ the second term is smaller, so the learning rate **increases linearly**; afterward the first term is smaller, so it **decays with the inverse square root** of the step number. The two terms are equal at $`t = T_{\text{warmup}}`$, where the peak is $`(d \cdot T_{\text{warmup}})^{-0.5}`$. For $`d = 512`$ that peak is about $`7.0 \times 10^{-4}`$. The factor $`d^{-0.5}`$ makes wider models use smaller learning rates.
+
+![The original Transformer learning-rate schedule](figures/lr-schedule.png)
+
+*Figure 6.9.3. The warmup-then-inverse-square-root schedule for* $`d = 512`$ *and 4,000 warmup steps.*
+
+Warmup matters especially for the original post-norm Transformer. Section 7 described the analysis of Xiong et al. (2020): at initialization, post-norm Transformers have large gradients near the output, and a full-size learning rate in the first steps can destabilize training. Starting small gives Adam's moment estimates time to settle and keeps the early updates from wrecking the initialization (Chapter 3 discusses warmup in general).
+
+In PyTorch, the schedule can be written as a `LambdaLR` wrapped around Adam, with the optimizer's base learning rate set to 1 so that the lambda gives the actual value. The appendix uses it to train a small encoder-decoder to reverse sequences of digits, with label smoothing and a 200-step warmup; in 400 steps the training loss falls from 3.42 to about 0.57.
+
+A freshly initialized model should have a loss near $`\ln V`$, since it spreads its probability roughly evenly (Chapter 3's debugging checklist); that check is why the appendix code initializes the embedding with standard deviation $`d^{-1/2}`$. The same matrix is multiplied by $`\sqrt{d}`$ on the way in and reused as the output projection; with PyTorch's default initialization (standard deviation 1) the initial logits are large and the initial loss is many times $`\ln V`$, which slows early training. Note that with label smoothing the loss cannot reach zero: its minimum is the entropy of the smoothed target distribution. The code labs train a model like this to completion and add decoding.
+
+## Practical details
+
+Several engineering choices from the original work are still standard for seq2seq Transformers:
+
+- **Batching by length.** Sentence pairs were grouped by approximate length, and each batch held roughly 25,000 source tokens and 25,000 target tokens (Vaswani et al. 2017). Grouping similar lengths wastes less computation on padding, and specifying batches in tokens rather than sentences keeps the work per step roughly constant.
+- **Dropout.** Rate 0.1 on every sublayer output and on the embedding sums in the base model (Section 7). Unlike very large models trained on one pass over huge corpora (Chapter 3), translation models see their training data many times, so regularization matters.
+- **Checkpoint averaging.** For the base models, the final model was the average of the weights of the last 5 checkpoints, saved at 10-minute intervals; the big models averaged the last 20 (Vaswani et al. 2017). Averaging nearby points along the training trajectory smooths out the noise of the final steps, much like the late-training learning-rate decay of Chapter 3.
+- **Training length.** The base models trained for 100,000 steps (about 12 hours on 8 GPUs in the original setup) and the big models for 300,000 steps (3.5 days).
+
+## Monitoring training
+
+The training loss, computed with teacher forcing, measures how well the model predicts each reference token given a *correct* prefix. That is not the same as how good its generated outputs are, which depends on the decoding procedure and on exposure bias. So seq2seq training is usually monitored at two levels:
+
+1. **Loss (or perplexity) on a validation set**, computed with teacher forcing. It is cheap and smooth, and it is the right signal for spotting divergence or overfitting (with the caveat, above, that label smoothing raises it).
+2. **Quality of decoded outputs** on a validation set, using greedy or beam search (Section 10) and a task metric: exact match for toy tasks, BLEU for translation. This is slower but measures what actually matters.
+
+The two usually move together early in training and can diverge later; when choosing checkpoints or hyperparameters, prefer the decoded-output metric.
+
+## Key takeaways
+
+- Training minimizes the cross-entropy of every reference target token, including `<eos>`, ignoring padding positions.
+- Teacher forcing feeds the reference prefix (shifted right) to the decoder; with the causal mask, all target positions are trained in one parallel pass.
+- Exposure bias is the gap between training on correct prefixes and generating from the model's own outputs; search and label smoothing mitigate it.
+- Label smoothing with $`\epsilon_{\text{ls}} = 0.1`$ mixes the one-hot target with a uniform distribution; in the original work it hurt perplexity but improved accuracy and BLEU.
+- The original recipe: Adam with $`\beta_2 = 0.98`$, $`\epsilon = 10^{-9}`$, and a schedule with 4,000 linear warmup steps followed by inverse-square-root decay; batches of about 25,000 tokens per side; dropout 0.1; checkpoint averaging.
+- Monitor both teacher-forced validation loss and the quality of decoded outputs.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Label smoothing in nn.CrossEntropyLoss matches the formula
 
 ```python
 import torch
@@ -88,23 +141,7 @@ builtin = nn.CrossEntropyLoss(label_smoothing=eps)(logits, labels)
 print(torch.allclose(manual, builtin))                       # True
 ```
 
-## The optimization recipe
-
-The original Transformer was trained with Adam (Chapter 3) using $`\beta_1 = 0.9`$, $`\beta_2 = 0.98`$, and $`\epsilon = 10^{-9}`$, and a learning rate that changes every step (Vaswani et al. 2017):
-
-```math
-\eta_t = d^{-0.5} \cdot \min\!\left(t^{-0.5},\; t \cdot T_{\text{warmup}}^{-1.5}\right), \qquad T_{\text{warmup}} = 4000.
-```
-
-For $`t \lt T_{\text{warmup}}`$ the second term is smaller, so the learning rate **increases linearly**; afterward the first term is smaller, so it **decays with the inverse square root** of the step number. The two terms are equal at $`t = T_{\text{warmup}}`$, where the peak is $`(d \cdot T_{\text{warmup}})^{-0.5}`$. For $`d = 512`$ that peak is about $`7.0 \times 10^{-4}`$. The factor $`d^{-0.5}`$ makes wider models use smaller learning rates.
-
-![The original Transformer learning-rate schedule](figures/lr-schedule.png)
-
-*Figure 6.9.3. The warmup-then-inverse-square-root schedule for* $`d = 512`$ *and 4,000 warmup steps.*
-
-Warmup matters especially for the original post-norm Transformer. Section 7 described the analysis of Xiong et al. (2020): at initialization, post-norm Transformers have large gradients near the output, and a full-size learning rate in the first steps can destabilize training. Starting small gives Adam's moment estimates time to settle and keeps the early updates from wrecking the initialization (Chapter 3 discusses warmup in general).
-
-In PyTorch, the schedule is a `LambdaLR` wrapped around Adam, with the optimizer's base learning rate set to 1 so that the lambda gives the actual value:
+### A small training run with the warmup schedule
 
 ```python
 import math
@@ -159,35 +196,6 @@ for step in range(400):
     if step % 100 == 99:
         print(f"step {step + 1}: loss {loss.item():.3f}, lr {sched.get_last_lr()[0]:.2e}")
 ```
-
-A freshly initialized model should have a loss near $`\ln V`$, since it spreads its probability roughly evenly (Chapter 3's debugging checklist); that check is why the code initializes the embedding with standard deviation $`d^{-1/2}`$. The same matrix is multiplied by $`\sqrt{d}`$ on the way in and reused as the output projection; with PyTorch's default initialization (standard deviation 1) the initial logits are large and the initial loss is many times $`\ln V`$, which slows early training. Note that with label smoothing the loss cannot reach zero: its minimum is the entropy of the smoothed target distribution. The code labs train a model like this to completion and add decoding.
-
-## Practical details
-
-Several engineering choices from the original work are still standard for seq2seq Transformers:
-
-- **Batching by length.** Sentence pairs were grouped by approximate length, and each batch held roughly 25,000 source tokens and 25,000 target tokens (Vaswani et al. 2017). Grouping similar lengths wastes less computation on padding, and specifying batches in tokens rather than sentences keeps the work per step roughly constant.
-- **Dropout.** Rate 0.1 on every sublayer output and on the embedding sums in the base model (Section 7). Unlike very large models trained on one pass over huge corpora (Chapter 3), translation models see their training data many times, so regularization matters.
-- **Checkpoint averaging.** For the base models, the final model was the average of the weights of the last 5 checkpoints, saved at 10-minute intervals; the big models averaged the last 20 (Vaswani et al. 2017). Averaging nearby points along the training trajectory smooths out the noise of the final steps, much like the late-training learning-rate decay of Chapter 3.
-- **Training length.** The base models trained for 100,000 steps (about 12 hours on 8 GPUs in the original setup) and the big models for 300,000 steps (3.5 days).
-
-## Monitoring training
-
-The training loss, computed with teacher forcing, measures how well the model predicts each reference token given a *correct* prefix. That is not the same as how good its generated outputs are, which depends on the decoding procedure and on exposure bias. So seq2seq training is usually monitored at two levels:
-
-1. **Loss (or perplexity) on a validation set**, computed with teacher forcing. It is cheap and smooth, and it is the right signal for spotting divergence or overfitting (with the caveat, above, that label smoothing raises it).
-2. **Quality of decoded outputs** on a validation set, using greedy or beam search (Section 10) and a task metric: exact match for toy tasks, BLEU for translation. This is slower but measures what actually matters.
-
-The two usually move together early in training and can diverge later; when choosing checkpoints or hyperparameters, prefer the decoded-output metric.
-
-## Key takeaways
-
-- Training minimizes the cross-entropy of every reference target token, including `<eos>`, ignoring padding positions.
-- Teacher forcing feeds the reference prefix (shifted right) to the decoder; with the causal mask, all target positions are trained in one parallel pass.
-- Exposure bias is the gap between training on correct prefixes and generating from the model's own outputs; search and label smoothing mitigate it.
-- Label smoothing with $`\epsilon_{\text{ls}} = 0.1`$ mixes the one-hot target with a uniform distribution; in the original work it hurt perplexity but improved accuracy and BLEU.
-- The original recipe: Adam with $`\beta_2 = 0.98`$, $`\epsilon = 10^{-9}`$, and a schedule with 4,000 linear warmup steps followed by inverse-square-root decay; batches of about 25,000 tokens per side; dropout 0.1; checkpoint averaging.
-- Monitor both teacher-forced validation loss and the quality of decoded outputs.
 
 ## Further reading
 

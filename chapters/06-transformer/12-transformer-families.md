@@ -65,7 +65,47 @@ flowchart TB
 
 *Figure 6.12.1. Three uses of the Transformer's building blocks. All three reuse the encoder block of Section 7 unchanged; only the encoder-decoder keeps the decoder of Section 8.*
 
-The code below implements BERT's corruption rule and a small encoder-only classifier that predicts from the `[CLS]` position:
+The appendix implements BERT's corruption rule, confirming the 15% and 80/10/10 proportions on random data, and a small encoder-only classifier that predicts from the `[CLS]` position. Such a classifier differs from the encoder of Section 7 only in the learned position embedding and the use of position 0 as a summary of the whole input: because every position attends to every other, the `[CLS]` vector can gather information from the entire sequence during fine-tuning.
+
+## Beyond text: the Vision Transformer
+
+Nothing in the encoder block refers to language. Self-attention operates on a set of vectors, with order supplied by position embeddings (Section 6). The **Vision Transformer** (ViT; Dosovitskiy et al. 2021) applies a standard Transformer encoder to images by treating an image as a sequence of patches:
+
+1. Cut the image into non-overlapping $`16 \times 16`$-pixel patches. A $`224 \times 224`$ color image gives $`14 \times 14 = 196`$ patches.
+2. Flatten each patch (here $`16 \cdot 16 \cdot 3 = 768`$ numbers) and map it to $`d`$ dimensions with one learned linear layer. These are the image's "tokens."
+3. Prepend a learnable class token, like BERT's `[CLS]`, and add learned 1-D position embeddings.
+4. Run a Transformer encoder, and classify the image from the final class-token vector.
+
+The paper's model variants range from ViT-Base (12 layers, $`d = 768`$, 86 million parameters) to ViT-Huge (32 layers, $`d = 1280`$, 632 million), and the title, "An Image Is Worth 16x16 Words," sums up the idea. The authors found no significant gain from 2-D-aware position embeddings over simple learned 1-D ones: the model learns the image's 2-D layout from data. The patch embedding is equivalent to a convolution with kernel size and stride both equal to the patch size, which is how it is usually implemented (the appendix checks the equivalence numerically).
+
+Encoder-decoder Transformers with a non-text encoder follow the same pattern: an image or audio encoder produces the memory, and a text decoder attends to it through cross-attention, exactly as in Section 8.
+
+## Comparing the families
+
+| | Encoder-decoder | Encoder-only |
+|---|---|---|
+| Stacks | encoder and decoder | encoder |
+| Attention | bidirectional self-attention in the encoder; causal self-attention and cross-attention in the decoder | bidirectional self-attention |
+| Typical pretraining | denoising: reconstruct corrupted spans (T5) or documents (BART) | masked language modeling (BERT); supervised classification (the original ViT) |
+| Output | a generated sequence | a vector per position, or one summary vector |
+| Typical tasks | translation, summarization, text-to-text tasks | classification, tagging, span extraction, image classification |
+| Examples | original Transformer, T5, BART | BERT, ViT |
+
+A third family keeps only the decoder, with causal self-attention and no cross-attention, and trains it to predict the next token of ordinary text. That family is the subject of the next chapter.
+
+## Key takeaways
+
+- The Transformer's blocks were reused with little change; families differ mainly in which stacks they keep, which masks they use and what they are trained to predict.
+- T5 and BART keep the full encoder-decoder and pretrain it with denoising objectives: T5 reconstructs removed spans marked by sentinel tokens and casts every task as text-to-text; BART reconstructs whole documents from corrupted input.
+- BERT keeps only the encoder, pretrains it with masked language modeling (15% of positions; 80% `[MASK]`, 10% random, 10% unchanged), and solves tasks with small heads on the `[CLS]` vector or on each token.
+- ViT shows the encoder is not specific to text: an image becomes a sequence of $`16 \times 16`$ patch embeddings with a class token and learned positions.
+- Encoder-decoder models suit tasks with a distinct input and output sequence; encoder-only models suit tasks that need a representation of the input.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### BERT's masking rule and an encoder-only classifier
 
 ```python
 import torch
@@ -111,18 +151,7 @@ print(EncoderClassifier()(x).shape)             # one prediction per sequence
 
 ```
 
-The printed fractions match the 15% and 80/10/10 rule, and the classifier returns one prediction per sequence. The only differences from the encoder of Section 7 are the learned position embedding and the use of position 0 as a summary of the whole input: because every position attends to every other, the `[CLS]` vector can gather information from the entire sequence during fine-tuning.
-
-## Beyond text: the Vision Transformer
-
-Nothing in the encoder block refers to language. Self-attention operates on a set of vectors, with order supplied by position embeddings (Section 6). The **Vision Transformer** (ViT; Dosovitskiy et al. 2021) applies a standard Transformer encoder to images by treating an image as a sequence of patches:
-
-1. Cut the image into non-overlapping $`16 \times 16`$-pixel patches. A $`224 \times 224`$ color image gives $`14 \times 14 = 196`$ patches.
-2. Flatten each patch (here $`16 \cdot 16 \cdot 3 = 768`$ numbers) and map it to $`d`$ dimensions with one learned linear layer. These are the image's "tokens."
-3. Prepend a learnable class token, like BERT's `[CLS]`, and add learned 1-D position embeddings.
-4. Run a Transformer encoder, and classify the image from the final class-token vector.
-
-The paper's model variants range from ViT-Base (12 layers, $`d = 768`$, 86 million parameters) to ViT-Huge (32 layers, $`d = 1280`$, 632 million), and the title, "An Image Is Worth 16x16 Words," sums up the idea. The authors found no significant gain from 2-D-aware position embeddings over simple learned 1-D ones: the model learns the image's 2-D layout from data. The patch embedding is equivalent to a convolution with kernel size and stride both equal to the patch size, which is how it is usually implemented:
+### ViT's patch embedding is a strided convolution
 
 ```python
 import torch
@@ -137,29 +166,6 @@ patches = patches.permute(0, 2, 3, 1, 4, 5).reshape(1, 196, 3 * 16 * 16)
 linear = patches @ conv.weight.reshape(768, -1).T + conv.bias
 print(linear.shape, torch.allclose(linear, conv(img).flatten(2).transpose(1, 2), atol=1e-4))
 ```
-
-Encoder-decoder Transformers with a non-text encoder follow the same pattern: an image or audio encoder produces the memory, and a text decoder attends to it through cross-attention, exactly as in Section 8.
-
-## Comparing the families
-
-| | Encoder-decoder | Encoder-only |
-|---|---|---|
-| Stacks | encoder and decoder | encoder |
-| Attention | bidirectional self-attention in the encoder; causal self-attention and cross-attention in the decoder | bidirectional self-attention |
-| Typical pretraining | denoising: reconstruct corrupted spans (T5) or documents (BART) | masked language modeling (BERT); supervised classification (the original ViT) |
-| Output | a generated sequence | a vector per position, or one summary vector |
-| Typical tasks | translation, summarization, text-to-text tasks | classification, tagging, span extraction, image classification |
-| Examples | original Transformer, T5, BART | BERT, ViT |
-
-A third family keeps only the decoder, with causal self-attention and no cross-attention, and trains it to predict the next token of ordinary text. That family is the subject of the next chapter.
-
-## Key takeaways
-
-- The Transformer's blocks were reused with little change; families differ mainly in which stacks they keep, which masks they use and what they are trained to predict.
-- T5 and BART keep the full encoder-decoder and pretrain it with denoising objectives: T5 reconstructs removed spans marked by sentinel tokens and casts every task as text-to-text; BART reconstructs whole documents from corrupted input.
-- BERT keeps only the encoder, pretrains it with masked language modeling (15% of positions; 80% `[MASK]`, 10% random, 10% unchanged), and solves tasks with small heads on the `[CLS]` vector or on each token.
-- ViT shows the encoder is not specific to text: an image becomes a sequence of $`16 \times 16`$ patch embeddings with a class token and learned positions.
-- Encoder-decoder models suit tasks with a distinct input and output sequence; encoder-only models suit tasks that need a representation of the input.
 
 ## Further reading
 

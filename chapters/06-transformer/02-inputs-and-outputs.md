@@ -20,19 +20,7 @@ X = \begin{bmatrix} E_{x_1} \\ \vdots \\ E_{x_m} \end{bmatrix} \in \mathbb{R}^{m
 
 The lookup is equivalent to multiplying a one-hot vector by $`E`$, so the embedding is trained by backpropagation like any other weight: only the rows of tokens that appear in a batch receive gradients.
 
-The original Transformer **multiplies the embeddings by** $`\sqrt{d}`$ before adding positional encodings (Section 6). One reading of this choice: embeddings are initialized with small values, and the scaling puts them on a scale comparable to the positional encodings, whose entries lie in $`[-1, 1]`$, so the position signal does not drown out the token signal. The paper states the scaling without further justification, and later implementations differ on whether to include it.
-
-```python
-import math
-import torch
-import torch.nn as nn
-
-V, d = 1000, 512
-emb = nn.Embedding(V, d)
-tokens = torch.tensor([[5, 17, 42, 3]])      # a batch with one sequence of 4 token IDs
-X = emb(tokens) * math.sqrt(d)               # shape (1, 4, 512)
-print(X.shape)
-```
+The original Transformer **multiplies the embeddings by** $`\sqrt{d}`$ before adding positional encodings (Section 6). One reading of this choice: embeddings are initialized with small values, and the scaling puts them on a scale comparable to the positional encodings, whose entries lie in $`[-1, 1]`$, so the position signal does not drown out the token signal. The paper states the scaling without further justification, and later implementations differ on whether to include it. (A minimal embedding lookup with this scaling is in the appendix.)
 
 ## Notation
 
@@ -103,7 +91,37 @@ The model has three matrices of the same shape $`V \times d`$ when the vocabular
 
 Why would the same matrix work for input and output? Each row $`E_i`$ is used in two roles: as the vector representing token $`i`$ when it is read, and as the direction whose dot product with $`\mathbf{z}_t`$ gives the logit for token $`i`$ when it is predicted. Tokens that behave similarly should be close in both roles, so sharing the rows is a reasonable constraint, and it gives rare tokens more gradient signal, since each row is trained from both sides.
 
-The saving is substantial. With $`V \approx 37{,}000`$ and $`d = 512`$, one $`V \times d`$ matrix has about 18.9 million entries. Section 11 shows that this is close to a third of the base model's parameters, so untied matrices would add tens of millions more.
+The saving is substantial. With $`V \approx 37{,}000`$ and $`d = 512`$, one $`V \times d`$ matrix has about 18.9 million entries. Section 11 shows that this is close to a third of the base model's parameters, so untied matrices would add tens of millions more. A module that uses one matrix in all three roles takes only a few lines (see the appendix).
+
+Tying is a design choice, not a requirement. Separate vocabularies for source and target make full tying impossible (the target embedding and output projection can still be tied), and some later models choose not to tie.
+
+## Key takeaways
+
+- A seq2seq example is a pair of token sequences; the original model used a shared byte-pair vocabulary of about 37,000 tokens for English-German.
+- Embeddings are a $`V \times d`$ lookup table; the original model scales them by $`\sqrt{d}`$ before adding positional encodings.
+- Every sublayer maps $`(\cdot) \times d`$ to $`(\cdot) \times d`$, which is what makes residual connections possible throughout.
+- `<bos>`, `<eos>`, and `<pad>` handle the start of decoding, the end of generation, and batching; the decoder input is the target shifted right by one.
+- A linear layer and softmax turn each decoder vector into a distribution over the vocabulary; the original model ties this projection to the two embedding matrices.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Embedding lookup with √d scaling
+
+```python
+import math
+import torch
+import torch.nn as nn
+
+V, d = 1000, 512
+emb = nn.Embedding(V, d)
+tokens = torch.tensor([[5, 17, 42, 3]])      # a batch with one sequence of 4 token IDs
+X = emb(tokens) * math.sqrt(d)               # shape (1, 4, 512)
+print(X.shape)
+```
+
+### One matrix for source embedding, target embedding and output logits
 
 ```python
 class TiedEmbeddings(nn.Module):
@@ -121,16 +139,6 @@ tie = TiedEmbeddings(V, d)
 z = torch.randn(2, 7, d)
 print(tie.embed(torch.tensor([[1, 2, 3]])).shape, tie.logits(z).shape)
 ```
-
-Tying is a design choice, not a requirement. Separate vocabularies for source and target make full tying impossible (the target embedding and output projection can still be tied), and some later models choose not to tie.
-
-## Key takeaways
-
-- A seq2seq example is a pair of token sequences; the original model used a shared byte-pair vocabulary of about 37,000 tokens for English-German.
-- Embeddings are a $`V \times d`$ lookup table; the original model scales them by $`\sqrt{d}`$ before adding positional encodings.
-- Every sublayer maps $`(\cdot) \times d`$ to $`(\cdot) \times d`$, which is what makes residual connections possible throughout.
-- `<bos>`, `<eos>`, and `<pad>` handle the start of decoding, the end of generation, and batching; the decoder input is the target shifted right by one.
-- A linear layer and softmax turn each decoder vector into a distribution over the vocabulary; the original model ties this projection to the two embedding matrices.
 
 ## Further reading
 

@@ -68,6 +68,30 @@ Looping over heads in Python would be slow. Instead, all heads' projections are 
 3. Do the same for $`K`$ and $`V`$, run attention on the 4-D tensors (the head dimension acts as an extra batch dimension), transpose back, and reshape to `(B, n_q, d)`, which *is* the concatenation.
 4. Apply $`W_O`$.
 
+Implemented this way (code in the appendix), the layer has $`4d^2 + 4d`$ parameters, 1,050,624 for $`d = 512`$, whatever the number of heads, and copying its weights into PyTorch's `nn.MultiheadAttention` gives the same outputs. PyTorch stores the three input projections stacked in one `in_proj_weight` of shape $`3d \times d`$, so the copy concatenates $`W_Q`$, $`W_K`$ and $`W_V`$. A mask of shape `(n_q, n_k)` or `(B, 1, n_q, n_k)` broadcasts across heads, so every head obeys the same padding and causal constraints (Section 4).
+
+## What heads learn
+
+Because each head computes its own attention matrix, heads can be inspected individually. Studies of trained translation Transformers found heads with recognizable roles, for example heads that attend mostly to the previous or next token, heads that track particular syntactic relations, and heads that attend to rare words (Voita et al. 2019). In cross-attention, some heads produce weights that resemble word alignments between source and target, much like the attention of recurrent translation models (Section 1). The chapter's last code lab plots cross-attention weights for a model trained on a toy task; Figure 6.8.3 in Section 8 shows an example.
+
+Voita et al. also found that many heads can be removed from a trained model with little loss in translation quality, while a small number of specialized heads matter most. Heads are not all equally useful, and the number of heads is a hyperparameter to tune rather than a quantity to maximize.
+
+A caution about interpretation: attention weights show where a head *reads* from, not what it does with the information or how much its output affects the prediction. The value vectors, the output projection, the residual stream, and later layers all intervene. Jain and Wallace (2019) showed that attention weights often do not line up with other measures of which inputs matter to a prediction. Attention maps are a useful window into a model, not a complete explanation of it.
+
+## Key takeaways
+
+- A single head computes one attention pattern per query; multiple heads compute several patterns in parallel, each in its own learned $`d_k`$-dimensional subspace.
+- Heads' outputs are concatenated and mixed by $`W_O`$; equivalently, each head adds its own projected contribution to the output.
+- With $`d_k = d/h`$, multi-head attention has $`4d^2`$ weights and about the same compute as a single full-width head.
+- Efficient implementations project once, reshape to separate heads, and use batched matrix multiplication instead of a loop.
+- Heads specialize, and some matter far more than others; attention weights show where a head reads from, not a full explanation of the model.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Multi-head attention, checked against nn.MultiheadAttention
+
 ```python
 import math
 import torch
@@ -112,24 +136,6 @@ with torch.no_grad():
 ref_out, _ = ref(x, z, z)
 print(torch.allclose(mha(x, z), ref_out, atol=1e-5))    # True
 ```
-
-PyTorch's `nn.MultiheadAttention` stores the three input projections stacked in one `in_proj_weight` of shape $`3d \times d`$, which is why the check concatenates them. A mask of shape `(n_q, n_k)` or `(B, 1, n_q, n_k)` broadcasts across heads, so every head obeys the same padding and causal constraints (Section 4).
-
-## What heads learn
-
-Because each head computes its own attention matrix, heads can be inspected individually. Studies of trained translation Transformers found heads with recognizable roles, for example heads that attend mostly to the previous or next token, heads that track particular syntactic relations, and heads that attend to rare words (Voita et al. 2019). In cross-attention, some heads produce weights that resemble word alignments between source and target, much like the attention of recurrent translation models (Section 1). The chapter's last code lab plots cross-attention weights for a model trained on a toy task; Figure 6.8.3 in Section 8 shows an example.
-
-Voita et al. also found that many heads can be removed from a trained model with little loss in translation quality, while a small number of specialized heads matter most. Heads are not all equally useful, and the number of heads is a hyperparameter to tune rather than a quantity to maximize.
-
-A caution about interpretation: attention weights show where a head *reads* from, not what it does with the information or how much its output affects the prediction. The value vectors, the output projection, the residual stream, and later layers all intervene. Jain and Wallace (2019) showed that attention weights often do not line up with other measures of which inputs matter to a prediction. Attention maps are a useful window into a model, not a complete explanation of it.
-
-## Key takeaways
-
-- A single head computes one attention pattern per query; multiple heads compute several patterns in parallel, each in its own learned $`d_k`$-dimensional subspace.
-- Heads' outputs are concatenated and mixed by $`W_O`$; equivalently, each head adds its own projected contribution to the output.
-- With $`d_k = d/h`$, multi-head attention has $`4d^2`$ weights and about the same compute as a single full-width head.
-- Efficient implementations project once, reshape to separate heads, and use batched matrix multiplication instead of a loop.
-- Heads specialize, and some matter far more than others; attention weights show where a head reads from, not a full explanation of the model.
 
 ## Further reading
 

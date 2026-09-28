@@ -66,47 +66,9 @@ Adding biases and layer-norm parameters brings the total to 63,082,496. The pape
 
 Note which hyperparameters do *not* appear: the number of heads $`h`$ and the sequence lengths. Adding heads (at fixed $`d`$) changes how the $`4d^2`$ attention weights are sliced, not how many there are. Sequence length affects compute and memory, as below, but not the parameter count, which is why the same model can process inputs of different lengths.
 
-## Checking the formulas in code
+## Checking the formulas
 
-The function below counts parameters from the hyperparameters, including biases and layer norms, and compares the result with PyTorch's `nn.Transformer` (which adds a final layer norm after each stack). The second function counts the multiply-add FLOPs of a forward pass (derived in the next section) and compares them with PyTorch's FLOP counter:
-
-```python
-import torch
-import torch.nn as nn
-from torch.utils.flop_counter import FlopCounterMode
-from torch.nn.attention import sdpa_kernel, SDPBackend
-
-def transformer_params(d=512, d_ff=2048, N=6, V=37000, final_norms=True):
-    attn = 4 * d * d + 4 * d                     # W_Q, W_K, W_V, W_O and their biases
-    ffn = 2 * d * d_ff + d_ff + d                # two linear layers with biases
-    ln = 2 * d                                   # gain and bias
-    enc_layer = attn + ffn + 2 * ln
-    dec_layer = 2 * attn + ffn + 3 * ln
-    final = 2 * ln if final_norms else 0         # PyTorch adds a LayerNorm after each stack
-    return N * (enc_layer + dec_layer) + final, V * d
-
-body, emb = transformer_params()
-tf = nn.Transformer(512, 8, 6, 6, 2048, dropout=0.0, batch_first=True)
-print(body, sum(p.numel() for p in tf.parameters()))            # formula vs PyTorch
-print(f"with shared embedding: {(body + emb) / 1e6:.2f}M")
-
-def forward_flops(n, m, d=512, d_ff=2048, N=6):
-    """Matrix-multiply FLOPs of one forward pass (source length n, target length m)."""
-    enc = N * (n * 2 * (4 * d * d + 2 * d * d_ff) + 4 * n * n * d)
-    dec = N * (m * 2 * (4 * d * d + 2 * d * d + 2 * d * d_ff)   # self Q,K,V,O; cross Q,O; FFN
-               + n * 2 * (2 * d * d)                             # cross K,V on the memory
-               + 4 * m * m * d + 4 * m * n * d)                  # self and cross attention
-    return enc + dec
-
-n, m = 48, 40
-src, tgt = torch.randn(1, n, 512), torch.randn(1, m, 512)
-tf.train()                            # eval mode would use a fused fast path the counter cannot see
-with torch.no_grad(), sdpa_kernel(SDPBackend.MATH), FlopCounterMode(display=False) as counter:
-    tf(src, tgt, tgt_mask=nn.Transformer.generate_square_subsequent_mask(m))
-print(forward_flops(n, m), counter.get_total_flops())         # formula vs measured
-```
-
-Both pairs agree exactly. (Two settings make every multiplication visible to the counter: `sdpa_kernel(SDPBackend.MATH)` computes attention with ordinary batched matrix multiplications instead of a fused kernel, and training mode (with dropout 0, so the output is unchanged) keeps PyTorch from using its fused inference path for encoder layers.)
+These formulas can be checked against a real implementation (code in the appendix). Counting from the hyperparameters, including biases and layer norms, gives exactly the number of parameters in PyTorch's `nn.Transformer` with the base configuration: 44,140,544, which includes the final layer norm PyTorch adds after each stack. With the shared embedding the total is 63.08 million. Likewise, the forward-pass FLOP formula derived in the next section agrees exactly with PyTorch's FLOP counter: 3,947,102,208 FLOPs for a 48-token source and a 40-token target.
 
 ## Compute of a forward pass
 
@@ -168,6 +130,50 @@ At inference, the encoder runs once and its memory is kept for all decoding step
 - A forward pass costs about 2 FLOPs per parameter per token, plus attention terms proportional to $`n^2 d`$, $`m^2 d`$ and $`mnd`$; a training step costs about three times as much.
 - Attention's quadratic cost exceeds the weight cost in an encoder layer only for $`n \gt 6d`$, about 3,000 tokens for the base model, so at sentence lengths the weights dominate.
 - The attention-weight tensor's memory grows quadratically with length; fused kernels such as FlashAttention avoid storing it.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Parameter and FLOP counters, checked against PyTorch
+
+```python
+import torch
+import torch.nn as nn
+from torch.utils.flop_counter import FlopCounterMode
+from torch.nn.attention import sdpa_kernel, SDPBackend
+
+def transformer_params(d=512, d_ff=2048, N=6, V=37000, final_norms=True):
+    attn = 4 * d * d + 4 * d                     # W_Q, W_K, W_V, W_O and their biases
+    ffn = 2 * d * d_ff + d_ff + d                # two linear layers with biases
+    ln = 2 * d                                   # gain and bias
+    enc_layer = attn + ffn + 2 * ln
+    dec_layer = 2 * attn + ffn + 3 * ln
+    final = 2 * ln if final_norms else 0         # PyTorch adds a LayerNorm after each stack
+    return N * (enc_layer + dec_layer) + final, V * d
+
+body, emb = transformer_params()
+tf = nn.Transformer(512, 8, 6, 6, 2048, dropout=0.0, batch_first=True)
+print(body, sum(p.numel() for p in tf.parameters()))            # formula vs PyTorch
+print(f"with shared embedding: {(body + emb) / 1e6:.2f}M")
+
+def forward_flops(n, m, d=512, d_ff=2048, N=6):
+    """Matrix-multiply FLOPs of one forward pass (source length n, target length m)."""
+    enc = N * (n * 2 * (4 * d * d + 2 * d * d_ff) + 4 * n * n * d)
+    dec = N * (m * 2 * (4 * d * d + 2 * d * d + 2 * d * d_ff)   # self Q,K,V,O; cross Q,O; FFN
+               + n * 2 * (2 * d * d)                             # cross K,V on the memory
+               + 4 * m * m * d + 4 * m * n * d)                  # self and cross attention
+    return enc + dec
+
+n, m = 48, 40
+src, tgt = torch.randn(1, n, 512), torch.randn(1, m, 512)
+tf.train()                            # eval mode would use a fused fast path the counter cannot see
+with torch.no_grad(), sdpa_kernel(SDPBackend.MATH), FlopCounterMode(display=False) as counter:
+    tf(src, tgt, tgt_mask=nn.Transformer.generate_square_subsequent_mask(m))
+print(forward_flops(n, m), counter.get_total_flops())         # formula vs measured
+```
+
+Two settings make every multiplication visible to the FLOP counter: `sdpa_kernel(SDPBackend.MATH)` computes attention with ordinary batched matrix multiplications instead of a fused kernel, and training mode (with dropout 0, so the output is unchanged) keeps PyTorch from using its fused inference path for encoder layers.
 
 ## Further reading
 

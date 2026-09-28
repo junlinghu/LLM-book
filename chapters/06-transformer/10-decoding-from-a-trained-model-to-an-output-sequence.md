@@ -86,7 +86,40 @@ With $`\alpha = 0`$ there is no normalization; with $`\alpha = 1`$ the score is 
 
 ## Implementation
 
-The code below trains a small model on sequence reversal of variable length (as in Section 9), then implements greedy decoding and beam search with the length penalty, and compares them. The functions take any model that exposes `encode` and `decode`:
+The appendix trains a small model to reverse digit sequences of variable length (as in Section 9), then implements greedy decoding and beam search with the length penalty for any model that exposes separate encode and decode steps, and compares the two. Three details of the implementation are worth noticing. The encoder runs once per source, and its memory is reused by every decoder call. The live beams are stacked into one batch so that each step is a single decoder call. And beam search with $`k = 1`$ reproduces greedy decoding exactly, a useful test when implementing beam search. On an easy task like reversal, a reasonably trained model gets nearly every example right with either method (in our run, both exceeded 95% exact match, and beam search was not better). Beam search finds hypotheses with higher model score, which is not the same thing as a correct output: if the model's probabilities are miscalibrated, a wider search can surface a high-scoring wrong answer. Its advantage shows up when the greedy path goes wrong early on harder tasks, as in translation. The fourth code lab compares the two on a harder task.
+
+## Avoiding repeated work
+
+The loop above reruns the decoder on the entire prefix at every step, recomputing the representations of earlier target positions each time. Two things can be reused:
+
+- **The encoder memory** is computed once per source (as above) and shared by every step and every beam. Its keys and values in each cross-attention layer are also the same at every step, so they can be projected once and cached.
+- **Earlier decoder positions** do not change when a new token is appended, because of the causal mask: position $`t`$ never sees later positions. Implementations therefore cache each decoder layer's self-attention keys and values for the positions already processed and compute only the new position at each step.
+
+For short outputs the savings are modest; for long outputs, recomputing the prefix at every step makes total decoding work grow quadratically with output length, and caching avoids that.
+
+## Evaluating outputs
+
+Decoded outputs are compared with references using a task metric:
+
+- **Exact match** for tasks with one correct answer, such as the toy reversal and date-conversion tasks in the code labs.
+- **BLEU** (Papineni et al. 2002) for translation. BLEU counts how many of the output's n-grams (up to length 4) appear in the reference, combines those precisions with a geometric mean, and multiplies by a *brevity penalty* that punishes outputs shorter than the reference (otherwise a very short output with only safe words would score well). Scores are computed over a whole test set, not averaged over sentences.
+
+BLEU scores depend on details such as tokenization and normalization of the reference, so numbers computed by different scripts are often not comparable. Post (2018) documented these differences and released **sacreBLEU**, a tool that computes BLEU on detokenized text in a standard way and reports a signature of the settings used. Reporting sacreBLEU scores with their signature makes translation results comparable across papers.
+
+## Key takeaways
+
+- Generation runs the encoder once, then the decoder once per output token, feeding each chosen token back in until `<eos>` or a length limit.
+- Greedy decoding takes the most probable token at each step: fast, but a locally best choice can lead to a worse sequence.
+- Beam search keeps the $`k`$ best partial hypotheses at each step; $`k = 1`$ is greedy decoding.
+- Summed log-probabilities favor short outputs, so beam search normalizes scores with a length penalty; the original Transformer used beam size 4 and the penalty of Wu et al. with $`\alpha = 0.6`$.
+- Reuse the encoder memory, and cache earlier decoder positions, to avoid redundant work.
+- Evaluate with exact match on toy tasks and BLEU for translation, reported with a standard tool such as sacreBLEU.
+
+## Appendix: Code
+
+The snippets below reproduce the checks and results described in this section. They need only PyTorch and run on a CPU; snippets in the same appendix are meant to be run in order in one Python session.
+
+### Training a toy model, then greedy decoding and beam search
 
 ```python
 import math
@@ -176,35 +209,6 @@ acc_b = sum(beam_search(model, s) == target(s) for s in tests) / len(tests)
 print(f"exact match: greedy {acc_g:.2f}, beam(k=4) {acc_b:.2f}")
 print(all(beam_search(model, s, k=1) == greedy(model, s) for s in tests[:20]))  # k=1 is greedy
 ```
-
-Three details are worth noticing. The encoder runs once per source, and its memory is reused by every decoder call. The live beams are stacked into one batch so that each step is a single decoder call. And `beam_search(..., k=1)` reproduces greedy decoding exactly, a useful test when implementing beam search. On an easy task like reversal, a reasonably trained model gets nearly every example right with either method (in our run, both exceeded 95% exact match, and beam search was not better). Beam search finds hypotheses with higher model score, which is not the same thing as a correct output: if the model's probabilities are miscalibrated, a wider search can surface a high-scoring wrong answer. Its advantage shows up when the greedy path goes wrong early on harder tasks, as in translation. The fourth code lab compares the two on a harder task.
-
-## Avoiding repeated work
-
-The loop above reruns the decoder on the entire prefix at every step, recomputing the representations of earlier target positions each time. Two things can be reused:
-
-- **The encoder memory** is computed once per source (as above) and shared by every step and every beam. Its keys and values in each cross-attention layer are also the same at every step, so they can be projected once and cached.
-- **Earlier decoder positions** do not change when a new token is appended, because of the causal mask: position $`t`$ never sees later positions. Implementations therefore cache each decoder layer's self-attention keys and values for the positions already processed and compute only the new position at each step.
-
-For short outputs the savings are modest; for long outputs, recomputing the prefix at every step makes total decoding work grow quadratically with output length, and caching avoids that.
-
-## Evaluating outputs
-
-Decoded outputs are compared with references using a task metric:
-
-- **Exact match** for tasks with one correct answer, such as the toy reversal and date-conversion tasks in the code labs.
-- **BLEU** (Papineni et al. 2002) for translation. BLEU counts how many of the output's n-grams (up to length 4) appear in the reference, combines those precisions with a geometric mean, and multiplies by a *brevity penalty* that punishes outputs shorter than the reference (otherwise a very short output with only safe words would score well). Scores are computed over a whole test set, not averaged over sentences.
-
-BLEU scores depend on details such as tokenization and normalization of the reference, so numbers computed by different scripts are often not comparable. Post (2018) documented these differences and released **sacreBLEU**, a tool that computes BLEU on detokenized text in a standard way and reports a signature of the settings used. Reporting sacreBLEU scores with their signature makes translation results comparable across papers.
-
-## Key takeaways
-
-- Generation runs the encoder once, then the decoder once per output token, feeding each chosen token back in until `<eos>` or a length limit.
-- Greedy decoding takes the most probable token at each step: fast, but a locally best choice can lead to a worse sequence.
-- Beam search keeps the $`k`$ best partial hypotheses at each step; $`k = 1`$ is greedy decoding.
-- Summed log-probabilities favor short outputs, so beam search normalizes scores with a length penalty; the original Transformer used beam size 4 and the penalty of Wu et al. with $`\alpha = 0.6`$.
-- Reuse the encoder memory, and cache earlier decoder positions, to avoid redundant work.
-- Evaluate with exact match on toy tasks and BLEU for translation, reported with a standard tool such as sacreBLEU.
 
 ## Further reading
 
