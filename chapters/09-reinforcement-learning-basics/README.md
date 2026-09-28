@@ -11,101 +11,37 @@ Pretraining and supervised fine-tuning teach a model to imitate text. Reinforcem
 - Derive the REINFORCE estimator and explain how baselines, advantages, and actor-critic methods reduce variance.
 - Explain PPO in detail (the probability ratio, the clipped objective, GAE, the value and entropy terms, and the training loop) and implement it from scratch.
 
-## Outline
+## Sections
 
-### 1. What reinforcement learning is
-- Learning from reward instead of labeled examples
-- The agent-environment loop: observe a state, take an action, receive a reward and the next state
-- How RL differs from supervised learning: delayed feedback, data that depends on the agent's own choices, no "correct" action given
-- Classic successes: games (TD-Gammon, Atari, Go) and robotics, and now language models
+1. **[What Reinforcement Learning Is](01-what-reinforcement-learning-is.md)**
 
-### 2. MDPs, policies, and value functions
-- An MDP: states, actions, rewards, and transition probabilities, where the next state depends only on the current state and action
-- A policy maps states to (probabilities of) actions
-- The return is the discounted sum of future rewards; the discount factor gamma trades near-term against long-term reward
+   Learning from reward instead of labels, the agent-environment loop run on CartPole with a random and a hand-written policy, three ways RL differs from supervised learning (evaluative and delayed feedback, and data that depend on the agent's own policy, shown with state-visitation maps in a gridworld), the families of RL methods, and a short history from TD-Gammon and DQN to AlphaGo and RLHF.
 
-```math
-G_t = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \cdots
-```
+2. **[MDPs, Policies, and Value Functions](02-mdps-policies-and-value-functions.md)**
 
-- The value function V(s) is the expected return from a state; the action-value function Q(s, a) is the expected return after taking an action
-- The Bellman equation: a state's value is the immediate reward plus the discounted value of the next state
+   Markov decision processes, policies, discounted returns, the value functions V and Q, and the Bellman expectation and optimality equations, all made concrete in a 5 × 5 gridworld whose values we compute exactly by policy evaluation and value iteration, with a look at how the discount factor changes what the agent values.
 
-```math
-V^{\pi}(s) = \mathbb{E}_{a \sim \pi,\, s' \sim P}\left[ r(s,a) + \gamma V^{\pi}(s') \right]
-```
+3. **[Bandits and Exploration](03-bandits-and-exploration.md)**
 
-- Running example: a small gridworld
+   The multi-armed bandit as RL with a single state, incremental value estimates and the "move toward a target" update that every later method reuses, and a 10-armed testbed comparing greedy, ε-greedy, optimistic, and UCB agents (34.7 versus 80 to 86 percent optimal choices after 1,000 steps).
 
-### 3. Bandits and exploration
-- The multi-armed bandit: RL with a single state
-- The exploration-exploitation trade-off
+4. **[Learning from Experience: Monte Carlo and TD](04-monte-carlo-and-td.md)**
 
-### 4. Learning from experience: Monte Carlo and TD
-- Monte Carlo methods: estimate values by averaging complete returns
-- Temporal-difference (TD) learning: update toward a bootstrapped target after each step
-- The bias-variance trade-off between Monte Carlo and TD
-- **SARSA**: on-policy TD control
-- **Q-learning**: off-policy TD control, learning the greedy policy while exploring
+   Monte Carlo and TD(0) prediction compared on the gridworld, the bias-variance trade-off between full returns and bootstrapped targets, and SARSA versus Q-learning on CliffWalking, where on-policy learning finds the safe path and off-policy learning finds the optimal one.
 
-```math
-Q(s,a) \leftarrow Q(s,a) + \alpha \left[ r + \gamma \max_{a'} Q(s',a') - Q(s,a) \right]
-```
+5. **[Function Approximation and Deep Q-Networks (Briefly)](05-function-approximation-and-dqn.md)**
 
-- On-policy vs. off-policy learning, illustrated by the cliff-walking example
+   Why tables fail in large state spaces, DQN with experience replay and a target network (and what happens on CartPole when each is removed), the deadly triad demonstrated with a two-state divergence example, and why value-based methods are awkward for language models.
 
-### 5. Function approximation and deep Q-networks (briefly)
-- Why tables fail for large or continuous state spaces
-- Approximating Q with a neural network
-- **DQN**: experience replay and a target network to stabilize training
-- The "deadly triad": function approximation, bootstrapping, and off-policy learning
-- Why value-based methods are awkward for LLMs: the action space is the whole vocabulary at every step
+6. **[Policy Gradient Methods](06-policy-gradient-methods.md)**
 
-### 6. Policy gradient methods
-- Optimizing a parameterized policy directly by gradient ascent on expected return; works naturally with stochastic policies and large or continuous action spaces
-- The policy gradient theorem and the log-derivative trick
+   The log-derivative trick and the policy gradient theorem, REINFORCE on CartPole with and without a learned baseline (with measured gradient variance), the advantage function and actor-critic methods, and the on-policy and step-size problems that make large updates collapse the policy.
 
-```math
-\nabla_{\theta} J(\theta) = \mathbb{E}_{\pi_{\theta}}\left[ \sum_t \nabla_{\theta} \log \pi_{\theta}(a_t \mid s_t)\, G_t \right]
-```
+7. **[Proximal Policy Optimization (PPO)](07-proximal-policy-optimization.md)**
 
-- **REINFORCE**: a Monte Carlo policy gradient; increase the log-probability of actions in proportion to the return that followed
-- High variance, and how a **baseline** reduces it without adding bias
-- The **advantage** function: how much better an action was than expected
+   Trust regions and TRPO, the probability ratio and clipped surrogate objective, generalized advantage estimation, the full loss and training loop implemented from scratch, PPO solving CartPole in every seed, ablations of clipping and the GAE λ, the KL-penalty variant, and the practical details that make PPO work.
 
-```math
-A^{\pi}(s,a) = Q^{\pi}(s,a) - V^{\pi}(s)
-```
-
-- **Actor-critic** methods: learn a value function (the critic) alongside the policy (the actor) and use it to estimate advantages
-- On-policy data and its cost: every update needs fresh samples from the current policy
-- The step-size problem: a single large update can wreck the policy, and a bad policy then collects bad data
-
-### 7. Proximal Policy Optimization (PPO)
-- Trust regions: limit how far each update moves the policy; **TRPO** enforces a KL constraint, but needs second-order optimization
-- The probability ratio between the new and old policies, which lets one batch of data be reused for several updates
-
-```math
-\rho_t(\theta) = \frac{\pi_{\theta}(a_t \mid s_t)}{\pi_{\theta_{\mathrm{old}}}(a_t \mid s_t)}
-```
-
-- The **clipped surrogate objective**: take the pessimistic minimum so there is no gain from moving the ratio outside a small range
-
-```math
-L^{\mathrm{CLIP}}(\theta) = \mathbb{E}_t\left[ \min\left( \rho_t(\theta)\, \hat{A}_t,\ \mathrm{clip}\left(\rho_t(\theta), 1 - \epsilon, 1 + \epsilon\right) \hat{A}_t \right) \right]
-```
-
-- **Generalized advantage estimation (GAE)**: an exponentially weighted sum of TD errors, with lambda trading bias against variance
-
-```math
-\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t), \qquad \hat{A}_t = \sum_{l=0}^{\infty} (\gamma \lambda)^l\, \delta_{t+l}
-```
-
-- The full loss: clipped policy loss, a value-function (critic) loss, and an entropy bonus that keeps exploring
-- The training loop: collect rollouts with the current policy, compute advantages and returns, run several epochs of minibatch updates, repeat
-- The KL-penalty variant of PPO, with an adaptive coefficient instead of clipping
-- Practical tips: advantage normalization, observation and reward scaling, gradient clipping, learning-rate annealing, early stopping on approximate KL, and monitoring the clip fraction; typical settings (for example epsilon = 0.2, lambda = 0.95)
-- Where this leads: Chapter 10 applies PPO to language models, and Chapter 11 covers simpler, critic-free alternatives
+Figures are in [`figures/`](figures/). Every plot is produced by a Python script in [`figures/src/`](figures/src/), which also holds the chapter's from-scratch code (the gridworld, the bandit testbed, DQN, REINFORCE, and PPO). The scripts `fig_s1_loop.py` through `fig_s5_triad.py` run in seconds to a minute each; the neural-network figures first need `run_dqn_experiments.py`, `run_reinforce_experiments.py`, and `run_ppo_experiments.py`, which train all the runs in parallel and take several minutes each on a CPU, after which `fig_s5_dqn.py`, `fig_s6_reinforce.py`, and `fig_s7_ppo.py` draw the figures (requires NumPy, Matplotlib, PyTorch, and Gymnasium).
 
 ## Suggested code labs
 
@@ -129,9 +65,23 @@ L^{\mathrm{CLIP}}(\theta) = \mathbb{E}_t\left[ \min\left( \rho_t(\theta)\, \hat{
 
 Auer, Peter, et al. "Finite-Time Analysis of the Multiarmed Bandit Problem." *Machine Learning* 47 (2002): 235–256. https://doi.org/10.1023/A:1013689704352.
 
+Barto, Andrew G., et al. "Neuronlike Adaptive Elements That Can Solve Difficult Learning Control Problems." *IEEE Transactions on Systems, Man, and Cybernetics* SMC-13, no. 5 (1983): 834–846. https://doi.org/10.1109/TSMC.1983.6313077.
+
+Christiano, Paul, et al. "Deep Reinforcement Learning from Human Preferences." *arXiv preprint arXiv:1706.03741*, 2017. https://arxiv.org/abs/1706.03741.
+
 Huang, Shengyi, et al. "The 37 Implementation Details of Proximal Policy Optimization." *ICLR Blog Track*, 2022. https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/.
 
+Lai, T. L., et al. "Asymptotically Efficient Adaptive Allocation Rules." *Advances in Applied Mathematics* 6, no. 1 (1985): 4–22. https://doi.org/10.1016/0196-8858(85)90002-8.
+
+Lin, Long-Ji. "Self-Improving Reactive Agents Based on Reinforcement Learning, Planning and Teaching." *Machine Learning* 8 (1992): 293–321. https://doi.org/10.1007/BF00992699.
+
+Mnih, Volodymyr, et al. "Asynchronous Methods for Deep Reinforcement Learning." In *Proceedings of the 33rd International Conference on Machine Learning*, 2016. https://arxiv.org/abs/1602.01783.
+
 Mnih, Volodymyr, et al. "Human-Level Control through Deep Reinforcement Learning." *Nature* 518 (2015): 529–533. https://doi.org/10.1038/nature14236.
+
+Mnih, Volodymyr, et al. "Playing Atari with Deep Reinforcement Learning." *arXiv preprint arXiv:1312.5602*, 2013. https://arxiv.org/abs/1312.5602.
+
+Ouyang, Long, et al. "Training Language Models to Follow Instructions with Human Feedback." In *Advances in Neural Information Processing Systems 35*, 2022. https://arxiv.org/abs/2203.02155.
 
 Schulman, John, et al. "High-Dimensional Continuous Control Using Generalized Advantage Estimation." *arXiv preprint arXiv:1506.02438*, 2015. https://arxiv.org/abs/1506.02438.
 
@@ -139,9 +89,21 @@ Schulman, John, et al. "Proximal Policy Optimization Algorithms." *arXiv preprin
 
 Schulman, John, et al. "Trust Region Policy Optimization." In *Proceedings of the 32nd International Conference on Machine Learning*, 2015. https://arxiv.org/abs/1502.05477.
 
+Silver, David, et al. "Mastering the Game of Go with Deep Neural Networks and Tree Search." *Nature* 529 (2016): 484–489. https://doi.org/10.1038/nature16961.
+
+Sutton, Richard S. "Learning to Predict by the Methods of Temporal Differences." *Machine Learning* 3 (1988): 9–44. https://doi.org/10.1007/BF00115009.
+
 Sutton, Richard S., et al. "Policy Gradient Methods for Reinforcement Learning with Function Approximation." In *Advances in Neural Information Processing Systems 12*, 2000. https://proceedings.neurips.cc/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html.
 
 Sutton, Richard S., et al. *Reinforcement Learning: An Introduction*. 2nd ed. MIT Press, 2018. http://incompleteideas.net/book/the-book-2nd.html.
+
+Tesauro, Gerald. "Temporal Difference Learning and TD-Gammon." *Communications of the ACM* 38, no. 3 (1995): 58–68. https://doi.org/10.1145/203330.203343.
+
+Thompson, William R. "On the Likelihood That One Unknown Probability Exceeds Another in View of the Evidence of Two Samples." *Biometrika* 25, no. 3–4 (1933): 285–294. https://doi.org/10.1093/biomet/25.3-4.285.
+
+Tsitsiklis, John N., et al. "An Analysis of Temporal-Difference Learning with Function Approximation." *IEEE Transactions on Automatic Control* 42, no. 5 (1997): 674–690. https://doi.org/10.1109/9.580874.
+
+van Hasselt, Hado, et al. "Deep Reinforcement Learning with Double Q-Learning." In *Proceedings of the AAAI Conference on Artificial Intelligence* 30, no. 1 (2016). https://doi.org/10.1609/aaai.v30i1.10295.
 
 Watkins, Christopher J. C. H., et al. "Q-Learning." *Machine Learning* 8 (1992): 279–292. https://doi.org/10.1007/BF00992698.
 
