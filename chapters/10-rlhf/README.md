@@ -1,6 +1,6 @@
 # Chapter 10: RLHF
 
-Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instructions by imitating demonstrations, but it has no way to learn that one acceptable answer is better than another. Reinforcement Learning from Human Feedback (RLHF) picks up from there and is the method that turned instruction-tuned models into helpful chat assistants. This chapter is about RL for language models specifically. It takes the general methods from Chapter 9 (policy gradients and PPO) as given, casts text generation as an RL problem, and builds the classic pipeline step by step: collect human preferences, train a reward model, and optimize the SFT model against it while keeping it close to where it started.
+Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instructions by imitating demonstrations, but it has no way to learn that one acceptable answer is better than another. Reinforcement Learning from Human Feedback (RLHF) picks up from there and is the method that turned instruction-tuned models into helpful chat assistants. This chapter is about RL for language models specifically. It takes the general methods from Chapter 9 (policy gradients and PPO) as given, casts text generation as an RL problem, and builds the classic pipeline step by step: collect human preferences, train a reward model, and optimize the SFT model against it while keeping it close to where it started. It ends with what this recipe achieved: the models built with PPO-based RLHF from 2019 to 2026, from InstructGPT and ChatGPT to GPT-4 and Llama 2-Chat.
 
 ## Learning goals
 
@@ -10,7 +10,7 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 - Train a reward model from pairwise preferences using the Bradley-Terry loss.
 - Write the KL-regularized RLHF objective and explain each term.
 - Explain what changes when PPO is applied to a language model: the four models, token-level KL reward shaping, rollout generation, and the costs.
-- Recognize reward hacking and the practical costs that motivate the methods in Chapter 11.
+- Describe what PPO-based RLHF achieved in practice and the models it produced.
 
 ## Outline
 
@@ -74,13 +74,26 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - LLM-specific practice: reward normalization and whitening, handling responses that never end, small learning rates, and large prompt batches
 - Memory and compute: four large models, and a loop that alternates between generation and training
 
-### 8. What goes wrong
-- Cost and complexity: four models in memory and slow rollout generation
-- Unstable training and sensitivity to hyperparameters
-- **Reward hacking and over-optimization**: rising reward with falling real quality
-- Mode collapse and reduced diversity
-- Sycophancy and confident-sounding answers
-- These costs are the motivation for the methods in Chapter 11
+### 8. PPO-based RLHF in practice (2019–2026)
+- GPT-3 itself was not trained with RLHF: it was a pretrained model used through few-shot prompting (Brown et al. 2020). InstructGPT fine-tuned GPT-3 with SFT and then PPO, and ChatGPT applied the same methods to a model from the GPT-3.5 series
+- Early demonstrations: PPO fine-tuning of GPT-2 from human comparisons, then summaries preferred over human-written references
+- Instruction following: a small RLHF model beat a much larger pretrained one, and was more truthful and less toxic
+- Assistants: ChatGPT, Anthropic's helpful-and-harmless assistant, and the Claude models that followed
+- Frontier and open models: GPT-4 used PPO with extra rule-based rewards for safety, and Llama 2-Chat combined rejection-sampling fine-tuning with PPO
+- A close relative: DeepMind's Sparrow used the same RLHF recipe with an A2C optimizer instead of PPO, adding rule-specific reward models and cited evidence (Glaese et al. 2022)
+- PPO holds up in controlled comparisons: tuned carefully, it matched or beat DPO and other alignment methods on dialogue, math, and code (Xu et al. 2024; Ivison et al. 2024)
+- After 2024: PPO remains in use for RL with verifiable rewards (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking); closed reasoning models from o1 onward do not disclose their algorithm. Chapter 11 (Section 8) covers the shift toward DPO and GRPO-style methods
+
+| Model | Organization | Year | What PPO-based RLHF achieved | Source |
+|---|---|---|---|---|
+| GPT-2 fine-tuned from human preferences | OpenAI | 2019 | Learned stylistic continuation (positive sentiment, descriptive text) from only 5,000 human comparisons | Ziegler et al. 2019 |
+| Summarization policies (TL;DR) | OpenAI | 2020 | Summaries preferred over human references and over much larger supervised models; transferred to CNN/DM news without news-specific training | Stiennon et al. 2020 |
+| InstructGPT | OpenAI | 2022 | Outputs of the 1.3B model preferred to those of 175B GPT-3; more truthful, less toxic, with minimal regressions on public NLP benchmarks | Ouyang et al. 2022 |
+| Helpful-and-harmless assistant | Anthropic | 2022 | Improved almost all NLP evaluations for large models (an "alignment bonus"), stayed compatible with coding and summarization skills, and was updated weekly with fresh feedback | Bai et al. 2022 |
+| ChatGPT | OpenAI | 2022 | Conversational assistant fine-tuned from a GPT-3.5 model with InstructGPT's methods, using PPO over several iterations | OpenAI 2022 |
+| GPT-4 | OpenAI | 2023 | PPO against a reward model, plus rule-based reward models during PPO; with the other safety steps, 82% less likely than GPT-3.5 to respond to requests for disallowed content | OpenAI 2023 |
+| Llama 2-Chat | Meta | 2023 | Rejection-sampling fine-tuning, then PPO; outperformed open-source chat models on most benchmarks and in human evaluations of helpfulness and safety | Touvron et al. 2023 |
+| Claude 2 | Anthropic | 2023 | Trained with RLHF and Constitutional AI (which has an RL phase); improved over Claude 1.3 in helpfulness and honesty; RL algorithm not named | Anthropic 2023 |
 
 ## Suggested code labs
 
@@ -88,7 +101,6 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 2. **Train a reward model.** Fine-tune a small model with a scalar head on a preference dataset using the Bradley-Terry loss. Report its accuracy on held-out pairs and check whether it prefers longer answers.
 3. **Run PPO on a small language model.** Adapt your PPO from Chapter 9 (Lab 5), or use a library such as TRL, to optimize a small SFT model against the reward model from Lab 2 with per-token KL shaping. Track reward, KL divergence from the reference model, and response length over training.
 4. **Explore the KL coefficient.** Repeat Lab 3 with several beta values and compare how far the model drifts, how high the reward goes, and how the outputs read.
-5. **Observe reward hacking.** Using the REINFORCE setup from Lab 1 or the PPO setup from Lab 3, train against a deliberately flawed reward (for example one that rewards length, or a target word the model can simply repeat) and watch the model exploit it. Then increase the KL penalty and compare.
 
 ## Key takeaways
 
@@ -96,16 +108,33 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - Text generation is an RL problem with a huge action space, deterministic transitions, and sparse sequence-level rewards.
 - The reward model turns human preferences into a number the RL step can optimize.
 - The KL penalty keeps the policy close to the SFT model so it doesn't exploit the reward model.
-- PPO for LLMs is Chapter 9's PPO plus four models, per-token KL shaping, and expensive generation; it works, but it is costly, fragile, and vulnerable to reward hacking.
+- PPO for LLMs is Chapter 9's PPO plus four models, per-token KL shaping, and expensive generation.
+- PPO-based RLHF produced InstructGPT, ChatGPT, GPT-4, Llama 2-Chat, and early Claude models, and a small RLHF model can beat a much larger pretrained one; Chapter 11 covers its limitations and the methods that followed.
 
 ## Further reading
 
+Anthropic. "Model Card and Evaluations for Claude Models." July 2023. https://www-cdn.anthropic.com/bd2a28d2535bfb0494cc8e2a3bf135d2e7523226.pdf.
+
 Bai, Yuntao, et al. "Training a Helpful and Harmless Assistant with Reinforcement Learning from Human Feedback." arXiv preprint arXiv:2204.05862, 2022. https://arxiv.org/abs/2204.05862.
 
+Brown, Tom B., et al. "Language Models Are Few-Shot Learners." In *Advances in Neural Information Processing Systems 33*, 2020. https://arxiv.org/abs/2005.14165.
+
 Christiano, Paul F., et al. "Deep Reinforcement Learning from Human Preferences." In *Advances in Neural Information Processing Systems 30*, 2017. https://arxiv.org/abs/1706.03741.
+
+Glaese, Amelia, et al. "Improving Alignment of Dialogue Agents via Targeted Human Judgements." arXiv preprint arXiv:2209.14375, 2022. https://arxiv.org/abs/2209.14375.
+
+Ivison, Hamish, et al. "Unpacking DPO and PPO: Disentangling Best Practices for Learning from Preference Feedback." In *Advances in Neural Information Processing Systems 37*, 2024. https://arxiv.org/abs/2406.09279.
+
+OpenAI. "GPT-4 Technical Report." arXiv preprint arXiv:2303.08774, 2023. https://arxiv.org/abs/2303.08774.
+
+OpenAI. "Introducing ChatGPT." November 30, 2022. https://openai.com/index/chatgpt/.
 
 Ouyang, Long, et al. "Training Language Models to Follow Instructions with Human Feedback." In *Advances in Neural Information Processing Systems 35*, 2022. https://arxiv.org/abs/2203.02155.
 
 Stiennon, Nisan, et al. "Learning to Summarize from Human Feedback." In *Advances in Neural Information Processing Systems 33*, 2020. https://arxiv.org/abs/2009.01325.
+
+Touvron, Hugo, et al. "Llama 2: Open Foundation and Fine-Tuned Chat Models." arXiv preprint arXiv:2307.09288, 2023. https://arxiv.org/abs/2307.09288.
+
+Xu, Shusheng, et al. "Is DPO Superior to PPO for LLM Alignment? A Comprehensive Study." In *Proceedings of the 41st International Conference on Machine Learning*, 2024. https://arxiv.org/abs/2404.10719.
 
 Ziegler, Daniel M., et al. "Fine-Tuning Language Models from Human Preferences." arXiv preprint arXiv:1909.08593, 2019. https://arxiv.org/abs/1909.08593.

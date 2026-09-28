@@ -1,9 +1,10 @@
 # Chapter 11: More RL Methods for LLMs (PPO Variants, DPO, etc.)
 
-Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapter surveys the methods that came after it: variants that make PPO cheaper or more stable, methods that learn directly from preferences without a separate reward model or RL loop, and methods that use verifiable rewards to train reasoning.
+Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the models it produced. This chapter starts with that pipeline's limitations and then surveys the methods that came after it: variants that make PPO cheaper or more stable, methods that learn directly from preferences without a separate reward model or RL loop, and methods that use verifiable rewards to train reasoning.
 
 ## Learning goals
 
+- Explain the limitations of PPO-based RLHF (cost, instability, reward hacking, reduced diversity, and sycophancy) and which newer methods address each.
 - Explain how critic-free methods (REINFORCE, RLOO, GRPO) simplify PPO.
 - Derive DPO from the RLHF objective and explain why it needs no reward model or sampling loop.
 - Compare the main preference-optimization variants and when to use each.
@@ -12,10 +13,14 @@ Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapt
 
 ## Outline
 
-### 1. Where Chapter 10 left off
+### 1. Where Chapter 10 left off: the limits of PPO-based RLHF
 - A short recap of the KL-regularized RLHF objective and the PPO pipeline (see Chapter 10; the PPO algorithm itself is in Chapter 9)
-- The costs this chapter addresses: the value model, the reward model, online sampling, and instability
-- A map of the chapter: simpler RL, direct preference methods, verifiable rewards, and AI feedback
+- **Cost and complexity**: four models in memory (policy, value, reward, and reference) and slow online rollout generation
+- **Instability**: sensitivity to hyperparameters and implementation details
+- **Reward hacking and over-optimization**: pushing a learned reward model too hard raises its score while true quality falls, and the gap follows predictable scaling laws (Gao et al. 2023)
+- **Mode collapse and reduced diversity**: RLHF generalizes better than SFT to new inputs but narrows the range of outputs (Kirk et al. 2023)
+- **Sycophancy and confident-sounding answers**: people and reward models sometimes prefer responses that agree with the user over correct ones (Sharma et al. 2023)
+- A map of the chapter: critic-free RL drops the value model (Section 2), direct preference methods drop the reward model and sampling loop (Sections 3 and 4), verifiable rewards resist hacking (Section 5), and AI feedback cuts labeling cost (Section 6)
 
 ### 2. RL without a value model
 - Why the critic is expensive for LLMs
@@ -60,12 +65,11 @@ Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapt
 ### 8. What's used in practice
 - A snapshot of publicly documented post-training recipes, as of September 2026
 - The shift away from PPO: most open reports since late 2024 use critic-free, group-baseline RL (mostly **GRPO** and its variants) instead of PPO with a learned value model
-- PPO has not disappeared: classic RLHF (InstructGPT) used it, Tulu 3 and OLMo 2 ran RLVR with PPO, and ByteDance Seed1.5-Thinking uses a value-based PPO-style method
+- PPO has not disappeared: classic RLHF used it (InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat; see Chapter 10, Section 8), Tulu 3 and OLMo 2 ran RLVR with PPO, and ByteDance Seed1.5-Thinking uses a value-based PPO-style method
 - DPO lives on as a cheap, stable stage before or after RL (Llama 3, Qwen2.5, Tulu 3, Llama 4, Olmo 3), not as a replacement for RL
 
 | Model | Year | Post-training RL method(s) | Source |
 |---|---|---|---|
-| InstructGPT (OpenAI) | 2022 | SFT, reward model, then PPO (classic RLHF) | Ouyang et al. 2022 |
 | Llama 3 | 2024 | Rejection sampling, SFT, and DPO; chose these over PPO-style RL as more stable and easier to scale | Grattafiori et al. 2024 |
 | Qwen2.5 | 2024 | Offline DPO, then online GRPO with a reward model | Qwen Team 2024 |
 | Tulu 3 | 2024 | SFT, length-normalized DPO, then RLVR trained with PPO | Lambert et al. 2024 |
@@ -105,15 +109,16 @@ Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapt
 
 ## Suggested code labs
 
-1. **Implement the DPO loss from scratch.** Write the loss in PyTorch using log-probabilities from a policy and a frozen reference model. Test it on a toy batch of chosen and rejected responses and confirm the implicit reward margin grows during training.
-2. **Fine-tune a small model with DPO.** Train a small open model (for example a 0.5B-parameter model) on a small preference dataset. Compare its outputs with the SFT model on the same prompts, and track the chosen and rejected log-probabilities.
-3. **Implement GRPO on a math task.** For each prompt, sample a group of answers, score each with a verifiable reward (does the final number match?), compute group-relative advantages, and update the policy. Plot accuracy and average response length over training.
-4. **Compare DPO, KTO, and SimPO.** Train the same base model with each loss on the same data, then compare win rates using an LLM judge and check response length for signs of length bias.
-5. **GRPO vs. RLOO.** Train the same model on the same math task with both methods and compare accuracy, stability, and training cost.
+1. **Observe reward hacking.** Using the REINFORCE setup from Chapter 10 (Lab 1) or the PPO setup from Chapter 10 (Lab 3), train against a deliberately flawed reward (for example one that rewards length, or a target word the model can simply repeat) and watch the model exploit it. Then increase the KL penalty and compare.
+2. **Implement the DPO loss from scratch.** Write the loss in PyTorch using log-probabilities from a policy and a frozen reference model. Test it on a toy batch of chosen and rejected responses and confirm the implicit reward margin grows during training.
+3. **Fine-tune a small model with DPO.** Train a small open model (for example a 0.5B-parameter model) on a small preference dataset. Compare its outputs with the SFT model on the same prompts, and track the chosen and rejected log-probabilities.
+4. **Implement GRPO on a math task.** For each prompt, sample a group of answers, score each with a verifiable reward (does the final number match?), compute group-relative advantages, and update the policy. Plot accuracy and average response length over training.
+5. **Compare DPO, KTO, and SimPO.** Train the same base model with each loss on the same data, then compare win rates using an LLM judge and check response length for signs of length bias.
+6. **GRPO vs. RLOO.** Train the same model on the same math task with both methods and compare accuracy, stability, and training cost.
 
 ## Key takeaways
 
-- PPO works but is expensive and fragile; most newer methods simplify some part of it.
+- PPO-based RLHF is expensive and fragile, and it can over-optimize a learned reward (reward hacking, reduced diversity, sycophancy); most newer methods simplify or fix some part of it.
 - DPO turns preference learning into a simple classification-style loss with no reward model or sampling.
 - GRPO removes the value model by comparing answers within a group, which makes RL on LLMs much cheaper.
 - Verifiable rewards are the key ingredient behind recent reasoning models.
@@ -141,6 +146,8 @@ DeepSeek-AI. "DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models.
 
 DeepSeek-AI. "DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence." arXiv preprint arXiv:2606.19348, 2026. https://arxiv.org/abs/2606.19348.
 
+Gao, Leo, et al. "Scaling Laws for Reward Model Overoptimization." In *Proceedings of the 40th International Conference on Machine Learning*, 2023. https://arxiv.org/abs/2210.10760.
+
 Gemma Team. "Gemma 3 Technical Report." arXiv preprint arXiv:2503.19786, 2025. https://arxiv.org/abs/2503.19786.
 
 GLM-4.5 Team. "GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models." arXiv preprint arXiv:2508.06471, 2025. https://arxiv.org/abs/2508.06471.
@@ -154,6 +161,8 @@ Kimi Team. "Kimi k1.5: Scaling Reinforcement Learning with LLMs." arXiv preprint
 Kimi Team. "Kimi K2: Open Agentic Intelligence." arXiv preprint arXiv:2507.20534, 2025. https://arxiv.org/abs/2507.20534.
 
 Kimi Team. "Kimi K2.5: Visual Agentic Intelligence." arXiv preprint arXiv:2602.02276, 2026. https://arxiv.org/abs/2602.02276.
+
+Kirk, Robert, et al. "Understanding the Effects of RLHF on LLM Generalisation and Diversity." arXiv preprint arXiv:2310.06452, 2023. https://arxiv.org/abs/2310.06452.
 
 Lambert, Nathan, et al. "Tulu 3: Pushing Frontiers in Open Language Model Post-Training." arXiv preprint arXiv:2411.15124, 2024. https://arxiv.org/abs/2411.15124.
 
@@ -175,13 +184,13 @@ OpenAI. "gpt-oss-120b & gpt-oss-20b Model Card." arXiv preprint arXiv:2508.10925
 
 OpenAI. "Learning to Reason with LLMs." September 12, 2024. https://openai.com/index/learning-to-reason-with-llms/.
 
-Ouyang, Long, et al. "Training Language Models to Follow Instructions with Human Feedback." In *Advances in Neural Information Processing Systems 35*, 2022. https://arxiv.org/abs/2203.02155.
-
 Qwen Team. "Qwen2.5 Technical Report." arXiv preprint arXiv:2412.15115, 2024. https://arxiv.org/abs/2412.15115.
 
 Qwen Team. "Qwen3.5: Towards Native Multimodal Agents." February 16, 2026. https://qwen.ai/blog?id=qwen3.5.
 
 Rafailov, Rafael, et al. "Direct Preference Optimization: Your Language Model Is Secretly a Reward Model." In *Advances in Neural Information Processing Systems 36*, 2023. https://arxiv.org/abs/2305.18290.
+
+Sharma, Mrinank, et al. "Towards Understanding Sycophancy in Language Models." arXiv preprint arXiv:2310.13548, 2023. https://arxiv.org/abs/2310.13548.
 
 Shao, Zhihong, et al. "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models." arXiv preprint arXiv:2402.03300, 2024. https://arxiv.org/abs/2402.03300.
 
