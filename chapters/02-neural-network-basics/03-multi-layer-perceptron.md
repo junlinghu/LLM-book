@@ -43,26 +43,7 @@ Computing the output of the network from its input is called the **forward pass*
 | Output pre-activation (logits) | $`Z^{(2)} = H W^{(2)} + \mathbf{b}^{(2)}`$ | $`(B \times H)(H \times C) \to B \times C`$ |
 | Output | $`\hat{Y} = o(Z^{(2)})`$ | $`B \times C`$ |
 
-In NumPy the forward pass takes four lines:
-
-```python
-import numpy as np
-
-def mlp_forward(X, W1, b1, W2, b2):
-    Z1 = X @ W1 + b1          # (B, d) @ (d, H) + (H,)  -> (B, H)
-    H = np.tanh(Z1)           # (B, H)
-    Z2 = H @ W2 + b2          # (B, H) @ (H, C) + (C,)  -> (B, C)
-    return Z2, H              # raw output scores and hidden activations
-
-rng = np.random.default_rng(0)
-B, d, Hdim, C = 5, 3, 4, 2
-X = rng.normal(size=(B, d))
-W1, b1 = rng.normal(size=(d, Hdim)), np.zeros(Hdim)
-W2, b2 = rng.normal(size=(Hdim, C)), np.zeros(C)
-Z2, H = mlp_forward(X, W1, b1, W2, b2)
-print("X", X.shape, "-> H", H.shape, "-> Z2", Z2.shape)
-# X (5, 3) -> H (5, 4) -> Z2 (5, 2)
-```
+In NumPy the forward pass takes just four lines ([Code 2.3.1](#code-231-the-mlp-forward-pass-with-shapes)).
 
 ### A worked example with actual numbers
 
@@ -104,29 +85,11 @@ z^{(2)} = 0.7163 \cdot 1.0 + (-0.0997) \cdot (-1.5) + 0.2 \approx 0.7163 + 0.149
 \hat{p} = \sigma(1.0658) = \frac{1}{1 + e^{-1.0658}} \approx 0.7438.
 ```
 
-The network assigns probability 0.744 to the correct class. Section 2.4 will define the cross-entropy loss for this prediction as $`-\ln 0.7438 \approx 0.2960`$. Figure 2.10 shows every intermediate value on the network diagram.
+The network assigns probability 0.744 to the correct class. Section 2.4 will define the cross-entropy loss for this prediction as $`-\ln 0.7438 \approx 0.2960`$. Figure 2.10 shows every intermediate value on the network diagram, and [Code 2.3.2](#code-232-checking-the-2-2-1-worked-example) checks the arithmetic in a few lines of NumPy.
 
 ![Forward pass through the 2-2-1 worked example](figures/fig2-10-worked-forward.png)
 
 *Figure 2.10: The forward pass of the worked example. Numbers on the edges are weights; numbers inside the nodes are activations. Purple labels give each unit's bias and pre-activation. The output probability is 0.7438 and the cross-entropy loss for the target y = 1 is 0.2960.*
-
-You can check the arithmetic in a few lines:
-
-```python
-x = np.array([1.0, 0.5])
-W1 = np.array([[0.5, -0.3],
-               [0.8,  0.2]])
-b1 = np.array([0.0, 0.1])
-W2 = np.array([1.0, -1.5])
-b2 = 0.2
-
-z1 = x @ W1 + b1
-h = np.tanh(z1)
-z2 = h @ W2 + b2
-p = 1 / (1 + np.exp(-z2))
-print("z1 =", z1, " h =", h.round(4), f" z2 = {z2:.4f}  p = {p:.4f}  loss = {-np.log(p):.4f}")
-# z1 = [ 0.9 -0.1]  h = [ 0.7163 -0.0997]  z2 = 1.0658  p = 0.7438  loss = 0.2960
-```
 
 ## Solving XOR with one hidden layer
 
@@ -149,19 +112,7 @@ The first unit counts how many inputs are on; the second unit fires only when bo
 | 1 | 0 | 1 | 0 | 1 | 1 |
 | 1 | 1 | 2 | 1 | 0 | 0 |
 
-In matrix form, $`W^{(1)} = \begin{pmatrix} 1 \;\; 1 \\ 1 \;\; 1 \end{pmatrix}`$, $`\mathbf{b}^{(1)} = (0, -1)`$, $`W^{(2)} = (1, -2)^\top`$, and $`b^{(2)} = 0`$. In the hidden space the four inputs map to the points $(0,0)$, $(1,0)$, $(1,0)$, and $(2,1)$. The two positive examples land on the same point, and a line easily separates it from the other two. The ReLU in the second unit is what makes this work: without it, $`\hat{y}`$ would be a linear function of $`x_1 + x_2`$ and could not rise and then fall.
-
-```python
-relu = lambda z: np.maximum(0, z)
-X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
-W1 = np.array([[1.0, 1.0],
-               [1.0, 1.0]])
-b1 = np.array([0.0, -1.0])
-W2 = np.array([1.0, -2.0])
-H = relu(X @ W1 + b1)
-print("hidden:", H.tolist(), " output:", H @ W2)
-# hidden: [[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [2.0, 1.0]]  output: [0. 1. 1. 0.]
-```
+In matrix form, $`W^{(1)} = \begin{pmatrix} 1 \;\; 1 \\ 1 \;\; 1 \end{pmatrix}`$, $`\mathbf{b}^{(1)} = (0, -1)`$, $`W^{(2)} = (1, -2)^\top`$, and $`b^{(2)} = 0`$. In the hidden space the four inputs map to the points $(0,0)$, $(1,0)$, $(1,0)$, and $(2,1)$. The two positive examples land on the same point, and a line easily separates it from the other two. The ReLU in the second unit is what makes this work: without it, $`\hat{y}`$ would be a linear function of $`x_1 + x_2`$ and could not rise and then fall. [Code 2.3.3](#code-233-the-hand-built-xor-network) evaluates this network on all four inputs and reproduces the table.
 
 ### A solution found by training
 
@@ -215,13 +166,84 @@ Every weight and bias is a *parameter*: a number that training adjusts. For an M
 \underbrace{d \cdot H + H}_{\text{layer 1: } W^{(1)},\ \mathbf{b}^{(1)}} \; + \; \underbrace{H \cdot C + C}_{\text{layer 2: } W^{(2)},\ \mathbf{b}^{(2)}} \; = \; (d + 1) H + (H + 1) C .
 ```
 
-Some examples:
+Some examples, which the short function in [Code 2.3.4](#code-234-counting-mlp-parameters) also computes:
 
 | Network | Parameters |
 |---|---|
 | 2-2-1 (worked example) | $`3 \cdot 2 + 3 \cdot 1 = 9`$ |
 | 2-16-1 (two moons) | $`3 \cdot 16 + 17 \cdot 1 = 65`$ |
 | 784-100-10 (a classic digit classifier on 28×28 images) | $`785 \cdot 100 + 101 \cdot 10 = 79{,}510`$ |
+
+Almost all the parameters live in the weight matrices, and the count grows with the product of neighboring layer widths. The same arithmetic, applied to the much larger matrices inside a transformer, is how models end up with billions of parameters. A single feed-forward block in a model whose hidden size is 4,096, with an inner layer of 16,384 units, already has more than 134 million weights in its two matrices ($`2 \times 4096 \times 16384`$).
+
+Going wider is one way to add capacity; going deeper is another. Chapter 3 explains why depth usually wins, and what new problems (vanishing gradients, careful initialization, normalization) it brings.
+
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.3.1: The MLP forward pass with shapes
+
+A one-hidden-layer tanh MLP applied to a random batch of five three-dimensional examples. The comments track each tensor's shape, following the table in [The forward pass, step by step](#the-forward-pass-step-by-step).
+
+```python
+import numpy as np
+
+def mlp_forward(X, W1, b1, W2, b2):
+    Z1 = X @ W1 + b1          # (B, d) @ (d, H) + (H,)  -> (B, H)
+    H = np.tanh(Z1)           # (B, H)
+    Z2 = H @ W2 + b2          # (B, H) @ (H, C) + (C,)  -> (B, C)
+    return Z2, H              # raw output scores and hidden activations
+
+rng = np.random.default_rng(0)
+B, d, Hdim, C = 5, 3, 4, 2
+X = rng.normal(size=(B, d))
+W1, b1 = rng.normal(size=(d, Hdim)), np.zeros(Hdim)
+W2, b2 = rng.normal(size=(Hdim, C)), np.zeros(C)
+Z2, H = mlp_forward(X, W1, b1, W2, b2)
+print("X", X.shape, "-> H", H.shape, "-> Z2", Z2.shape)
+# X (5, 3) -> H (5, 4) -> Z2 (5, 2)
+```
+
+### Code 2.3.2: Checking the 2-2-1 worked example
+
+Reproduces the hand calculation of the worked example: pre-activations, tanh activations, logit, output probability, and cross-entropy loss. It reuses `np` from Code 2.3.1.
+
+```python
+x = np.array([1.0, 0.5])
+W1 = np.array([[0.5, -0.3],
+               [0.8,  0.2]])
+b1 = np.array([0.0, 0.1])
+W2 = np.array([1.0, -1.5])
+b2 = 0.2
+
+z1 = x @ W1 + b1
+h = np.tanh(z1)
+z2 = h @ W2 + b2
+p = 1 / (1 + np.exp(-z2))
+print("z1 =", z1, " h =", h.round(4), f" z2 = {z2:.4f}  p = {p:.4f}  loss = {-np.log(p):.4f}")
+# z1 = [ 0.9 -0.1]  h = [ 0.7163 -0.0997]  z2 = 1.0658  p = 0.7438  loss = 0.2960
+```
+
+### Code 2.3.3: The hand-built XOR network
+
+Evaluates the ReLU solution to XOR on all four inputs and prints the hidden representation and the output. It reuses `np` from Code 2.3.1.
+
+```python
+relu = lambda z: np.maximum(0, z)
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+W1 = np.array([[1.0, 1.0],
+               [1.0, 1.0]])
+b1 = np.array([0.0, -1.0])
+W2 = np.array([1.0, -2.0])
+H = relu(X @ W1 + b1)
+print("hidden:", H.tolist(), " output:", H @ W2)
+# hidden: [[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [2.0, 1.0]]  output: [0. 1. 1. 0.]
+```
+
+### Code 2.3.4: Counting MLP parameters
+
+Evaluates the formula $`(d + 1) H + (H + 1) C`$ for the three networks in the parameter-count table.
 
 ```python
 def count_params(d, H, C):
@@ -230,11 +252,6 @@ def count_params(d, H, C):
 for d, H, C in [(2, 2, 1), (2, 16, 1), (784, 100, 10)]:
     print(f"{d}-{H}-{C}: {count_params(d, H, C):,} parameters")
 ```
-
-Almost all the parameters live in the weight matrices, and the count grows with the product of neighboring layer widths. The same arithmetic, applied to the much larger matrices inside a transformer, is how models end up with billions of parameters. A single feed-forward block in a model whose hidden size is 4,096, with an inner layer of 16,384 units, already has more than 134 million weights in its two matrices ($`2 \times 4096 \times 16384`$).
-
-Going wider is one way to add capacity; going deeper is another. Chapter 3 explains why depth usually wins, and what new problems (vanishing gradients, careful initialization, normalization) it brings.
-
 ## Key takeaways
 
 - An MLP with one hidden layer computes $`\hat{\mathbf{y}} = o\bigl(g(\mathbf{x} W^{(1)} + \mathbf{b}^{(1)})\, W^{(2)} + \mathbf{b}^{(2)}\bigr)`$: two matrix multiplications with a nonlinearity in between.

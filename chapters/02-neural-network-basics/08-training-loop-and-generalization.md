@@ -104,7 +104,39 @@ More sophisticated regularizers, which let us keep large models while controllin
 
 ## A complete training loop
 
-The following code puts everything together using the vectorized network from Section 2.7 (`init_params`, `forward`, `softmax_cross_entropy`, and `backward`, also available in `figures/src/numpy_mlp.py`) and a two-moons data generator (`make_moons` in `figures/src/style.py`). It splits the data, trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, stops early, and finally evaluates the best model on the test set exactly once.
+[Code 2.8.1](#code-281-a-complete-training-loop-with-early-stopping) puts everything together using the vectorized network from Section 2.7 (`init_params`, `forward`, `softmax_cross_entropy`, and `backward`, also available in `figures/src/numpy_mlp.py`) and a two-moons data generator (`make_moons` in `figures/src/style.py`). It splits the data, trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, stops early, and finally evaluates the best model on the test set exactly once.
+
+We run it on 300 noisy two-moons points, split 70/15/15, with 128 hidden units, learning rate 0.1, batch size 16, and a patience of 50 epochs. The validation loss reached its minimum of 0.226 at epoch 231 and stopped improving after that, so training ended 50 epochs later, at epoch 281, by which point the training loss was 0.240 and the validation loss had risen to 0.343. The checkpoint from epoch 231 was used for the single test evaluation: a test loss of 0.229 and 91% accuracy on 45 unseen points. With datasets this small, validation and test estimates are noisy (one test point is about 2 percentage points), which is another reason to report exactly how an experiment was run.
+
+## Initialization in brief: why not start at zero?
+
+Every training loop starts from some initial parameters. It might seem natural to set all weights to zero, or to the same small constant. That fails, for a reason called **symmetry**.
+
+If two hidden units in the same layer start with identical incoming weights and identical outgoing weights, they compute the same activation for every input. By the backpropagation equations of Section 2.6, they then receive identical gradients, so after the update their weights are still identical. By induction they stay identical forever: the layer behaves as if it had a single unit, no matter how wide it is. (With all weights and biases exactly zero it is even worse: in our tanh network, $`\tanh(0) = 0`$ and zero outgoing weights mean that every weight gradient is zero, and only the output bias ever changes.) Random initialization **breaks the symmetry**, giving each unit a different starting point so that the units can specialize.
+
+Figure 2.37 shows the effect on a 2-4-1 tanh network trained on two moons with SGD.
+
+![Symmetric versus random initialization](figures/fig2-37-symmetry.png)
+
+*Figure 2.37: The weight from input x₁ into each of four hidden units during training. Left: when every weight starts at 0.5, all four units receive identical updates and their curves lie exactly on top of each other; the network is effectively one unit wide and stalls at a loss of 0.290. Right: with random initialization, the units follow different paths, and the network reaches a loss of 0.049 in the same 1,000 steps.*
+
+The *scale* of the random initialization matters too. Weights that are too large saturate tanh and sigmoid units (Section 2.2) or make activations explode through many layers; weights that are too small make signals and gradients shrink. The initializers we used in this chapter scale the random weights by $`1/\sqrt{\text{fan-in}}`$ or $`\sqrt{2/\text{fan-in}}`$, where the fan-in is the number of inputs to a unit, which keeps activations in a reasonable range. Chapter 3 explains where these scalings come from (Xavier/Glorot and He initialization) and why they become essential in deep networks.
+
+## Reproducibility: seeds and logging
+
+Neural network training is full of randomness: the initial weights, the shuffling of data into minibatches, the train/validation/test split, and, in later chapters, dropout. Two runs with different random draws can end at noticeably different losses, as we saw with XOR in Section 2.3. Two habits make experiments trustworthy.
+
+**Seed every source of randomness.** In NumPy, create a generator with `np.random.default_rng(seed)` and pass it (or the seed) explicitly to every function that needs randomness, as our code does. In PyTorch, call `torch.manual_seed(seed)`. Seeding makes a run repeatable on the same software and hardware. (Bit-for-bit reproducibility across different GPUs or library versions is harder, because some parallel operations do not guarantee the same order of floating-point additions.) And because one seed can be lucky, important comparisons should be repeated with several seeds, reporting the mean and spread.
+
+**Log everything you need to reconstruct the run.** At minimum: the hyperparameters (learning rate, batch size, width, number of epochs, seed), the code version, the dataset version and split, and the training and validation losses at regular intervals. Our `fit` function returns its full history for exactly this reason. Larger projects use experiment trackers that record all of this automatically. A result you cannot reproduce is a result you cannot trust, and in LLM work, where a single training run can cost a great deal of compute, careful logging is not optional.
+
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.8.1: A complete training loop with early stopping
+
+Data splitting, evaluation, and a `fit` function that trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, and stops early, followed by a single evaluation on the test set. It relies on `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2, also in `figures/src/numpy_mlp.py`) and on `make_moons` from `figures/src/style.py`.
 
 ```python
 import copy
@@ -156,36 +188,13 @@ test_loss, test_acc = evaluate(best["params"], *test)    # touched once, at the 
 print(f"test loss {test_loss:.3f}, test accuracy {test_acc:.2f}")
 ```
 
+Output:
+
 ```text
 stopped after epoch 281: train loss 0.240, val loss 0.343
 best epoch 231: val loss 0.226
 test loss 0.229, test accuracy 0.91
 ```
-
-The validation loss stopped improving after epoch 231, so training ended 50 epochs later, and the checkpoint from epoch 231 was used for the single test evaluation: 91% accuracy on 45 unseen points. With datasets this small, validation and test estimates are noisy (one test point is about 2 percentage points), which is another reason to report exactly how an experiment was run.
-
-## Initialization in brief: why not start at zero?
-
-Every training loop starts from some initial parameters. It might seem natural to set all weights to zero, or to the same small constant. That fails, for a reason called **symmetry**.
-
-If two hidden units in the same layer start with identical incoming weights and identical outgoing weights, they compute the same activation for every input. By the backpropagation equations of Section 2.6, they then receive identical gradients, so after the update their weights are still identical. By induction they stay identical forever: the layer behaves as if it had a single unit, no matter how wide it is. (With all weights and biases exactly zero it is even worse: in our tanh network, $`\tanh(0) = 0`$ and zero outgoing weights mean that every weight gradient is zero, and only the output bias ever changes.) Random initialization **breaks the symmetry**, giving each unit a different starting point so that the units can specialize.
-
-Figure 2.37 shows the effect on a 2-4-1 tanh network trained on two moons with SGD.
-
-![Symmetric versus random initialization](figures/fig2-37-symmetry.png)
-
-*Figure 2.37: The weight from input x₁ into each of four hidden units during training. Left: when every weight starts at 0.5, all four units receive identical updates and their curves lie exactly on top of each other; the network is effectively one unit wide and stalls at a loss of 0.290. Right: with random initialization, the units follow different paths, and the network reaches a loss of 0.049 in the same 1,000 steps.*
-
-The *scale* of the random initialization matters too. Weights that are too large saturate tanh and sigmoid units (Section 2.2) or make activations explode through many layers; weights that are too small make signals and gradients shrink. The initializers we used in this chapter scale the random weights by $`1/\sqrt{\text{fan-in}}`$ or $`\sqrt{2/\text{fan-in}}`$, where the fan-in is the number of inputs to a unit, which keeps activations in a reasonable range. Chapter 3 explains where these scalings come from (Xavier/Glorot and He initialization) and why they become essential in deep networks.
-
-## Reproducibility: seeds and logging
-
-Neural network training is full of randomness: the initial weights, the shuffling of data into minibatches, the train/validation/test split, and, in later chapters, dropout. Two runs with different random draws can end at noticeably different losses, as we saw with XOR in Section 2.3. Two habits make experiments trustworthy.
-
-**Seed every source of randomness.** In NumPy, create a generator with `np.random.default_rng(seed)` and pass it (or the seed) explicitly to every function that needs randomness, as our code does. In PyTorch, call `torch.manual_seed(seed)`. Seeding makes a run repeatable on the same software and hardware. (Bit-for-bit reproducibility across different GPUs or library versions is harder, because some parallel operations do not guarantee the same order of floating-point additions.) And because one seed can be lucky, important comparisons should be repeated with several seeds, reporting the mean and spread.
-
-**Log everything you need to reconstruct the run.** At minimum: the hyperparameters (learning rate, batch size, width, number of epochs, seed), the code version, the dataset version and split, and the training and validation losses at regular intervals. Our `fit` function returns its full history for exactly this reason. Larger projects use experiment trackers that record all of this automatically. A result you cannot reproduce is a result you cannot trust, and in LLM work, where a single training run can cost a great deal of compute, careful logging is not optional.
-
 ## Key takeaways
 
 - Every training loop repeats the same steps: sample a minibatch, forward pass, loss, backward pass, update, with periodic evaluation on held-out data.

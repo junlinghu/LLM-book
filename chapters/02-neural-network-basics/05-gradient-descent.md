@@ -82,27 +82,7 @@ which is four times more curved along $`w_1`$ than along $`w_2`$. The update act
 
 The oscillating path at $`\eta = 0.48`$ is typical of real training: the learning rate is limited by the most sharply curved direction, while progress in flat directions stays slow. This mismatch is the main motivation for the improved optimizers in Chapter 3. *Momentum* averages successive gradients so that oscillations cancel and consistent directions accumulate speed, and *Adam* rescales each parameter's step by a running estimate of its gradient magnitude.
 
-Here is gradient descent on this bowl in a few lines of code:
-
-```python
-import numpy as np
-
-def grad(w):                       # gradient of 0.5 * (4 w1^2 + w2^2)
-    return np.array([4.0 * w[0], 1.0 * w[1]])
-
-for lr in [0.05, 0.35, 0.48, 0.53]:
-    w = np.array([2.5, 2.5])
-    for step in range(25):
-        w = w - lr * grad(w)
-    print(f"lr={lr:4.2f}  w after 25 steps = ({w[0]: .3e}, {w[1]: .3e})")
-```
-
-```text
-lr=0.05  w after 25 steps = ( 9.445e-03,  6.935e-01)
-lr=0.35  w after 25 steps = (-2.815e-10,  5.257e-05)
-lr=0.48  w after 25 steps = (-3.109e-01,  1.986e-07)
-lr=0.53  w after 25 steps = (-4.250e+01,  1.586e-08)
-```
+A few lines of code confirm the picture numerically ([Code 2.5.1](#code-251-gradient-descent-on-an-elongated-quadratic-bowl)). After 25 steps from (2.5, 2.5), the run with $`\eta = 0.05`$ has $`w_2`$ still at about 0.69, far from the minimum. With $`\eta = 0.35`$ both coordinates are essentially zero. With $`\eta = 0.48`$, $`w_2`$ has converged, but $`w_1`$ is still oscillating at a magnitude of about 0.31. With $`\eta = 0.53`$, $`w_1`$ has grown to about $-42.5$.
 
 In practice, you find a good learning rate empirically: try values spaced by factors of about 3 or 10 (for example 0.001, 0.003, 0.01, 0.03, ...), train briefly with each, and keep the largest one for which the loss decreases steadily. Section 2.7 runs exactly this experiment on a real network.
 
@@ -170,7 +150,49 @@ With $N = 400$ examples and $B = 32$, one epoch is $`\lceil 12.5 \rceil = 13`$ i
 
 *Figure 2.21: A training set split into four minibatches. Each minibatch produces one iteration (one update); one pass through all four minibatches is one epoch. The data are reshuffled between epochs, so the minibatches differ from epoch to epoch.*
 
-A shuffled minibatch iterator is short enough to write from scratch:
+A shuffled minibatch iterator is short enough to write from scratch ([Code 2.5.2](#code-252-a-shuffled-minibatch-iterator)). On 400 examples with batch size 32, it produces twelve minibatches of 32 and a final one of 16: the 13 iterations per epoch computed above.
+
+LLM papers usually describe training in tokens and steps rather than epochs, because pretraining corpora are so large that models often see each document only about once.
+
+## Non-convex losses and local minima
+
+Our examples so far used convex bowls with a single minimum, where gradient descent with a small enough learning rate is guaranteed to find the best solution. The loss of a neural network with hidden layers is **non-convex**. Among other things, hidden units can be permuted without changing the function the network computes, so every minimum comes with many equivalent copies, and the surface between them must contain hills and saddle points. Gradient descent can in principle get stuck in a *local minimum* that is worse than the best one, or slow down near a *saddle point*, where the gradient is zero but the point is a minimum in some directions and a maximum in others.
+
+We saw a small example in Section 2.3: a 2-2-1 network trained on XOR sometimes fails to find a solution, depending on its random initialization. For the large networks used in practice, experience and theory suggest a more optimistic picture: most local minima that gradient descent finds have losses close to the global minimum, and the main practical obstacles are poorly conditioned regions (flat plateaus and sharp ravines) rather than bad local minima. We return to these issues in Chapter 3, together with the tools that address them: momentum, Adam, and learning-rate schedules such as warmup and cosine decay.
+
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.5.1: Gradient descent on an elongated quadratic bowl
+
+Runs 25 steps of gradient descent on $`L = \tfrac{1}{2}(4 w_1^2 + w_2^2)`$ from (2.5, 2.5) with the four learning rates of Figure 2.19 and prints the final position.
+
+```python
+import numpy as np
+
+def grad(w):                       # gradient of 0.5 * (4 w1^2 + w2^2)
+    return np.array([4.0 * w[0], 1.0 * w[1]])
+
+for lr in [0.05, 0.35, 0.48, 0.53]:
+    w = np.array([2.5, 2.5])
+    for step in range(25):
+        w = w - lr * grad(w)
+    print(f"lr={lr:4.2f}  w after 25 steps = ({w[0]: .3e}, {w[1]: .3e})")
+```
+
+Output:
+
+```text
+lr=0.05  w after 25 steps = ( 9.445e-03,  6.935e-01)
+lr=0.35  w after 25 steps = (-2.815e-10,  5.257e-05)
+lr=0.48  w after 25 steps = (-3.109e-01,  1.986e-07)
+lr=0.53  w after 25 steps = (-4.250e+01,  1.586e-08)
+```
+
+### Code 2.5.2: A shuffled minibatch iterator
+
+A generator that shuffles the data and yields consecutive minibatches covering each example once, checked on 400 random examples with batch size 32. It reuses `np` from Code 2.5.1.
 
 ```python
 def minibatches(X, y, batch_size, rng):
@@ -186,15 +208,6 @@ sizes = [len(xb) for xb, _ in minibatches(X, y, 32, rng)]
 print(len(sizes), "iterations per epoch; batch sizes:", sizes)
 # 13 iterations per epoch; batch sizes: [32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 16]
 ```
-
-LLM papers usually describe training in tokens and steps rather than epochs, because pretraining corpora are so large that models often see each document only about once.
-
-## Non-convex losses and local minima
-
-Our examples so far used convex bowls with a single minimum, where gradient descent with a small enough learning rate is guaranteed to find the best solution. The loss of a neural network with hidden layers is **non-convex**. Among other things, hidden units can be permuted without changing the function the network computes, so every minimum comes with many equivalent copies, and the surface between them must contain hills and saddle points. Gradient descent can in principle get stuck in a *local minimum* that is worse than the best one, or slow down near a *saddle point*, where the gradient is zero but the point is a minimum in some directions and a maximum in others.
-
-We saw a small example in Section 2.3: a 2-2-1 network trained on XOR sometimes fails to find a solution, depending on its random initialization. For the large networks used in practice, experience and theory suggest a more optimistic picture: most local minima that gradient descent finds have losses close to the global minimum, and the main practical obstacles are poorly conditioned regions (flat plateaus and sharp ravines) rather than bad local minima. We return to these issues in Chapter 3, together with the tools that address them: momentum, Adam, and learning-rate schedules such as warmup and cosine decay.
-
 ## Key takeaways
 
 - Training minimizes the average loss over the training set. The gradient points in the direction of steepest increase, so gradient descent steps against it: $`\theta \leftarrow \theta - \eta \nabla_\theta L`$.

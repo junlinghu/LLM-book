@@ -102,7 +102,36 @@ Modern LLMs such as LLaMA go one step further and use *gated* feed-forward layer
 
 ## Plotting each function and its derivative
 
-The best way to internalize these functions is to look at them. The NumPy code below defines each activation and its derivative; the same definitions generate Figures 2.7 and 2.8.
+The best way to internalize these functions is to look at them. Figure 2.7 plots each activation above its derivative, and Figure 2.8 takes a closer look at ReLU and its smooth relatives near zero. (The NumPy definitions behind both figures, with a table of values at a few sample points, are in [Code 2.2.1](#code-221-activation-functions-and-their-derivatives).)
+
+Read the derivative panels first. Sigmoid and tanh derivatives fall toward zero at both ends: those are the saturated regions. ReLU's derivative is exactly 0 or 1. GELU and SiLU derivatives are close to 1 for positive inputs, are small but nonzero for negative inputs, and even overshoot 1 slightly just above zero; GELU's derivative is about 1.08 at $z = 1$, and SiLU's about 1.09 at $z = 3$.
+
+![Activation functions and their derivatives](figures/fig2-07-activation-gallery.png)
+
+*Figure 2.7: Six activation functions (top) and their derivatives (bottom). Shaded bands mark where the derivative is below 5% of its maximum: the saturated tails of sigmoid and tanh, the dead negative half of ReLU, and the far negative tails of GELU and SiLU. The step function's derivative is zero everywhere it is defined.*
+
+![ReLU, GELU, and SiLU compared near zero](figures/fig2-08-relu-gelu-silu.png)
+
+*Figure 2.8: A closer look at ReLU and its smooth relatives. GELU and SiLU are smooth, dip slightly below zero for negative inputs, and have derivatives that change gradually instead of jumping from 0 to 1.*
+
+A practical guide to choosing:
+
+| Where | Typical choice | Why |
+|---|---|---|
+| Hidden layers of a small MLP (this chapter) | tanh or ReLU | Simple, easy to differentiate by hand |
+| Hidden layers of deep feed-forward and convolutional networks | ReLU (or leaky ReLU) | Cheap, non-saturating |
+| Feed-forward blocks of transformers and LLMs | GELU, or SiLU inside SwiGLU | Smooth, slightly better results at scale |
+| Output for a binary probability | sigmoid | Maps to (0, 1) |
+| Output for a multi-class distribution | softmax (Section 2.4) | Produces a probability vector |
+| Output for regression | none (identity) | Target is an unbounded real number |
+
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.2.1: Activation functions and their derivatives
+
+NumPy definitions of sigmoid, tanh, ReLU, GELU, and SiLU, each paired with its derivative. The same definitions generate Figures 2.7 and 2.8; the loop prints each function and its derivative at seven sample points.
 
 ```python
 import math
@@ -146,28 +175,6 @@ gelu     g(z):   [-0.    -0.004 -0.159  0.     0.841  2.996  5.   ]
 silu     g(z):   [-0.033 -0.142 -0.269  0.     0.731  2.858  4.967]
          g'(z):  [-0.027 -0.088  0.072  0.5    0.928  1.088  1.027]
 ```
-
-Read the derivative rows first. Sigmoid and tanh derivatives fall toward zero at both ends: those are the saturated regions. ReLU's derivative is exactly 0 or 1. GELU and SiLU derivatives are close to 1 for positive inputs, are small but nonzero for negative inputs, and even overshoot 1 slightly just above zero.
-
-![Activation functions and their derivatives](figures/fig2-07-activation-gallery.png)
-
-*Figure 2.7: Six activation functions (top) and their derivatives (bottom). Shaded bands mark where the derivative is below 5% of its maximum: the saturated tails of sigmoid and tanh, the dead negative half of ReLU, and the far negative tails of GELU and SiLU. The step function's derivative is zero everywhere it is defined.*
-
-![ReLU, GELU, and SiLU compared near zero](figures/fig2-08-relu-gelu-silu.png)
-
-*Figure 2.8: A closer look at ReLU and its smooth relatives. GELU and SiLU are smooth, dip slightly below zero for negative inputs, and have derivatives that change gradually instead of jumping from 0 to 1.*
-
-A practical guide to choosing:
-
-| Where | Typical choice | Why |
-|---|---|---|
-| Hidden layers of a small MLP (this chapter) | tanh or ReLU | Simple, easy to differentiate by hand |
-| Hidden layers of deep feed-forward and convolutional networks | ReLU (or leaky ReLU) | Cheap, non-saturating |
-| Feed-forward blocks of transformers and LLMs | GELU, or SiLU inside SwiGLU | Smooth, slightly better results at scale |
-| Output for a binary probability | sigmoid | Maps to (0, 1) |
-| Output for a multi-class distribution | softmax (Section 2.4) | Produces a probability vector |
-| Output for regression | none (identity) | Target is an unbounded real number |
-
 ## Key takeaways
 
 - Without a nonlinear activation, any stack of linear layers collapses into a single linear layer, so depth adds nothing.

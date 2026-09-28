@@ -43,28 +43,9 @@ Figure 2.14 below illustrates both.
 
 ### The numerically stable softmax
 
-The formula above is correct but dangerous in code. Computers represent numbers with limited range: in standard 64-bit floating point, $`e^{z}`$ overflows to infinity once $z$ exceeds about 709. Logits of a few hundred are not unusual in practice, and a naive implementation then computes $`\infty / \infty`$, which is "not a number" (NaN):
+The formula above is correct but dangerous in code. Computers represent numbers with limited range: in standard 64-bit floating point, $`e^{z}`$ overflows to infinity once $z$ exceeds about 709. Logits of a few hundred are not unusual in practice, and a naive implementation then computes $`\infty / \infty`$, which is "not a number" (NaN). For the logits $(1000, 1001, 1002)$, for example, the naive formula returns NaN in all three entries.
 
-```python
-import numpy as np
-
-def softmax_naive(z):
-    e = np.exp(z)
-    return e / e.sum()
-
-def softmax(z):
-    e = np.exp(z - z.max())   # shift so the largest logit is 0
-    return e / e.sum()
-
-z = np.array([1000.0, 1001.0, 1002.0])
-with np.errstate(over="ignore", invalid="ignore"):
-    print("naive: ", softmax_naive(z))
-print("stable:", softmax(z))
-# naive:  [nan nan nan]
-# stable: [0.09003057 0.24472847 0.66524096]
-```
-
-The fix uses shift invariance. Subtracting the largest logit from every entry leaves the answer unchanged, but now the largest exponent is $e^0 = 1$ and nothing can overflow. Entries that were far below the maximum may underflow to zero, which is harmless. Every serious library implements softmax this way.
+The fix uses shift invariance. Subtracting the largest logit from every entry leaves the answer unchanged, but now the largest exponent is $e^0 = 1$ and nothing can overflow. Entries that were far below the maximum may underflow to zero, which is harmless. With the shift, the same three logits give the probabilities $(0.090, 0.245, 0.665)$ ([Code 2.4.1](#code-241-naive-versus-numerically-stable-softmax)). Every serious library implements softmax this way.
 
 ![Softmax turns logits into probabilities](figures/fig2-14-softmax.png)
 
@@ -152,29 +133,7 @@ The first term contributes $-1$ if $i = c$ and 0 otherwise, which is $`-y_i`$ fo
 
 The gradient on each logit is simply the predicted probability minus the target. For the correct class it is $`p_c - 1`$, which is negative, so gradient descent raises that logit. For every wrong class it is $`p_i`$, which is positive, so gradient descent lowers those logits in proportion to how much probability they stole. When the prediction is perfect, $`\mathbf{p} = \mathbf{y}`$, and the gradient is zero.
 
-Let us confirm the formula numerically with centered finite differences, a technique we will use repeatedly (Section 2.7):
-
-```python
-def cross_entropy_from_logits(z, c):
-    zs = z - z.max()
-    return -(zs[c] - np.log(np.exp(zs).sum()))   # -log softmax(z)[c], computed stably
-
-z = np.array([2.0, 0.5, -1.0])
-c = 2                                            # the correct class is the third one
-analytic = softmax(z) - np.eye(3)[c]             # p - y
-eps = 1e-6
-numeric = np.array([
-    (cross_entropy_from_logits(z + eps * np.eye(3)[i], c) -
-     cross_entropy_from_logits(z - eps * np.eye(3)[i], c)) / (2 * eps)
-    for i in range(3)
-])
-print("loss    ", round(cross_entropy_from_logits(z, c), 4))
-print("analytic", analytic.round(6))
-print("numeric ", numeric.round(6))
-# loss     3.2413
-# analytic [ 0.785597  0.17529  -0.960887]
-# numeric  [ 0.785597  0.17529  -0.960887]
-```
+We can confirm the formula numerically with centered finite differences, a technique we will use repeatedly (Section 2.7). For the logits $(2.0, 0.5, -1.0)$ with the third class correct, the loss is 3.2413, and the analytic gradient $`\mathbf{p} - \mathbf{y} = (0.785597, 0.175290, -0.960887)`$ agrees with the finite-difference estimate to all six decimal places ([Code 2.4.2](#code-242-checking-the-softmax-cross-entropy-gradient)).
 
 A practical consequence: libraries combine softmax and cross-entropy into one function that takes *logits*, not probabilities, and computes $`-z_c + \mathrm{logsumexp}(\mathbf{z})`$ in a numerically stable way. PyTorch's `nn.CrossEntropyLoss` works like this (Section 2.9). Applying softmax yourself and then taking a log is both slower and less stable: if a probability underflows to 0, its log is $`-\infty`$.
 
@@ -208,6 +167,58 @@ Because this average loss is measured in nats (natural-log units), it is often r
 
 Perplexity has an intuitive reading: a perplexity of $k$ means the model is, on average, as uncertain as if it were choosing uniformly among $k$ equally likely tokens. A model that guesses uniformly over a 50,000-token vocabulary has loss $`\ln 50000 \approx 10.8`$ and perplexity 50,000; a model with an average loss of 3.0 nats has perplexity $`e^{3} \approx 20.1`$. Chapter 12 discusses perplexity as an evaluation metric and its pitfalls, such as its dependence on the tokenizer.
 
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.4.1: Naive versus numerically stable softmax
+
+Compares the direct softmax formula with the max-shifted version on large logits. The naive version overflows and returns NaN; the stable version does not.
+
+```python
+import numpy as np
+
+def softmax_naive(z):
+    e = np.exp(z)
+    return e / e.sum()
+
+def softmax(z):
+    e = np.exp(z - z.max())   # shift so the largest logit is 0
+    return e / e.sum()
+
+z = np.array([1000.0, 1001.0, 1002.0])
+with np.errstate(over="ignore", invalid="ignore"):
+    print("naive: ", softmax_naive(z))
+print("stable:", softmax(z))
+# naive:  [nan nan nan]
+# stable: [0.09003057 0.24472847 0.66524096]
+```
+
+### Code 2.4.2: Checking the softmax cross-entropy gradient
+
+Compares the analytic gradient $`\mathbf{p} - \mathbf{y}`$ with centered finite differences for the example logits. It reuses `np` and `softmax` from Code 2.4.1.
+
+```python
+def cross_entropy_from_logits(z, c):
+    zs = z - z.max()
+    return -(zs[c] - np.log(np.exp(zs).sum()))   # -log softmax(z)[c], computed stably
+
+z = np.array([2.0, 0.5, -1.0])
+c = 2                                            # the correct class is the third one
+analytic = softmax(z) - np.eye(3)[c]             # p - y
+eps = 1e-6
+numeric = np.array([
+    (cross_entropy_from_logits(z + eps * np.eye(3)[i], c) -
+     cross_entropy_from_logits(z - eps * np.eye(3)[i], c)) / (2 * eps)
+    for i in range(3)
+])
+print("loss    ", round(cross_entropy_from_logits(z, c), 4))
+print("analytic", analytic.round(6))
+print("numeric ", numeric.round(6))
+# loss     3.2413
+# analytic [ 0.785597  0.17529  -0.960887]
+# numeric  [ 0.785597  0.17529  -0.960887]
+```
 ## Key takeaways
 
 - A loss function turns "how wrong is the model?" into one number whose gradient tells us how to improve the weights.

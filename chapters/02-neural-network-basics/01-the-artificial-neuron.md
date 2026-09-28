@@ -38,21 +38,7 @@ A tiny numeric example makes this concrete. Let $`\mathbf{x} = (2, -1, 0.5)`$, $
 z = 0.4 \cdot 2 + 0.3 \cdot (-1) + (-1.0) \cdot 0.5 + 0.1 = 0.8 - 0.3 - 0.5 + 0.1 = 0.1.
 ```
 
-With a step activation (output 1 if $`z \gt 0`$, else 0), the neuron outputs 1. With a sigmoid activation $`\sigma(z) = 1/(1+e^{-z})`$, it outputs $`\sigma(0.1) \approx 0.525`$, a probability-like number just above one half. In NumPy the whole computation is one line:
-
-```python
-import numpy as np
-
-x = np.array([2.0, -1.0, 0.5])
-w = np.array([0.4, 0.3, -1.0])
-b = 0.1
-
-z = w @ x + b                      # weighted sum plus bias
-step = float(z > 0)                # perceptron-style output
-sigmoid = 1 / (1 + np.exp(-z))     # logistic output
-print(f"z = {z:.3f}, step = {step:.0f}, sigmoid = {sigmoid:.3f}")
-# z = 0.100, step = 1, sigmoid = 0.525
-```
+With a step activation (output 1 if $`z \gt 0`$, else 0), the neuron outputs 1. With a sigmoid activation $`\sigma(z) = 1/(1+e^{-z})`$, it outputs $`\sigma(0.1) \approx 0.525`$, a probability-like number just above one half. In NumPy the whole computation takes a single line ([Code 2.1.1](#code-211-a-single-neuron-in-numpy)).
 
 The choice of $g$ matters a great deal, and Section 2.2 is devoted to it. For now, two choices are enough: the *step function* used by the original perceptron, and the *sigmoid* used by logistic regression.
 
@@ -78,46 +64,7 @@ where $`\eta \gt 0`$ is a step size (the *learning rate*). Correctly classified 
 
 so the score moves in the direction of the true label $y$ by a positive amount. Repeat until an entire pass through the data, an *epoch*, produces no mistakes.
 
-Here is the complete algorithm in NumPy:
-
-```python
-import numpy as np
-
-def train_perceptron(X, y, lr=1.0, max_epochs=100, seed=0):
-    """X: (n, d) inputs; y: (n,) labels in {-1, +1}. Returns w, b, mistakes per epoch."""
-    rng = np.random.default_rng(seed)
-    w, b = np.zeros(X.shape[1]), 0.0
-    mistakes = []
-    for _ in range(max_epochs):
-        errors = 0
-        for i in rng.permutation(len(X)):
-            if y[i] * (X[i] @ w + b) <= 0:       # wrong (or exactly on the boundary)
-                w += lr * y[i] * X[i]
-                b += lr * y[i]
-                errors += 1
-        mistakes.append(errors)
-        if errors == 0:                          # a clean epoch: done
-            break
-    return w, b, mistakes
-
-# The AND function is linearly separable ...
-X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
-w, b, m = train_perceptron(X, np.array([-1, -1, -1, 1]))
-print("AND:", w, b, "mistakes per epoch:", m)
-
-# ... but XOR is not.
-w, b, m = train_perceptron(X, np.array([-1, 1, 1, -1]), max_epochs=20)
-print("XOR mistakes per epoch:", m)
-```
-
-Running it prints:
-
-```text
-AND: [2. 2.] -3.0 mistakes per epoch: [2, 2, 1, 2, 2, 3, 2, 2, 1, 0]
-XOR mistakes per epoch: [4, 4, 4, 4, 4, 4, 3, 3, 3, 4, 2, 4, 4, 2, 4, 4, 4, 3, 3, 2]
-```
-
-For AND the perceptron finds weights $`\mathbf{w} = (2, 2)`$ and $b = -3$ after ten epochs: the score $`2x_1 + 2x_2 - 3`$ is positive only for the input $(1, 1)$. For XOR it never stops making mistakes.
+The whole algorithm takes only a few lines of NumPy ([Code 2.1.2](#code-212-the-perceptron-learning-rule)). Trained on the four inputs of the AND function, the perceptron finds weights $`\mathbf{w} = (2, 2)`$ and $b = -3$ after ten epochs: the score $`2x_1 + 2x_2 - 3`$ is positive only for the input $(1, 1)$. Trained on XOR, it never stops making mistakes: over 20 epochs the number of mistakes per epoch bounces between 2 and 4 and never reaches zero.
 
 Figure 2.2 shows the algorithm at work on a larger two-dimensional dataset. Each panel draws the current decision boundary, the line where the score is zero, and circles the example that triggered the most recent update. Early boundaries are poor, but each mistake rotates and shifts the line, and after 16 updates spread over six epochs every point is on the correct side.
 
@@ -191,6 +138,68 @@ The comeback came in 1986, when David Rumelhart, Geoffrey Hinton, and Ronald Wil
 
 It is worth noting real neurons are far more complicated than the units in this chapter: they spike in time, their dendrites perform nonlinear computation, and brains do not appear to learn by backpropagation. Modern neural networks are best understood as a family of flexible mathematical functions that happen to have been inspired by neuroscience. From here on we will treat them as mathematics.
 
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.1.1: A single neuron in NumPy
+
+The numeric example from the start of this section: a weighted sum plus bias, passed through a step activation and through a sigmoid.
+
+```python
+import numpy as np
+
+x = np.array([2.0, -1.0, 0.5])
+w = np.array([0.4, 0.3, -1.0])
+b = 0.1
+
+z = w @ x + b                      # weighted sum plus bias
+step = float(z > 0)                # perceptron-style output
+sigmoid = 1 / (1 + np.exp(-z))     # logistic output
+print(f"z = {z:.3f}, step = {step:.0f}, sigmoid = {sigmoid:.3f}")
+# z = 0.100, step = 1, sigmoid = 0.525
+```
+
+### Code 2.1.2: The perceptron learning rule
+
+A complete implementation of the perceptron rule with labels in $`\{-1, +1\}`$, trained first on AND, which is linearly separable, and then on XOR, which is not.
+
+```python
+import numpy as np
+
+def train_perceptron(X, y, lr=1.0, max_epochs=100, seed=0):
+    """X: (n, d) inputs; y: (n,) labels in {-1, +1}. Returns w, b, mistakes per epoch."""
+    rng = np.random.default_rng(seed)
+    w, b = np.zeros(X.shape[1]), 0.0
+    mistakes = []
+    for _ in range(max_epochs):
+        errors = 0
+        for i in rng.permutation(len(X)):
+            if y[i] * (X[i] @ w + b) <= 0:       # wrong (or exactly on the boundary)
+                w += lr * y[i] * X[i]
+                b += lr * y[i]
+                errors += 1
+        mistakes.append(errors)
+        if errors == 0:                          # a clean epoch: done
+            break
+    return w, b, mistakes
+
+# The AND function is linearly separable ...
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+w, b, m = train_perceptron(X, np.array([-1, -1, -1, 1]))
+print("AND:", w, b, "mistakes per epoch:", m)
+
+# ... but XOR is not.
+w, b, m = train_perceptron(X, np.array([-1, 1, 1, -1]), max_epochs=20)
+print("XOR mistakes per epoch:", m)
+```
+
+Running it prints:
+
+```text
+AND: [2. 2.] -3.0 mistakes per epoch: [2, 2, 1, 2, 2, 3, 2, 2, 1, 0]
+XOR mistakes per epoch: [4, 4, 4, 4, 4, 4, 3, 3, 3, 4, 2, 4, 4, 2, 4, 4, 4, 3, 3, 2]
+```
 ## Key takeaways
 
 - An artificial neuron computes a weighted sum of its inputs plus a bias, $`z = \mathbf{w}^\top \mathbf{x} + b`$, and passes it through an activation function $g$.

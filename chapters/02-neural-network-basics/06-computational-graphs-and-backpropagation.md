@@ -185,7 +185,59 @@ The design has three ideas:
 2. **Local derivatives are computed eagerly.** When an operation creates a new `Scalar`, it stores each input *together with the local derivative with respect to that input*, evaluated right away using the forward values. For $`c = a \times b`$, it stores the pairs $`(a, b.\text{value})`$ and $`(b, a.\text{value})`$. The backward pass then never needs to know which operation produced a node: it only multiplies and adds.
 3. **A topological sort** orders the nodes so that each one is processed after every node that consumes it. Walking that order backward and applying `parent.grad += local * node.grad` implements the chain rule with accumulation.
 
-Here is the complete engine:
+The complete engine is listed in [Code 2.6.1](#code-261-the-scalar-autograd-engine). A few design notes are in order. Subtraction, negation, and division are not given their own derivative rules; they are built from addition, multiplication, and powers, so they inherit correct gradients for free. The `__radd__` and `__rmul__` aliases let expressions such as `3 * a` or `1 + a` work when the left operand is a plain number. The topological sort is iterative rather than recursive, so deep graphs do not hit Python's recursion limit. Figure 2.26 summarizes what `backward()` does.
+
+```mermaid
+flowchart TD
+    A["loss.backward()"] --> B["Depth-first search from the loss:<br/>list every node after all nodes it depends on<br/>(topological order)"]
+    B --> C["Set loss.grad = 1"]
+    C --> D{"Next node in<br/>reverse topological order?"}
+    D -->|"yes"| E["For each (parent, local) in node.inputs:<br/>parent.grad += local × node.grad"]
+    E --> D
+    D -->|"no"| F["Done: every node's grad<br/>holds ∂loss/∂node"]
+```
+
+*Figure 2.26: The backward pass of the Scalar engine. Reverse topological order guarantees that a node's gradient is complete, with contributions from all of its consumers summed, before it is propagated to that node's own inputs.*
+
+### Testing the engine on expressions we can check by hand
+
+We first test the engine on the fan-out example $f = a^2 + 3a$ at $a = 3$, whose derivative is $2a + 3 = 9$, and then on the single-neuron graph of Figure 2.22 ([Code 2.6.2](#code-262-testing-the-engine-on-small-expressions)). The engine returns $f = 18$ with $df/da = 9$, and $L = 0.2588$ with $`\partial L / \partial w = -0.4655`$ and $`\partial L / \partial b = -0.9310`$. Both agree with our hand calculations.
+
+Next, we write the 2-2-1 MLP example directly with `Scalar` operations ([Code 2.6.3](#code-263-backpropagating-through-the-2-2-1-worked-example)). The engine reproduces every number in Figure 2.25, from the loss of 0.2960 to each of the nine parameter gradients. Every gradient matches the hand derivation, even though the engine knows nothing about sigmoids or cross-entropy: it built the sigmoid from `exp`, addition, and division, and differentiated through each piece.
+
+### Training a network with the engine
+
+With gradients available automatically, a complete training loop is short. The functions in [Code 2.6.4](#code-264-a-training-loop-built-on-the-engine) build a one-hidden-layer tanh network out of `Scalar` objects and train it with full-batch gradient descent on binary cross-entropy. Each step computes the average loss over the training set, zeros the old gradients, calls `backward()`, and moves every parameter against its gradient.
+
+The loss function deserves a comment. Computing $`\sigma(z)`$ and then $`\ln \sigma(z)`$ would overflow or return $`\ln 0`$ for large $|z|$. Instead, `bce_from_logit` uses the identity $`\ell = \ln(1 + e^{z}) - y z`$ and rewrites it for positive $z$ so that `exp` only ever receives a non-positive argument. Section 2.9 shows that PyTorch's built-in losses use the same trick.
+
+On XOR, a network with four hidden units trained this way (learning rate 1.0, 300 steps) reduces the loss from 0.7330 at the start to 0.0155 after 200 steps. Its final predicted probabilities of class 1 for the inputs $(0,0)$, $(0,1)$, $(1,0)$, and $(1,1)$ are 0.003, 0.988, 0.991, and 0.011, so every point is classified correctly and confidently ([Code 2.6.5](#code-265-training-on-xor)). Figure 2.27 shows the loss curves for XOR and for a 100-point two-moons dataset, and the decision boundaries the engine learned.
+
+![Training with the Scalar engine](figures/fig2-27-scalar-train.png)
+
+*Figure 2.27: Networks trained entirely with the Scalar engine and full-batch gradient descent (learning rate 1.0, 300 steps). Left: training loss for XOR (4 hidden units) and two moons (100 points, 8 hidden units). Middle and right: the learned decision boundaries. The two-moons network classifies all 100 training points correctly.*
+
+The engine works, but it is slow: training the two-moons network took about 9 seconds in our test run for only 100 examples and 33 parameters, because every multiplication creates a Python object. Section 2.7 fixes this with matrices.
+
+## Common pitfalls
+
+Three mistakes account for a large share of bugs in hand-written and framework-based training code alike.
+
+**Forgetting to zero gradients.** Because gradients accumulate with `+=`, parameters keep the gradients from previous backward passes unless they are reset. In our engine the graph is rebuilt on every forward pass, but the parameter objects persist, so their `grad` fields keep growing. For the loss $`(3w - 1)^2`$ at $w = 2$, whose gradient is $`6(3w - 1) = 30`$, three backward passes without zeroing leave `w.grad` at 30, then 60, then 90 ([Code 2.6.6](#code-266-forgetting-to-zero-gradients)). The correct gradient is 30 every time, but without zeroing it doubles and then triples. This is why every training loop in PyTorch calls `optimizer.zero_grad()` (Section 2.9). Accumulation is occasionally what you want, for example to sum gradients over several small batches before one update, but it should always be deliberate.
+
+**In-place updates during the forward or backward pass.** Our engine computes local derivatives from forward values when each node is created. If you change a parameter's `value` after the forward pass but before `backward()`, the stored local derivatives no longer match the parameters, and the gradient silently becomes wrong. The safe order is always: forward, backward, *then* update. PyTorch guards against the analogous mistake: if an in-place operation modifies a tensor that autograd saved for the backward pass, `backward()` raises an error. Updating parameters *in place* after the backward pass (as in `p.value -= lr * p.grad`) is fine and standard.
+
+**Numerical overflow in exp and log.** $`e^{z}`$ overflows for $z$ above about 709 in 64-bit floating point, and $`\ln 0 = -\infty`$. Naive sigmoids, softmaxes, and cross-entropies hit these limits as soon as logits become large, which happens routinely during training. The cures are the rewritings we have already seen: subtract the maximum inside softmax (Section 2.4), compute cross-entropy from logits with log-sum-exp, and write losses such as `bce_from_logit` so that `exp` never receives a large positive argument. When a loss suddenly becomes `nan`, check these first.
+
+One more check is worth making a habit. Whenever you write a new backward rule, compare it with **finite differences**: nudge a parameter by a small $`\varepsilon`$ in each direction, and compare $`\bigl(L(\theta + \varepsilon) - L(\theta - \varepsilon)\bigr) / 2\varepsilon`$ with the analytic gradient. Section 2.7 turns this into a systematic gradient check.
+
+## Code for this section
+
+The listings below collect the code for this section in the order in which the text refers to them. Later listings may reuse imports and definitions from earlier ones.
+
+### Code 2.6.1: The scalar autograd engine
+
+The complete `Scalar` class described in [Designing a scalar autograd engine](#designing-a-scalar-autograd-engine). Each operation stores its inputs together with their local derivatives, and `backward()` walks a topological order in reverse.
 
 ```python
 import math
@@ -277,23 +329,9 @@ class Scalar:
                 parent.grad += local * node.grad
 ```
 
-A few design notes. Subtraction, negation, and division are not given their own derivative rules; they are built from addition, multiplication, and powers, so they inherit correct gradients for free. The `__radd__` and `__rmul__` aliases let expressions such as `3 * a` or `1 + a` work when the left operand is a plain number. The topological sort is iterative rather than recursive, so deep graphs do not hit Python's recursion limit. Figure 2.26 summarizes what `backward()` does.
+### Code 2.6.2: Testing the engine on small expressions
 
-```mermaid
-flowchart TD
-    A["loss.backward()"] --> B["Depth-first search from the loss:<br/>list every node after all nodes it depends on<br/>(topological order)"]
-    B --> C["Set loss.grad = 1"]
-    C --> D{"Next node in<br/>reverse topological order?"}
-    D -->|"yes"| E["For each (parent, local) in node.inputs:<br/>parent.grad += local × node.grad"]
-    E --> D
-    D -->|"no"| F["Done: every node's grad<br/>holds ∂loss/∂node"]
-```
-
-*Figure 2.26: The backward pass of the Scalar engine. Reverse topological order guarantees that a node's gradient is complete, with contributions from all of its consumers summed, before it is propagated to that node's own inputs.*
-
-### Testing the engine on expressions we can check by hand
-
-First, the fan-out example $f = a^2 + 3a$ at $a = 3$, whose derivative is $2a + 3 = 9$; then the single-neuron graph of Figure 2.22:
+The fan-out example $f = a^2 + 3a$ at $a = 3$ and the single-neuron graph of Figure 2.22. The expected output is shown in the comments.
 
 ```python
 a = Scalar(3.0)
@@ -308,7 +346,9 @@ print(f"L = {L.value:.4f}, dL/dw = {w.grad:.4f}, dL/db = {b.grad:.4f}")
 # L = 0.2588, dL/dw = -0.4655, dL/db = -0.9310
 ```
 
-Both agree with our hand calculations. Next, the 2-2-1 MLP example, written directly with `Scalar` operations. The engine should reproduce every number in Figure 2.25:
+### Code 2.6.3: Backpropagating through the 2-2-1 worked example
+
+The worked MLP example of Section 2.3 written with `Scalar` operations. The sigmoid is built from `exp`, addition, and division, and the loss from `log`.
 
 ```python
 x = [1.0, 0.5]
@@ -330,6 +370,8 @@ print("db1 =", [round(v.grad, 4) for v in b1])
 print("dW2 =", [round(v.grad, 4) for v in W2], " db2 =", round(b2.grad, 4))
 ```
 
+Output:
+
 ```text
 loss = 0.2960
 dW1 = [[-0.1247, 0.3805], [-0.0624, 0.1902]]
@@ -337,11 +379,9 @@ db1 = [-0.1247, 0.3805]
 dW2 = [-0.1835, 0.0255]  db2 = -0.2562
 ```
 
-Every gradient matches the hand derivation, even though the engine knows nothing about sigmoids or cross-entropy: it built the sigmoid from `exp`, addition, and division, and differentiated through each piece.
+### Code 2.6.4: A training loop built on the engine
 
-### Training a network with the engine
-
-With gradients available automatically, a complete training loop is short. The functions below build a one-hidden-layer tanh network out of `Scalar` objects and train it with full-batch gradient descent on binary cross-entropy:
+Parameter initialization, the forward pass, a numerically stable binary cross-entropy, and full-batch gradient descent for a one-hidden-layer tanh network made of `Scalar` objects.
 
 ```python
 import random
@@ -403,7 +443,9 @@ def train(X, Y, n_hidden=8, lr=0.5, steps=200, seed=0, log=None):
     return params, history
 ```
 
-The loss function deserves a comment. Computing $`\sigma(z)`$ and then $`\ln \sigma(z)`$ would overflow or return $`\ln 0`$ for large $|z|$. Instead, `bce_from_logit` uses the identity $`\ell = \ln(1 + e^{z}) - y z`$ and rewrites it for positive $z$ so that `exp` only ever receives a non-positive argument. Section 2.9 shows that PyTorch's built-in losses use the same trick.
+### Code 2.6.5: Training on XOR
+
+Trains a network with four hidden units on the four XOR points using the functions of Code 2.6.4, logging the loss every 100 steps.
 
 ```python
 X_xor = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
@@ -413,6 +455,8 @@ probs = [1 / (1 + math.exp(-logit(params, x).value)) for x in X_xor]
 print("predicted P(y=1):", [round(q, 3) for q in probs])
 ```
 
+Output:
+
 ```text
 step    0  loss 0.7330
 step  100  loss 0.0592
@@ -420,19 +464,9 @@ step  200  loss 0.0155
 predicted P(y=1): [0.003, 0.988, 0.991, 0.011]
 ```
 
-Figure 2.27 shows the loss curves for XOR and for a 100-point two-moons dataset, and the decision boundaries the engine learned.
+### Code 2.6.6: Forgetting to zero gradients
 
-![Training with the Scalar engine](figures/fig2-27-scalar-train.png)
-
-*Figure 2.27: Networks trained entirely with the Scalar engine and full-batch gradient descent (learning rate 1.0, 300 steps). Left: training loss for XOR (4 hidden units) and two moons (100 points, 8 hidden units). Middle and right: the learned decision boundaries. The two-moons network classifies all 100 training points correctly.*
-
-The engine works, but it is slow: training the two-moons network took about 9 seconds in our test run for only 100 examples and 33 parameters, because every multiplication creates a Python object. Section 2.7 fixes this with matrices.
-
-## Common pitfalls
-
-Three mistakes account for a large share of bugs in hand-written and framework-based training code alike.
-
-**Forgetting to zero gradients.** Because gradients accumulate with `+=`, parameters keep the gradients from previous backward passes unless they are reset. In our engine the graph is rebuilt on every forward pass, but the parameter objects persist, so their `grad` fields keep growing:
+Three backward passes without resetting `w.grad`. The gradient accumulates instead of staying at 30; the output is shown in the comments.
 
 ```python
 w = Scalar(2.0)
@@ -444,15 +478,6 @@ for step in range(3):
 # step 1: w.grad = 60.0
 # step 2: w.grad = 90.0
 ```
-
-The correct gradient is 30 every time, but without zeroing it doubles and then triples. This is why every training loop in PyTorch calls `optimizer.zero_grad()` (Section 2.9). Accumulation is occasionally what you want, for example to sum gradients over several small batches before one update, but it should always be deliberate.
-
-**In-place updates during the forward or backward pass.** Our engine computes local derivatives from forward values when each node is created. If you change a parameter's `value` after the forward pass but before `backward()`, the stored local derivatives no longer match the parameters, and the gradient silently becomes wrong. The safe order is always: forward, backward, *then* update. PyTorch guards against the analogous mistake: if an in-place operation modifies a tensor that autograd saved for the backward pass, `backward()` raises an error. Updating parameters *in place* after the backward pass (as in `p.value -= lr * p.grad`) is fine and standard.
-
-**Numerical overflow in exp and log.** $`e^{z}`$ overflows for $z$ above about 709 in 64-bit floating point, and $`\ln 0 = -\infty`$. Naive sigmoids, softmaxes, and cross-entropies hit these limits as soon as logits become large, which happens routinely during training. The cures are the rewritings we have already seen: subtract the maximum inside softmax (Section 2.4), compute cross-entropy from logits with log-sum-exp, and write losses such as `bce_from_logit` so that `exp` never receives a large positive argument. When a loss suddenly becomes `nan`, check these first.
-
-One more check is worth making a habit. Whenever you write a new backward rule, compare it with **finite differences**: nudge a parameter by a small $`\varepsilon`$ in each direction, and compare $`\bigl(L(\theta + \varepsilon) - L(\theta - \varepsilon)\bigr) / 2\varepsilon`$ with the analytic gradient. Section 2.7 turns this into a systematic gradient check.
-
 ## Key takeaways
 
 - Any computation can be written as a graph of elementary operations with simple local derivatives. The forward pass evaluates the graph; the backward pass applies the chain rule node by node, multiplying each local derivative by the upstream gradient.
