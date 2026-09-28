@@ -98,21 +98,15 @@ The paper's title, "Attention Is All You Need," states the claim: no recurrence 
 
 ## A map of the chapter
 
-The rest of the chapter builds the Transformer in the order data flows through it:
+The rest of the chapter builds the Transformer piece by piece, roughly in the order that data flows through it, and then turns to how the finished model is trained, used, sized and extended.
 
-| Section | Topic | Role in the model |
-|---|---|---|
-| 2 | Inputs and outputs | Token embeddings in, token probabilities out |
-| 3 | Scaled dot-product attention | The core operation: self- and cross-attention |
-| 4 | Masking | Hiding padding and future target tokens |
-| 5 | Multi-head attention | Several attention patterns in parallel |
-| 6 | Positional encodings | Giving the model a sense of order |
-| 7 | The encoder block | Self-attention plus feed-forward, with residuals and normalization |
-| 8 | The decoder block and full model | Adding masked self-attention and cross-attention; assembling the whole |
-| 9 | Training | Teacher forcing, label smoothing, and the warmup schedule |
-| 10 | Decoding | Greedy and beam search |
-| 11 | Parameters and compute | Counting the cost from the configuration |
-| 12 | Transformer families | Encoder-decoder and encoder-only models |
+It starts at the edges of the model. [Inputs and outputs](02-inputs-and-outputs.md) (Section 2) explains how token IDs become vectors on the way in and how vectors become next-token probabilities on the way out, so that everything in between can be described as operations on sequences of vectors. With that settled, [Scaled dot-product attention](03-scaled-dot-product-attention.md) (Section 3) introduces the operation at the heart of the model: each position asks a question, compares it with every other position, and takes a weighted average of what it finds. The same operation serves as self-attention, where a sequence looks at itself, and as cross-attention, where the decoder looks at the encoder's output.
+
+Attention as first defined lets every position see every other one, which is not always allowed. [Masking](04-masking.md) (Section 4) shows how to hide padding tokens and, in the decoder, the target tokens that have not been generated yet. A single attention operation can also follow only one pattern of relationships at a time, so [Multi-head attention](05-multi-head-attention.md) (Section 5) runs several smaller attention operations side by side and combines them. One gap remains: attention has no notion of word order, since shuffling the input simply shuffles the output. [Positional encodings](06-positional-encodings.md) (Section 6) fill that gap by adding information about each token's position to its embedding.
+
+With these parts in hand, the chapter assembles the model. [The encoder block](07-the-encoder-block.md) (Section 7) combines self-attention with a small feed-forward network, wrapping each in a residual connection and layer normalization, and stacks several such blocks to read the source sentence. [The decoder block and the full encoder-decoder model](08-the-decoder-block-and-the-full-encoder-decoder-model.md) (Section 8) adds the two ingredients the decoder needs, masked self-attention over the output so far and cross-attention to the encoder, and then connects both stacks into the complete Transformer shown in Figure 6.1.3.
+
+The last four sections take the finished architecture and put it to work. [Training on sequence-to-sequence data](09-training-on-sequence-to-sequence-data.md) (Section 9) shows how the model learns from pairs of sentences, feeding the decoder the correct previous tokens (teacher forcing) so that every target position is trained at once, together with label smoothing and a warmup learning-rate schedule. Training does not by itself produce translations, so [Decoding](10-decoding-from-a-trained-model-to-an-output-sequence.md) (Section 10) explains how a trained model generates an output one token at a time, using greedy decoding or beam search. [Counting parameters and compute](11-counting-parameters-and-compute.md) (Section 11) then asks what the model costs, deriving its size and computation directly from its configuration and showing when attention's quadratic cost begins to matter. Finally, [Transformer families](12-transformer-families.md) (Section 12) looks beyond translation, at encoder-decoder models pretrained for many tasks at once and at encoder-only models such as BERT, which reuse the same building blocks for different purposes.
 
 ```mermaid
 flowchart LR
