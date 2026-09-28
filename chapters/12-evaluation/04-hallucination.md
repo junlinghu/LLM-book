@@ -77,7 +77,7 @@ Post-training can make things worse as well as better.
 The expected-score argument is worth making explicit. Suppose a model is asked a question and believes its best answer is correct with probability $p$. Under binary grading (1 for correct, 0 for wrong or abstain), answering gives expected score $p$ and abstaining gives 0, so answering is always better. Now suppose wrong answers are penalized: correct scores $+1$, wrong scores $-\lambda$, and abstaining scores 0. Answering gives expected score $p - \lambda (1 - p)$, which is positive only when
 
 ```math
-p > \frac{\lambda}{1 + \lambda}.
+p \gt \frac{\lambda}{1 + \lambda}.
 ```
 
 With $\lambda = 1$, the model should answer only if it is more than 50 percent confident; with $\lambda = 3$, only if more than 75 percent confident. A scoring rule with a penalty for wrong answers makes abstention rational when confidence is low. This is also the logic behind reporting both accuracy and the rate of confident errors, as SimpleQA does.

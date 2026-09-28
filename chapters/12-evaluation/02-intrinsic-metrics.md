@@ -7,13 +7,13 @@ An *intrinsic* metric measures the language model as a language model: how well 
 Recall from Chapter 7 that a GPT-style model defines a probability distribution over the next token given the previous ones, $`p_\theta(x_t \mid x_{\lt t})`$. For a sequence of $N$ tokens $x_1, \dots, x_N$, the model assigns the whole sequence the probability
 
 ```math
-p_\theta(x_1, \dots, x_N) = \prod_{t=1}^{N} p_\theta(x_t \mid x_{<t}).
+p_\theta(x_1, \dots, x_N) = \prod_{t=1}^{N} p_\theta(x_t \mid x_{\lt t}).
 ```
 
 The average negative log-likelihood per token is
 
 ```math
-\mathcal{L} = -\frac{1}{N} \sum_{t=1}^{N} \log p_\theta(x_t \mid x_{<t}).
+\mathcal{L} = -\frac{1}{N} \sum_{t=1}^{N} \log p_\theta(x_t \mid x_{\lt t}).
 ```
 
 This is exactly the pretraining loss. It is also the *cross-entropy* between the empirical distribution of the text and the model's distribution. If we use natural logarithms, $\mathcal{L}$ is measured in *nats* per token; with base-2 logarithms, it is measured in *bits* per token.
@@ -25,7 +25,7 @@ The information-theoretic reading is useful. By Shannon's source coding theorem,
 Perplexity is simply the exponentiated cross-entropy:
 
 ```math
-\text{PPL} = \exp(\mathcal{L}) = \exp\!\left(-\frac{1}{N} \sum_{t=1}^{N} \log p_\theta(x_t \mid x_{<t})\right) = \left(\prod_{t=1}^N p_\theta(x_t \mid x_{<t})\right)^{-1/N}.
+\text{PPL} = \exp(\mathcal{L}) = \exp\!\left(-\frac{1}{N} \sum_{t=1}^{N} \log p_\theta(x_t \mid x_{\lt t})\right) = \left(\prod_{t=1}^N p_\theta(x_t \mid x_{\lt t})\right)^{-1/N}.
 ```
 
 The last form shows that perplexity is the inverse of the geometric mean of the per-token probabilities. It has an intuitive interpretation: a perplexity of $k$ means the model is, on average, as uncertain as if it were choosing uniformly among $k$ equally likely tokens at every step. A model that predicts every token with certainty has perplexity 1. A model that guesses uniformly over a vocabulary of $V$ tokens has perplexity $V$.
@@ -93,7 +93,7 @@ But it has sharp limitations.
 **Perplexity depends on the tokenizer.** Perplexity is per *token*, and different tokenizers split the same text into different numbers of tokens. A tokenizer with a larger vocabulary produces fewer, "bigger" tokens, each of which is harder to predict. Comparing perplexities across models with different tokenizers is therefore meaningless. The standard fix is to normalize by a tokenizer-independent unit. *Bits per byte* (BPB) divides the total negative log-likelihood in bits by the number of UTF-8 bytes in the text:
 
 ```math
-\text{BPB} = \frac{-\sum_{t=1}^{N} \log_2 p_\theta(x_t \mid x_{<t})}{\text{number of bytes in the text}}.
+\text{BPB} = \frac{-\sum_{t=1}^{N} \log_2 p_\theta(x_t \mid x_{\lt t})}{\text{number of bytes in the text}}.
 ```
 
 Because the numerator is the total code length of the whole text, and the denominator depends only on the text, BPB can be compared across tokenizers. Bits per character and per-word perplexity are similar ideas.
