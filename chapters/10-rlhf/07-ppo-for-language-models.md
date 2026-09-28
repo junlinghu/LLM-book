@@ -134,9 +134,9 @@ The loop itself alternates between two very different workloads: generation, whi
 
 ## Lab: PPO on a small language model
 
-The third suggested code lab puts the pieces together ([Code 10.7.2](#code-1072-a-minimal-ppo-loop-for-a-small-language-model)). It uses DistilGPT-2 as a stand-in for an SFT model and the reward model from the Section 5 lab, and runs PPO with per-token KL shaping, GAE with $\gamma = 1$ and $\lambda = 0.95$, advantage whitening, the EOS trick, and two epochs of minibatch updates per iteration. It prints, for each iteration, the mean reward-model score, the summed KL divergence from the reference, the mean response length, the fraction of responses that ended, and the approximate KL and clip fraction of the last update. Libraries such as TRL, OpenRLHF, and veRL implement the same algorithm with many more options and at much larger scale; after writing it once yourself, their configuration options will be easy to map onto this section.
+The third suggested code lab puts the pieces together ([Code 10.7.2](#code-1072-a-minimal-ppo-loop-for-a-small-language-model)). It uses DistilGPT-2 as a stand-in for an SFT model and the reward model from the Section 5 lab, and runs PPO with per-token KL shaping, GAE with $\gamma = 1$ and $\lambda = 0.95$, advantage whitening, a softened EOS trick, and two epochs of minibatch updates per iteration. Because DistilGPT-2 was never trained to end an assistant turn, the lab treats a newline as the end of a reply as well as EOS (in the HH-RLHF format, a new line would begin the next "Human:" turn), gives each reply a budget of 48 tokens, and, instead of replacing the score of an unfinished reply with a constant, subtracts a fixed penalty of 1 from its reward-model score, so unfinished replies are discouraged but still carry the reward model's signal. It prints, for each iteration, the mean penalized score, the mean raw reward-model score, the summed KL divergence from the reference, the mean response length, the fraction of responses that ended, and the approximate KL and clip fraction of the last update. Libraries such as TRL, OpenRLHF, and veRL implement the same algorithm with many more options and at much larger scale; after writing it once yourself, their configuration options will be easy to map onto this section.
 
-Our three-iteration CPU run of this listing, with the reward model from Section 5, is a useful cautionary tale rather than a success story. In the first iteration, only 2 of the 16 sampled responses (12%) ended with an end-of-sequence token within the 32-token budget, so most of the batch received the fixed no-EOS score of $`-1`$ and the mean score was about $`-0.6`$. In the next two iterations, no response ended, every score was $`-1`$, the whitened advantages carried almost no signal, and the approximate KL and clip fraction of the updates fell toward zero. The summed KL from the reference stayed below about 0.25 nats and was even slightly negative in one iteration, which is possible because the sum of log-ratios over 16 samples is a noisy estimate of the KL divergence, not the divergence itself. The machinery worked (the losses were finite, the clipping and value updates ran, and nothing diverged), but the reward signal was dominated by the EOS trick. The reason is that DistilGPT-2 is not an SFT model: it was never trained to end an assistant turn, so it almost never emits the end-of-sequence token after a single reply. A real SFT model, trained on demonstrations that end with that token, does not have this problem. With a base model as the stand-in, raise `max_new_tokens`, treat the next `"\n\nHuman:"` as the end of the response, or set the no-EOS score closer to the typical reward-model score, and run for more iterations before judging the trends. The general lesson carries over to real RLHF runs: always look at the fraction of responses that end and at the raw scores, not just the mean reward, because a single hand-set rule can silently overwhelm the reward model.
+In our CPU run of this listing (20 iterations of 16 replies, single seed, with the reward model from Section 5), the penalized score that PPO optimizes rose from 1.83 in the first iteration to between 2.12 and 2.13 in each of the last four, and the fraction of replies that ended within the budget rose from 69% to 94–100%. The KL divergence from the reference stayed bounded, between about 0.7 and 2.2 nats per reply after the first few iterations, and the approximate KL of each update stayed below 0.04. The run went through two phases worth reading closely. In the first five iterations, the replies grew longer (from 22 to 43 tokens on average) and the *raw* reward-model score rose from 2.14 to 2.41, exactly the length bias the Section 5 lab measured, but so many replies ran past the budget (only 19% ended in iteration 4) that the penalized score fell. From iteration 7 on, the policy learned to finish its replies: lengths dropped to 12–22 tokens, 81–100% of replies ended, and the penalized score climbed. The raw reward-model score over the last five iterations (2.0–2.2) was about where it started, so almost all of the measured improvement came from finishing replies rather than from replies the reward model liked better. That is a real, useful behavior, and it is what a 20-iteration run with a weak 400-pair reward model can teach; more iterations, more prompts, and a stronger reward model are needed before the raw score itself moves much. The run also shows why the EOS trick needs care. Our first version replaced the score of every unfinished reply with a constant $`-1`$ and stopped only at EOS; DistilGPT-2 almost never emits EOS, so nearly every reply got the same $`-1`$, the advantages carried no signal, and nothing was learned. Whatever end-of-reply rule you use, track the fraction of replies that end and the raw score alongside the reward being optimized, because a single hand-set rule can quietly dominate the reward model.
 
 The fourth lab (Section 6) reruns this loop with several values of $\beta$. Watch the three curves together: reward, KL, and length. A run where reward climbs quickly while KL and length climb with it is usually a run that is learning the reward model's shortcuts rather than what people want.
 
@@ -222,13 +222,23 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 torch.manual_seed(0); random.seed(0)
 SFT = "distilgpt2"                                   # stands in for your SFT model
-beta, lr, BATCH, MINI, EPOCHS, ITERS = 0.05, 1e-6, 16, 4, 2, 20
-NO_EOS_SCORE = -1.0                                  # the "EOS trick"
+beta, lr, BATCH, MINI, EPOCHS, ITERS = 0.05, 1e-5, 16, 4, 2, 20
+MAX_NEW = 48                                         # token budget per reply
+UNFINISHED_PENALTY = 1.0                             # a softer "EOS trick": subtracted from the score
 
 tok = AutoTokenizer.from_pretrained(SFT)             # policy tokenizer: left padding
 tok.pad_token, tok.padding_side = tok.eos_token, "left"
 rm_tok = AutoTokenizer.from_pretrained(SFT)          # reward-model tokenizer: right padding
 rm_tok.pad_token, rm_tok.padding_side, rm_tok.truncation_side = rm_tok.eos_token, "right", "left"
+# A base model rarely emits EOS after one reply, so a newline also ends the reply
+# (in HH-RLHF format the next line would start a new "Human:" turn). An SFT model would use EOS.
+STOP_IDS = torch.tensor([tok.eos_token_id] + tok.encode("\n") + tok.encode("\n\n"))
+
+def stop_mask(resp):
+    """1 on response tokens up to and including the first stop token; also returns which replies ended."""
+    is_stop = torch.isin(resp, STOP_IDS)
+    after = (is_stop.cumsum(dim=1) - is_stop.long()) > 0
+    return (~after).long(), is_stop.any(dim=1)
 
 policy = AutoModelForCausalLM.from_pretrained(SFT)                 # actor (trained)
 ref = copy.deepcopy(policy).requires_grad_(False)                  # reference (frozen)
@@ -249,25 +259,26 @@ prompts = ["\n\nHuman: How do I make a cup of tea?\n\nAssistant:",
            "\n\nHuman: How can I sleep better?\n\nAssistant:"]
 
 @torch.no_grad()
-def rm_score(prompts, responses, ended):
+def rm_score(prompts, responses):
     texts = [p + r + rm_tok.eos_token for p, r in zip(prompts, responses)]
     enc = rm_tok(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
-    s = rm(enc["input_ids"], enc["attention_mask"])
-    return torch.where(ended, s, torch.full_like(s, NO_EOS_SCORE))
+    return rm(enc["input_ids"], enc["attention_mask"])
 
 for it in range(ITERS):
     # 1. Rollout: generate, then score with all four models (no gradients).
     batch = random.choices(prompts, k=BATCH)
-    seqs, attn, mask, P = generate(policy, tok, batch, max_new_tokens=32)
-    ended = (seqs[:, P:] == tok.eos_token_id).any(dim=1)
-    responses = tok.batch_decode(seqs[:, P:] * mask + tok.eos_token_id * (1 - mask),
-                                 skip_special_tokens=True)
+    seqs, attn, _, P = generate(policy, tok, batch, max_new_tokens=MAX_NEW)
+    mask, ended = stop_mask(seqs[:, P:])
+    attn = torch.cat([attn[:, :P], mask], dim=1)                   # drop tokens after the stop
+    responses = [r.strip() for r in tok.batch_decode(seqs[:, P:] * mask + tok.eos_token_id * (1 - mask),
+                                                     skip_special_tokens=True)]
     mask = mask.float()
     with torch.no_grad():
         logp_old = response_logprobs(policy, seqs, attn, P)
         ref_logp = response_logprobs(ref, seqs, attn, P)
         values_old = value(seqs, attn, P)
-        score = rm_score(batch, responses, ended)
+        rm_raw = rm_score(batch, responses)
+        score = rm_raw - UNFINISHED_PENALTY * (~ended).float()    # penalize replies that never end
         # 2. Per-token shaped rewards, then GAE.
         rewards, log_ratio = shaped_rewards(logp_old, ref_logp, score, mask, beta)
         adv, returns = gae(rewards, values_old, mask)
@@ -283,7 +294,7 @@ for it in range(ITERS):
             torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
             torch.nn.utils.clip_grad_norm_(value.parameters(), 1.0)
             opt_pi.step(); opt_v.step()
-    print(f"iter {it:2d}  score {score.mean():6.3f}  KL {log_ratio.sum(1).mean():6.3f}  "
+    print(f"iter {it:2d}  score {score.mean():6.3f}  rm {rm_raw.mean():6.3f}  KL {log_ratio.sum(1).mean():6.3f}  "
           f"len {mask.sum(1).mean():5.1f}  ended {ended.float().mean():.2f}  "
           f"approx_kl {stats['approx_kl']:.4f}  clipfrac {stats['clipfrac']:.3f}")
 ```
