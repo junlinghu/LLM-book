@@ -2,6 +2,8 @@
 
 Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instructions by imitating demonstrations, but it has no way to learn that one acceptable answer is better than another. Reinforcement Learning from Human Feedback (RLHF) picks up from there and is the method that turned instruction-tuned models into helpful chat assistants. This chapter is about RL for language models specifically. It takes the general methods from Chapter 9 (policy gradients and PPO) as given, casts text generation as an RL problem, and builds the classic pipeline step by step: collect human preferences, train a reward model, and optimize the SFT model against it while keeping it close to where it started. It ends with what this recipe achieved: the models built with PPO-based RLHF from 2019 to 2026, from InstructGPT and ChatGPT to GPT-4 and Llama 2-Chat.
 
+This chapter follows the classic RLHF recipe from start to finish. [Section 1](01-from-sft-to-rlhf.md) explains what supervised fine-tuning cannot teach and why comparisons are easier to collect than demonstrations. [Section 2](02-language-generation-as-rl.md) casts text generation as a reinforcement learning problem, with the language model as the policy, and trains a small model with REINFORCE. [Section 3](03-the-rlhf-pipeline.md) lays out the three stages of the pipeline, and [Section 4](04-collecting-human-preference-data.md) covers how preference data are collected, what they look like, and how noisy they are. [Section 5](05-reward-modeling.md) turns preferences into a reward model with the Bradley-Terry loss, and [Section 6](06-the-rlhf-objective.md) defines the KL-regularized objective that the policy optimizes and derives its optimal solution. [Section 7](07-ppo-for-language-models.md) adapts PPO from Chapter 9 to language models, with per-token KL shaping, a value model, and the implementation details that make it work, and [Section 8](08-ppo-based-rlhf-in-practice.md) surveys the models built with PPO-based RLHF from 2019 to 2026.
+
 ## Learning goals
 
 - Explain what SFT cannot teach and what RLHF adds on top of it.
@@ -14,14 +16,14 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 
 ## Outline
 
-### 1. From SFT to RLHF
+### 1. [From SFT to RLHF](01-from-sft-to-rlhf.md)
 - Where Chapter 8 left off: an SFT model that imitates demonstrations
 - What SFT cannot teach: telling good answers from better ones, avoiding mistakes it never saw, or going beyond the quality of its demonstrations
 - Preferences are easier for people to give than perfect demonstrations
 - Goals: helpful, honest, and harmless
 - A short history: from Christiano et al. (2017) and Stiennon et al. (2020) to InstructGPT and ChatGPT
 
-### 2. Language generation as RL
+### 2. [Language generation as RL](02-language-generation-as-rl.md)
 - The token-level MDP: the state is the prompt plus the tokens so far, the action is the next token, transitions are deterministic, and the full response is one episode
 - The language model as a policy: its softmax output is a stochastic policy over the vocabulary
 - Sparse, sequence-level reward: one score for the whole response, from a reward model, a human, or a checker, arriving only at the end
@@ -29,17 +31,17 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 - Credit assignment: which tokens deserve credit for a good or bad reward
 - Why policy gradients (Chapter 9, Sections 6 and 7) rather than value-based methods: the action space is the whole vocabulary at every step
 
-### 3. The RLHF pipeline
+### 3. [The RLHF pipeline](03-the-rlhf-pipeline.md)
 - **Stage 1: SFT** (Chapter 8) produces the starting policy and the frozen reference model
 - **Stage 2: reward model** learns to score responses from human preferences
 - **Stage 3: RL** optimizes the policy to earn high reward while staying close to the reference
 
-### 4. Collecting human preference data
+### 4. [Collecting human preference data](04-collecting-human-preference-data.md)
 - Pairwise comparisons vs. rankings vs. ratings
 - Labeling guidelines and annotator agreement
 - Public datasets (for example Anthropic HH-RLHF, UltraFeedback)
 
-### 5. Reward modeling
+### 5. [Reward modeling](05-reward-modeling.md)
 - Architecture: a language model, usually initialized from the SFT model, with a scalar output head
 - The Bradley-Terry model and the pairwise loss on a chosen response and a rejected one
 
@@ -50,7 +52,7 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 - Evaluating a reward model: accuracy on held-out preference pairs
 - Known weaknesses: length bias, spurious features, overconfidence
 
-### 6. The RLHF objective
+### 6. [The RLHF objective](06-the-rlhf-objective.md)
 - Maximize expected reward while staying close to the SFT reference model
 
 ```math
@@ -60,7 +62,7 @@ Chapter 8 ended with a supervised fine-tuned (SFT) model: it follows instruction
 - Why a KL penalty to the reference model: keep outputs fluent, avoid drifting into gibberish that fools the reward model, and preserve what pretraining and SFT learned
 - The coefficient beta: trading reward against drift, and adaptive KL control that tunes beta toward a target KL
 
-### 7. PPO for language models
+### 7. [PPO for language models](07-ppo-for-language-models.md)
 - The algorithm is the PPO of Chapter 9 (Section 7); this section covers only what changes for text
 - **Four models**: the policy (actor), a value model (critic) with a per-token value head, the frozen reward model, and the frozen reference model
 - Rollouts are generated responses to a batch of prompts; generation often dominates training time
@@ -74,7 +76,7 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - LLM-specific practice: reward normalization and whitening, handling responses that never end, small learning rates, and large prompt batches
 - Memory and compute: four large models, and a loop that alternates between generation and training
 
-### 8. PPO-based RLHF in practice (2019–2026)
+### 8. [PPO-based RLHF in practice (2019–2026)](08-ppo-based-rlhf-in-practice.md)
 - GPT-3 itself was not trained with RLHF: it was a pretrained model used through few-shot prompting (Brown et al. 2020). InstructGPT fine-tuned GPT-3 with SFT and then PPO, and ChatGPT applied the same methods to a model from the GPT-3.5 series
 - Early demonstrations: PPO fine-tuning of GPT-2 from human comparisons, then summaries preferred over human-written references
 - Instruction following: a small RLHF model beat a much larger pretrained one, and was more truthful and less toxic
