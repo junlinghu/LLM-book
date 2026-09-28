@@ -61,7 +61,7 @@ The choice of $g$ matters a great deal, and Section 2.2 is devoted to it. For no
 The *perceptron*, introduced by the psychologist Frank Rosenblatt in 1958, is a neuron with a step activation used as a binary classifier. It is convenient to label the two classes $y = +1$ and $y = -1$ and to predict
 
 ```math
-\hat{y} = \operatorname{sign}(\mathbf{w}^\top \mathbf{x} + b).
+\hat{y} = \mathrm{sign}(\mathbf{w}^\top \mathbf{x} + b).
 ```
 
 The learning rule is strikingly simple. Start with all weights and the bias at zero. Go through the training examples one at a time. Whenever an example is misclassified, meaning $`y\,(\mathbf{w}^\top \mathbf{x} + b) \le 0`$, nudge the weights toward the correct answer:

@@ -29,7 +29,7 @@ Squaring makes every error positive and penalizes large errors much more than sm
 For classification with $C$ classes, the last layer of a network produces $C$ real numbers $`\mathbf{z} = (z_1, \dots, z_C)`$, one score per class. These raw scores are called **logits**. They can be any real numbers, positive or negative, and do not sum to anything in particular. To interpret them as probabilities, we apply the **softmax** function:
 
 ```math
-p_i = \operatorname{softmax}(\mathbf{z})_i = \frac{e^{z_i}}{\sum_{j=1}^{C} e^{z_j}}, \qquad i = 1, \dots, C.
+p_i = \mathrm{softmax}(\mathbf{z})_i = \frac{e^{z_i}}{\sum_{j=1}^{C} e^{z_j}}, \qquad i = 1, \dots, C.
 ```
 
 Exponentiation makes every entry positive, and dividing by the sum makes the entries add up to 1. The largest logit gets the largest probability, but unlike taking the maximum ("hard max"), softmax is smooth and keeps some probability on every class. For example, the logits $(2.0, 0.5, -1.0)$ become the probabilities $(0.786, 0.175, 0.039)$.
@@ -176,7 +176,7 @@ print("numeric ", numeric.round(6))
 # numeric  [ 0.785597  0.17529  -0.960887]
 ```
 
-A practical consequence: libraries combine softmax and cross-entropy into one function that takes *logits*, not probabilities, and computes $`-z_c + \operatorname{logsumexp}(\mathbf{z})`$ in a numerically stable way. PyTorch's `nn.CrossEntropyLoss` works like this (Section 2.9). Applying softmax yourself and then taking a log is both slower and less stable: if a probability underflows to 0, its log is $`-\infty`$.
+A practical consequence: libraries combine softmax and cross-entropy into one function that takes *logits*, not probabilities, and computes $`-z_c + \mathrm{logsumexp}(\mathbf{z})`$ in a numerically stable way. PyTorch's `nn.CrossEntropyLoss` works like this (Section 2.9). Applying softmax yourself and then taking a log is both slower and less stable: if a probability underflows to 0, its log is $`-\infty`$.
 
 ## Connection to LLMs: next-token prediction is classification
 

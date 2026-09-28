@@ -137,7 +137,7 @@ Now we can finally solve XOR. The key idea is that the hidden layer transforms t
 With ReLU hidden units, there is a tidy hand-built solution. Use two hidden units that both look at the sum $`x_1 + x_2`$:
 
 ```math
-h_1 = \operatorname{ReLU}(x_1 + x_2), \qquad h_2 = \operatorname{ReLU}(x_1 + x_2 - 1), \qquad \hat{y} = h_1 - 2 h_2 .
+h_1 = \mathrm{ReLU}(x_1 + x_2), \qquad h_2 = \mathrm{ReLU}(x_1 + x_2 - 1), \qquad \hat{y} = h_1 - 2 h_2 .
 ```
 
 The first unit counts how many inputs are on; the second unit fires only when both are on. Here is the whole truth table:
@@ -149,7 +149,7 @@ The first unit counts how many inputs are on; the second unit fires only when bo
 | 1 | 0 | 1 | 0 | 1 | 1 |
 | 1 | 1 | 2 | 1 | 0 | 0 |
 
-In matrix form, $`W^{(1)} = \begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}`$, $`\mathbf{b}^{(1)} = (0, -1)`$, $`W^{(2)} = (1, -2)^\top`$, and $`b^{(2)} = 0`$. In the hidden space the four inputs map to the points $(0,0)$, $(1,0)$, $(1,0)$, and $(2,1)$. The two positive examples land on the same point, and a line easily separates it from the other two. The ReLU in the second unit is what makes this work: without it, $`\hat{y}`$ would be a linear function of $`x_1 + x_2`$ and could not rise and then fall.
+In matrix form, $`W^{(1)} = \begin{pmatrix} 1 \;\; 1 \\ 1 \;\; 1 \end{pmatrix}`$, $`\mathbf{b}^{(1)} = (0, -1)`$, $`W^{(2)} = (1, -2)^\top`$, and $`b^{(2)} = 0`$. In the hidden space the four inputs map to the points $(0,0)$, $(1,0)$, $(1,0)$, and $(2,1)$. The two positive examples land on the same point, and a line easily separates it from the other two. The ReLU in the second unit is what makes this work: without it, $`\hat{y}`$ would be a linear function of $`x_1 + x_2`$ and could not rise and then fall.
 
 ```python
 relu = lambda z: np.maximum(0, z)
@@ -193,7 +193,7 @@ Formally, for any continuous $f$ on $[0,1]^d$ and any $`\varepsilon \gt 0`$, the
 \left| f(\mathbf{x}) - \sum_{j=1}^{H} v_j \, g\bigl(\mathbf{w}_j^\top \mathbf{x} + b_j\bigr) \right| \lt \varepsilon \quad \text{for all } \mathbf{x} \in [0,1]^d .
 ```
 
-In one dimension there is a simple intuition for ReLU networks. Each hidden unit $`\operatorname{ReLU}(w x + b)`$ is a hinge that is flat on one side of the point $x = -b/w$ and a straight line on the other. A weighted sum of $H$ hinges is a piecewise-linear function with up to $H$ bends, and with enough bends you can trace any continuous curve as closely as you like, the same way a polygon with enough sides approximates a circle. Figure 2.13 shows this happening as the hidden layer widens.
+In one dimension there is a simple intuition for ReLU networks. Each hidden unit $`\mathrm{ReLU}(w x + b)`$ is a hinge that is flat on one side of the point $x = -b/w$ and a straight line on the other. A weighted sum of $H$ hinges is a piecewise-linear function with up to $H$ bends, and with enough bends you can trace any continuous curve as closely as you like, the same way a polygon with enough sides approximates a circle. Figure 2.13 shows this happening as the hidden layer widens.
 
 ![Universal approximation in one dimension](figures/fig2-13-universal-approx.png)
 

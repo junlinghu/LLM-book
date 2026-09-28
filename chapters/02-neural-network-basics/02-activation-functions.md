@@ -65,7 +65,7 @@ Its outputs lie in $(-1, 1)$ and are centered on zero, and its derivative peaks 
 The **rectified linear unit** is almost embarrassingly simple:
 
 ```math
-\operatorname{ReLU}(z) = \max(0, z), \qquad \operatorname{ReLU}'(z) = \begin{cases} 1 & z \gt 0 \\ 0 & z \lt 0 \end{cases}
+\mathrm{ReLU}(z) = \max(0, z), \qquad \mathrm{ReLU}'(z) = \begin{cases} 1 & z \gt 0 \\ 0 & z \lt 0 \end{cases}
 ```
 
 (At exactly $z = 0$ the derivative is undefined; software simply picks 0 or 1, and in practice the choice does not matter.) ReLU became the default activation for deep networks after work around 2010–2011, notably by Nair and Hinton and by Glorot, Bordes, and Bengio, showed that it made deep networks easier to train than sigmoid or tanh. Its advantages:
@@ -83,7 +83,7 @@ Transformers, including the GPT family, mostly do not use plain ReLU. They use s
 The **Gaussian error linear unit (GELU)**, introduced by Hendrycks and Gimpel, weights its input by the probability that a standard normal random variable is smaller than it:
 
 ```math
-\operatorname{GELU}(z) = z \, \Phi(z), \qquad \Phi(z) = \tfrac{1}{2}\left(1 + \operatorname{erf}\!\left(z/\sqrt{2}\right)\right),
+\mathrm{GELU}(z) = z \, \Phi(z), \qquad \Phi(z) = \tfrac{1}{2}\left(1 + \mathrm{erf}\!\left(z/\sqrt{2}\right)\right),
 ```
 
 where $`\Phi`$ is the standard normal cumulative distribution function. One intuition: ReLU multiplies its input by a hard gate that is either 0 or 1 depending on the sign of $z$; GELU multiplies by a soft gate $`\Phi(z)`$ that rises smoothly from 0 to 1. A widely used approximation is $`0.5\,z\,\bigl(1 + \tanh[\sqrt{2/\pi}\,(z + 0.044715\,z^3)]\bigr)`$. GELU is the activation in the feed-forward blocks of BERT and GPT-2.
@@ -91,7 +91,7 @@ where $`\Phi`$ is the standard normal cumulative distribution function. One intu
 The **sigmoid linear unit (SiLU)**, also called **Swish**, uses the sigmoid as the soft gate:
 
 ```math
-\operatorname{SiLU}(z) = z\,\sigma(z), \qquad \operatorname{SiLU}'(z) = \sigma(z)\,\bigl(1 + z\,(1 - \sigma(z))\bigr).
+\mathrm{SiLU}(z) = z\,\sigma(z), \qquad \mathrm{SiLU}'(z) = \sigma(z)\,\bigl(1 + z\,(1 - \sigma(z))\bigr).
 ```
 
 It was proposed by Elfwing and colleagues for reinforcement learning, and it was independently rediscovered by Ramachandran and colleagues through an automated search over candidate activation functions, where it was named Swish. The name was later generalized to $`z\,\sigma(\beta z)`$ with a parameter $`\beta`$; SiLU is the case $`\beta = 1`$.
