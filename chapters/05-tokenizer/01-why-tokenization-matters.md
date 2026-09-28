@@ -8,25 +8,13 @@ Tokenization is easy to treat as plumbing: a preprocessing step you call once an
 
 A tokenizer is defined by a **vocabulary**: a fixed, finite list of strings (or byte sequences), each with an integer ID. Encoding cuts a string into pieces that are all in the vocabulary and replaces each piece with its ID. Decoding looks up the piece for each ID and joins the pieces back together.
 
-The OpenAI library `tiktoken` ships the tokenizer used by GPT-2, which makes a convenient first example:
+GPT-2's tokenizer, which OpenAI's `tiktoken` library ships, makes a convenient first example. It encodes the sentence "Tokenization is the first step." as seven IDs:
 
-```python
-import tiktoken
+| ID | 30642 | 1634 | 318 | 262 | 717 | 2239 | 13 |
+|---|---|---|---|---|---|---|---|
+| Piece | `Token` | `ization` | `␣is` | `␣the` | `␣first` | `␣step` | `.` |
 
-enc = tiktoken.get_encoding("gpt2")
-ids = enc.encode("Tokenization is the first step.")
-print(ids)
-print([enc.decode([i]) for i in ids])
-print(enc.decode(ids))
-```
-
-This prints:
-
-```
-[30642, 1634, 318, 262, 717, 2239, 13]
-['Token', 'ization', ' is', ' the', ' first', ' step', '.']
-Tokenization is the first step.
-```
+Here `␣` marks a space character. Decoding the seven IDs gives back the original sentence exactly (code in Appendix A.1).
 
 Three things are already visible. First, the pieces are neither characters nor words: "Tokenization" became two pieces, "Token" and "ization", while common words stayed whole. Second, the space before a word is part of that word's token: the model sees `' is'`, not `'is'` preceded by a separate space. Third, decoding reverses encoding exactly. The IDs themselves are arbitrary labels; ID 262 means " the" only because this particular vocabulary says so. A different tokenizer assigns different IDs to different pieces.
 
@@ -57,48 +45,19 @@ Because the model processes one position per token, the token becomes the unit i
 - **Compute.** The cost of a forward pass grows with the number of tokens processed. So does the time to generate an answer, since a model generates one token per step.
 - **Price.** Commercial APIs charge per input token and per output token.
 
-A single sentence shows how much the tokenizer matters. Here is the same string encoded with three `tiktoken` encodings:
+A single sentence shows how much the tokenizer matters. Take the string "Tokenizers don't see words; they see 1,234 bytes of ünïcödé." and encode it with five tokenizers in wide use: the three `tiktoken` encodings `gpt2`, `cl100k_base`, and `o200k_base`, and the tokenizers of BERT and T5 from the Hugging Face `transformers` library (code in Appendix A.2):
 
-```python
-s = "Tokenizers don't see words; they see 1,234 bytes of ünïcödé."
-for name in ["gpt2", "cl100k_base", "o200k_base"]:
-    enc = tiktoken.get_encoding(name)
-    ids = enc.encode(s)
-    print(name, len(ids), [enc.decode([i]) for i in ids])
-```
+| Tokenizer | Tokens | "don't" | "1,234" | "ünïcödé" |
+|---|---|---|---|---|
+| GPT-2 | 23 | `␣don` `'t` | `␣1` `,` `234` | 8 pieces; `␣ü` split into 2 byte tokens |
+| `cl100k_base` | 23 | `␣don` `'t` | `␣` `1` `,` `234` | `␣ü` `n` `ï` `c` `ö` `d` `é` |
+| `o200k_base` | 19 | `␣don't` | `␣` `1` `,` `234` | `␣ün` `ïc` `öd` `é` |
+| BERT (uncased) | 18 | `don` `'` `t` | `1` `,` `234` | `unicode` |
+| T5 | 26 | `▁don` `'` `t` | `▁1,` `2` `34` | `▁` `ü` `n` `ï` `c` `ö` `dé` |
 
-This prints (one line per encoding, wrapped here):
+The three `tiktoken` encodings split the remaining English words identically, and all five tokenizers keep short common words such as "see" and "words" whole. They disagree about almost everything else: whether "don't" is one piece or two, whether the space before a digit belongs to the digit, how to cut a number, and how to handle accented letters. In GPT-2's case, the letter "ü" was split into two tokens that each decode to the replacement character `�`. That is not a bug. GPT-2's tokenizer works on bytes, "ü" is two bytes in UTF-8, and each byte on its own is not a valid character. Section 3 explains why working on bytes is still a good idea, and Section 6 shows how to decode such tokens correctly.
 
-```
-gpt2 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
-  ' 1', ',', '234', ' bytes', ' of', ' �', '�', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
-cl100k_base 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
-  ' ', '1', ',', '234', ' bytes', ' of', ' ü', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
-o200k_base 19 ['Token', 'izers', " don't", ' see', ' words', ';', ' they', ' see',
-  ' ', '1', ',', '234', ' bytes', ' of', ' ün', 'ïc', 'öd', 'é', '.']
-```
-
-The English words split identically in the first two tokenizers. The differences are all in the details: whether "don't" is one piece or two, whether the space before a digit belongs to the digit, and how the accented word is cut. In GPT-2's output, the character "ü" was split into two tokens that each decode to the replacement character `�`. That is not a bug. GPT-2's tokenizer works on bytes, "ü" is two bytes in UTF-8, and each byte on its own is not a valid character. Section 3 explains why working on bytes is still a good idea, and Section 6 shows how to decode such tokens correctly.
-
-Two tokenizers from the Hugging Face `transformers` library show even larger differences on the same sentence:
-
-```python
-from transformers import AutoTokenizer
-
-for name in ["bert-base-uncased", "google-t5/t5-small"]:
-    tok = AutoTokenizer.from_pretrained(name)
-    pieces = tok.tokenize(s)
-    print(name, len(pieces), pieces)
-```
-
-```
-bert-base-uncased 18 ['token', '##izer', '##s', 'don', "'", 't', 'see', 'words', ';', 'they',
-  'see', '1', ',', '234', 'bytes', 'of', 'unicode', '.']
-google-t5/t5-small 26 ['▁To', 'ken', 'izer', 's', '▁don', "'", 't', '▁see', '▁words', ';',
-  '▁they', '▁see', '▁1,', '2', '34', '▁by', 'tes', '▁of', '▁', 'ü', 'n', 'ï', 'c', 'ö', 'dé', '.']
-```
-
-BERT's tokenizer lowercases everything and strips accents, so "ünïcödé" became the ordinary word "unicode" and the original spelling is gone for good. It also marks word-internal pieces with `##` instead of marking spaces. T5's tokenizer marks the start of each word with `▁` and splits "1,234" differently from all the others. The same sentence costs anywhere from 18 to 26 tokens, and different tokenizers disagree about what the units even are. Sections 4 and 5 explain where these conventions come from.
+BERT's tokenizer goes further than the others: it lowercases everything and strips accents, so "ünïcödé" became the ordinary word "unicode", and the original spelling is gone for good. It also marks word-internal pieces with `##` instead of marking spaces. T5's tokenizer marks the start of each word with `▁` instead. The same sentence costs anywhere from 18 to 26 tokens, and the tokenizers do not even agree on what the units are. Sections 4 and 5 explain where these conventions come from.
 
 ## The tokenizer is trained first and then frozen
 
@@ -143,3 +102,70 @@ Mielke, Sabrina J., et al. "Between Words and Characters: A Brief History of Ope
 Radford, Alec, et al. "Language Models Are Unsupervised Multitask Learners." OpenAI technical report, 2019. https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf.
 
 Sennrich, Rico, et al. "Neural Machine Translation of Rare Words with Subword Units." In *Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics*, 1715–1725, 2016. https://arxiv.org/abs/1508.07909.
+
+## Appendix: Code for Section 5.1
+
+These listings reproduce the results quoted in this section. Run them in order in one Python session; they need the `tiktoken` and `transformers` packages, and the second listing downloads two tokenizers from the Hugging Face Hub.
+
+### A.1 Encoding and decoding with tiktoken
+
+Encode a sentence with GPT-2's tokenizer, show each ID's piece, and decode the IDs back to text.
+
+```python
+import tiktoken
+
+enc = tiktoken.get_encoding("gpt2")
+ids = enc.encode("Tokenization is the first step.")
+print(ids)
+print([enc.decode([i]) for i in ids])
+print(enc.decode(ids))
+```
+
+Output:
+
+```
+[30642, 1634, 318, 262, 717, 2239, 13]
+['Token', 'ization', ' is', ' the', ' first', ' step', '.']
+Tokenization is the first step.
+```
+
+### A.2 One sentence, five tokenizers
+
+Encode the same sentence with three `tiktoken` encodings, then with BERT's and T5's tokenizers. The printed lines are wrapped here.
+
+```python
+s = "Tokenizers don't see words; they see 1,234 bytes of ünïcödé."
+for name in ["gpt2", "cl100k_base", "o200k_base"]:
+    enc = tiktoken.get_encoding(name)
+    ids = enc.encode(s)
+    print(name, len(ids), [enc.decode([i]) for i in ids])
+```
+
+Output:
+
+```
+gpt2 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
+  ' 1', ',', '234', ' bytes', ' of', ' �', '�', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
+cl100k_base 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
+  ' ', '1', ',', '234', ' bytes', ' of', ' ü', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
+o200k_base 19 ['Token', 'izers', " don't", ' see', ' words', ';', ' they', ' see',
+  ' ', '1', ',', '234', ' bytes', ' of', ' ün', 'ïc', 'öd', 'é', '.']
+```
+
+```python
+from transformers import AutoTokenizer
+
+for name in ["bert-base-uncased", "google-t5/t5-small"]:
+    tok = AutoTokenizer.from_pretrained(name)
+    pieces = tok.tokenize(s)
+    print(name, len(pieces), pieces)
+```
+
+Output:
+
+```
+bert-base-uncased 18 ['token', '##izer', '##s', 'don', "'", 't', 'see', 'words', ';', 'they',
+  'see', '1', ',', '234', 'bytes', 'of', 'unicode', '.']
+google-t5/t5-small 26 ['▁To', 'ken', 'izer', 's', '▁don', "'", 't', '▁see', '▁words', ';',
+  '▁they', '▁see', '▁1,', '2', '34', '▁by', 'tes', '▁of', '▁', 'ü', 'n', 'ï', 'c', 'ö', 'dé', '.']
+```

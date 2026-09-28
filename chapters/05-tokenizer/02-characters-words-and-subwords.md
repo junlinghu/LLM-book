@@ -2,22 +2,7 @@
 
 Before choosing an algorithm, we have to choose what kind of unit a token should be. There are three natural candidates. A token could be a **word**, the unit people think in. It could be a **character** (or a **byte**), the unit computers store. Or it could be something in between: a **subword**, a piece that is sometimes a whole word and sometimes a fragment. Each choice trades vocabulary size against sequence length, and each handles unseen text differently. This section works through the tradeoffs with measurements on a real corpus and explains why every modern LLM uses subwords.
 
-Throughout this section we use the "tiny Shakespeare" corpus, about 1.1 million characters of Shakespeare's plays that is widely used for small language-model experiments. We hold out the last 10 percent of the file as a test set and build every vocabulary from the first 90 percent only.
-
-```python
-import re, urllib.request
-from collections import Counter
-
-url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-text = urllib.request.urlopen(url).read().decode("utf-8")
-split = int(0.9 * len(text))
-train, held_out = text[:split], text[split:]
-print(len(text), len(set(text)))
-```
-
-```
-1115394 65
-```
+Throughout this section we use the "tiny Shakespeare" corpus, about 1.1 million characters of Shakespeare's plays that is widely used for small language-model experiments. The file has 1,115,394 characters drawn from only 65 distinct characters. We hold out the last 10 percent of the file as a test set and build every vocabulary from the first 90 percent only. The appendix at the end of this section contains the code for every measurement quoted here.
 
 ## Word-level tokenization
 
@@ -25,26 +10,16 @@ The most obvious tokenizer splits text on whitespace and punctuation and gives e
 
 Word tokens are attractive. Sequences are short, since one token covers a whole word, and each token carries a lot of meaning. But three problems make word-level vocabularies a poor fit for LLMs.
 
-**The vocabulary is huge and still incomplete.** Natural language has a long tail: most distinct words are rare. Here is what happens when we build a word vocabulary from the training portion of tiny Shakespeare and apply it to the held-out portion:
+**The vocabulary is huge and still incomplete.** Natural language has a long tail: most distinct words are rare. Suppose we build a word vocabulary from the training portion of tiny Shakespeare, splitting on whitespace and punctuation, and then apply it to the held-out portion (Appendix A.2):
 
-```python
-words_train = re.findall(r"\w+|[^\w\s]", train)
-words_held = re.findall(r"\w+|[^\w\s]", held_out)
-vocab = set(words_train)
-counts = Counter(words_train)
-oov = [w for w in words_held if w not in vocab]
-print(len(vocab), sum(1 for w in counts if counts[w] == 1))
-print(len(words_held), len(oov), f"{100 * len(oov) / len(words_held):.2f}%")
-print(Counter(oov).most_common(5))
-```
+| Measurement | Value |
+|---|---|
+| Distinct words (types) in the training portion | 12,569 |
+| Types that occur exactly once | 5,753 |
+| Word and punctuation tokens in the held-out portion | 26,844 |
+| Held-out tokens not in the vocabulary | 1,231 (4.59%) |
 
-```
-12569 5753
-26844 1231 4.59%
-[('PROSPERO', 63), ('SEBASTIAN', 42), ('ANTONIO', 38), ('GONZALO', 37), ('MIRANDA', 34)]
-```
-
-Even this small, single-author corpus has 12,569 distinct word types in its training portion, and 5,753 of them, nearly half, appear exactly once. Despite that, 4.59 percent of the words in the held-out text never appeared in training. Most of them are names of characters from a play that happens to fall in the held-out portion. A word-level model can do nothing with them except emit `[UNK]`. For web-scale text, with its typos, names, URLs, code, numbers, and hundreds of languages, the open-ended tail is far larger. No fixed word list can cover it.
+Even this small, single-author corpus has 12,569 distinct word types in its training portion, and nearly half of them appear exactly once. Despite that, 4.59 percent of the words in the held-out text never appeared in training. The most frequent unknown words are PROSPERO, SEBASTIAN, ANTONIO, GONZALO, and MIRANDA: names of characters from *The Tempest*, a play that happens to fall in the held-out portion. A word-level model can do nothing with them except emit `[UNK]`. For web-scale text, with its typos, names, URLs, code, numbers, and hundreds of languages, the open-ended tail is far larger. No fixed word list can cover it.
 
 **Related forms share nothing.** "run", "running", and "runner" get three unrelated IDs. The model must learn from scratch, for each form separately, what it means, even though the forms share a root. Rare forms get little training signal.
 
@@ -58,19 +33,14 @@ The cost is sequence length. The held-out portion of tiny Shakespeare is 111,540
 
 Characters also do not fully solve the unknown-symbol problem. Unicode defines far more characters than any reasonable vocabulary would hold, spread across scripts, symbols, and emoji. A character vocabulary built from a training corpus will still meet characters it has never seen.
 
-**Bytes** fix this. Every string can be encoded in UTF-8 as a sequence of bytes, and there are only 256 possible byte values. A tokenizer whose base units are bytes can represent any string in any language with a vocabulary of 256, with no unknown symbols ever. ASCII characters take one byte each, but other characters take two to four:
+**Bytes** fix this. Every string can be encoded in UTF-8 as a sequence of bytes, and there are only 256 possible byte values. A tokenizer whose base units are bytes can represent any string in any language with a vocabulary of 256, with no unknown symbols ever. ASCII characters take one byte each, but other characters take two to four (Appendix A.3):
 
-```python
-for ch in ["a", "é", "你", "🙂"]:
-    print(ch, list(ch.encode("utf-8")))
-```
-
-```
-a [97]
-é [195, 169]
-你 [228, 189, 160]
-🙂 [240, 159, 153, 130]
-```
+| Character | UTF-8 bytes |
+|---|---|
+| a | 97 |
+| é | 195 169 |
+| 你 | 228 189 160 |
+| 🙂 | 240 159 153 130 |
 
 So pure byte-level sequences are even longer than character sequences for most of the world's languages: a Chinese sentence is about three times as many bytes as characters. Models that operate directly on bytes exist (Section 8 mentions ByT5), but they pay for it in sequence length.
 
@@ -78,25 +48,16 @@ So pure byte-level sequences are even longer than character sequences for most o
 
 **Subword tokenization** sits between the two extremes. Frequent strings, including most common words, get their own tokens. Rare words are split into smaller pieces that are themselves in the vocabulary, and in the worst case into single characters or bytes. With a vocabulary of a few tens of thousands of entries, a subword tokenizer can encode any text, never needs an unknown token (if it falls back to bytes), and keeps sequences short for common text.
 
-GPT-2's tokenizer shows the pattern on a few related words:
+GPT-2's tokenizer shows the pattern on a few related words, each with a leading space as it would appear mid-sentence (Appendix A.4):
 
-```python
-import tiktoken
-
-enc = tiktoken.get_encoding("gpt2")
-for w in [" run", " running", " runner", " runners", " tokenization", " unhappiness"]:
-    ids = enc.encode(w)
-    print(repr(w), ids, [enc.decode([i]) for i in ids])
-```
-
-```
-' run' [1057] [' run']
-' running' [2491] [' running']
-' runner' [17490] [' runner']
-' runners' [19323] [' runners']
-' tokenization' [11241, 1634] [' token', 'ization']
-' unhappiness' [14274, 42661] [' unh', 'appiness']
-```
+| Word | GPT-2 tokens |
+|---|---|
+| run | `␣run` |
+| running | `␣running` |
+| runner | `␣runner` |
+| runners | `␣runners` |
+| tokenization | `␣token` `ization` |
+| unhappiness | `␣unh` `appiness` |
 
 Frequent words such as " running" are single tokens. Less frequent words are split: " tokenization" into " token" and "ization", pieces that also appear in many other words. The splits often line up with meaningful parts of words (morphemes), as in " token" + "ization", but not always: " unhappiness" became " unh" + "appiness", not " un" + "happiness". The pieces come from frequency statistics, not from linguistic knowledge. The model can still learn what " unh" + "appiness" means, because it sees that combination in context, but the split does not hand it the structure for free.
 
@@ -154,3 +115,93 @@ Radford, Alec, et al. "Language Models Are Unsupervised Multitask Learners." Ope
 Sennrich, Rico, et al. "Neural Machine Translation of Rare Words with Subword Units." In *Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics*, 1715–1725, 2016. https://arxiv.org/abs/1508.07909.
 
 Wu, Yonghui, et al. "Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation." arXiv preprint arXiv:1609.08144, 2016. https://arxiv.org/abs/1609.08144.
+
+## Appendix: Code for Section 5.2
+
+These listings reproduce the measurements in this section. Run them in order in one Python session; they need the `tiktoken` package, and the first listing downloads tiny Shakespeare.
+
+### A.1 Loading tiny Shakespeare
+
+Download the corpus, split it 90/10, and count its characters.
+
+```python
+import re, urllib.request
+from collections import Counter
+
+url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+text = urllib.request.urlopen(url).read().decode("utf-8")
+split = int(0.9 * len(text))
+train, held_out = text[:split], text[split:]
+print(len(text), len(set(text)))
+```
+
+Output:
+
+```
+1115394 65
+```
+
+### A.2 A word-level vocabulary
+
+Build a word vocabulary from the training portion and measure unknown words in the held-out portion.
+
+```python
+words_train = re.findall(r"\w+|[^\w\s]", train)
+words_held = re.findall(r"\w+|[^\w\s]", held_out)
+vocab = set(words_train)
+counts = Counter(words_train)
+oov = [w for w in words_held if w not in vocab]
+print(len(vocab), sum(1 for w in counts if counts[w] == 1))
+print(len(words_held), len(oov), f"{100 * len(oov) / len(words_held):.2f}%")
+print(Counter(oov).most_common(5))
+```
+
+Output:
+
+```
+12569 5753
+26844 1231 4.59%
+[('PROSPERO', 63), ('SEBASTIAN', 42), ('ANTONIO', 38), ('GONZALO', 37), ('MIRANDA', 34)]
+```
+
+### A.3 UTF-8 bytes
+
+Show the UTF-8 encoding of characters from different scripts.
+
+```python
+for ch in ["a", "é", "你", "🙂"]:
+    print(ch, list(ch.encode("utf-8")))
+```
+
+Output:
+
+```
+a [97]
+é [195, 169]
+你 [228, 189, 160]
+🙂 [240, 159, 153, 130]
+```
+
+### A.4 Subword splits in GPT-2
+
+Tokenize related words with GPT-2's tokenizer.
+
+```python
+import tiktoken
+
+enc = tiktoken.get_encoding("gpt2")
+for w in [" run", " running", " runner", " runners", " tokenization", " unhappiness"]:
+    ids = enc.encode(w)
+    print(repr(w), ids, [enc.decode([i]) for i in ids])
+```
+
+Output:
+
+```
+' run' [1057] [' run']
+' running' [2491] [' running']
+' runner' [17490] [' runner']
+' runners' [19323] [' runners']
+' tokenization' [11241, 1634] [' token', 'ization']
+' unhappiness' [14274, 42661] [' unh', 'appiness']
+```

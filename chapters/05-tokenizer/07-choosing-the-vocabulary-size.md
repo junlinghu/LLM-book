@@ -26,46 +26,18 @@ Against those costs, a larger vocabulary gives shorter sequences. Longer tokens 
 - **Less compute per document.** The cost of the rest of the model grows at least linearly with the number of positions, and attention grows faster than linearly. Shorter sequences are cheaper to train on and to run.
 - **Faster generation.** A model generates one token per step, so text that needs fewer tokens is produced in fewer steps.
 
-To see how compression changes with vocabulary size, we can train byte-level BPE tokenizers of increasing size on the first 90 percent of tiny Shakespeare and measure bytes per token on the held-out 10 percent. The Hugging Face `tokenizers` library trains these in seconds:
+To see how compression changes with vocabulary size, we can train byte-level BPE tokenizers of increasing size on the first 90 percent of tiny Shakespeare and measure bytes per token on the held-out 10 percent. The Hugging Face `tokenizers` library trains these in seconds (Appendix A.1):
 
-```python
-import os, urllib.request
-from collections import Counter
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders
+| Vocabulary size | Held-out tokens | Bytes per token | Entries seen fewer than 10 times |
+|---|---|---|---|
+| 512 | 59,401 | 1.88 | 193 |
+| 1,000 | 49,650 | 2.25 | 223 |
+| 2,000 | 43,755 | 2.55 | 373 |
+| 4,000 | 38,542 | 2.89 | 850 |
+| 8,000 | 35,070 | 3.18 | 5,291 |
+| 16,000 | 33,720 | 3.31 | 13,917 |
 
-if not os.path.exists("shakespeare.txt"):
-    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    urllib.request.urlretrieve(url, "shakespeare.txt")
-text = open("shakespeare.txt", encoding="utf-8").read()
-split = int(0.9 * len(text))
-train, held_out = text[:split], text[split:]
-with open("train.txt", "w", encoding="utf-8") as f:
-    f.write(train)
-n_bytes = len(held_out.encode("utf-8"))
-
-for V in [512, 1000, 2000, 4000, 8000, 16000]:
-    tok = Tokenizer(models.BPE())
-    tok.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
-    tok.decoder = decoders.ByteLevel()
-    trainer = trainers.BpeTrainer(vocab_size=V, show_progress=False,
-                                  initial_alphabet=pre_tokenizers.ByteLevel.alphabet())
-    tok.train(["train.txt"], trainer)
-    counts = Counter(tok.encode(train).ids)
-    rare = sum(1 for i in range(tok.get_vocab_size()) if counts[i] < 10)
-    n_tokens = len(tok.encode(held_out).ids)
-    print(V, n_tokens, round(n_bytes / n_tokens, 2), rare)
-```
-
-```
-512 59401 1.88 193
-1000 49650 2.25 223
-2000 43755 2.55 373
-4000 38542 2.89 850
-8000 35070 3.18 5291
-16000 33720 3.31 13917
-```
-
-The columns are the vocabulary size, the number of tokens needed for the held-out text, the bytes per token, and the number of vocabulary entries that occur fewer than ten times when the tokenizer encodes its own training data.
+The last column counts the vocabulary entries that occur fewer than ten times when the tokenizer encodes its own training data.
 
 Two patterns stand out. First, **compression has diminishing returns**. Going from 512 to 1,000 entries cuts the held-out token count by 16 percent; going from 8,000 to 16,000, which doubles the vocabulary again, cuts it by less than 4 percent. Each additional merge covers a rarer string than the one before, so it saves fewer tokens. The same curve appears at any scale, which is why vocabulary sizes grow slowly compared with model and data sizes.
 
@@ -105,7 +77,104 @@ Before training a model with a tokenizer, measure it on text like the text the m
 - **Fertility**: the average number of tokens per word, for languages where words are well defined. A fertility close to 1 means most words are single tokens.
 - **Vocabulary utilization**: how many vocabulary entries actually occur, and how often, in a large sample of the model's training data. Entries that almost never occur are wasted parameters and potential glitch tokens.
 
-Measured on one English sentence and our translations of it into nine other languages, three OpenAI tokenizers give these token counts (and the ratio to the English count for the same tokenizer):
+Measured on one English sentence and our translations of it into nine other languages, three OpenAI tokenizers give these token counts, with the ratio to the English count for the same tokenizer in parentheses (Appendix A.2):
+
+| Language | UTF-8 bytes | GPT-2 | `cl100k_base` | `o200k_base` |
+|---|---|---|---|---|
+| English | 66 | 18 (1.0x) | 18 (1.0x) | 18 (1.0x) |
+| French | 71 | 29 (1.6x) | 18 (1.0x) | 17 (0.9x) |
+| Spanish | 64 | 25 (1.4x) | 19 (1.1x) | 16 (0.9x) |
+| German | 71 | 28 (1.6x) | 19 (1.1x) | 14 (0.8x) |
+| Russian | 102 | 63 (3.5x) | 30 (1.7x) | 16 (0.9x) |
+| Chinese | 51 | 32 (1.8x) | 22 (1.2x) | 13 (0.7x) |
+| Japanese | 66 | 29 (1.6x) | 23 (1.3x) | 15 (0.8x) |
+| Korean | 70 | 64 (3.6x) | 33 (1.8x) | 19 (1.1x) |
+| Hindi | 153 | 89 (4.9x) | 62 (3.4x) | 16 (0.9x) |
+| Arabic | 87 | 52 (2.9x) | 34 (1.9x) | 17 (0.9x) |
+ One sentence is only an illustration, and the ratios would shift with different text, but the pattern is large enough to trust. GPT-2's tokenizer, trained mostly on English web text, needs nearly five times as many tokens for the Hindi sentence as for the English one. `cl100k_base` narrows the gap for European languages but still needs 3.4 times as many for Hindi. `o200k_base`, with twice the vocabulary, brings every one of these languages close to parity with English. Petrov et al. (2023) measured such disparities systematically on parallel text in many languages and found differences in tokenized length of up to 15 times between languages for some tokenizers, with consequences for cost, latency, and how much content fits in the context window.
+
+## The tokenizer's training data matters as much as its size
+
+The multilingual table shows that vocabulary size alone does not determine compression. What the vocabulary is spent on depends on the text the tokenizer was trained on. A tokenizer trained mostly on English prose spends its merges on English words and compresses other languages, code, and mathematical notation poorly.
+
+Code makes the point sharply. Measured on held-out Shakespeare and on the Python source of the tokenizer we build in Section 10, saved as `bpe.py` (Appendix A.3):
+
+| Text | Bytes | GPT-2 | `cl100k_base` | `o200k_base` |
+|---|---|---|---|---|
+| Shakespeare (held out) | 111,540 | 3.09 | 3.54 | 3.60 |
+| Python (`bpe.py`) | 3,411 | 2.02 | 3.98 | 4.00 |
+
+The numbers are bytes per token. On Shakespeare the three tokenizers differ by less than 17 percent. On Python they differ by a factor of two. Much of the difference is indentation. GPT-2's tokenizer has no tokens for runs of spaces, so a line indented by eight spaces costs it seven single-space tokens before the eighth space attaches to the first word, while `cl100k_base` encodes the first seven spaces as a single token. Section 8 returns to whitespace. The lesson for building a tokenizer is to train it on a sample that matches the mixture of languages, code, and other content the model will be trained on, and then to check compression on each part of that mixture separately.
+
+## Key takeaways
+
+- The vocabulary size $`V`$ sets the size of the embedding table and the output layer ($`V \times d`$ each, unless tied) and the cost of the output softmax.
+- Larger vocabularies give shorter sequences, which means more text per context window, less compute per document, and faster generation, but with sharply diminishing returns.
+- Large vocabularies contain many rare tokens whose embeddings are poorly trained.
+- Typical sizes have grown from about 30,000 to 50,000 in early models to 100,000 to 200,000 in recent ones, driven by larger models and multilingual and code coverage.
+- Matrices are often padded to a multiple of 64 or 128 for hardware efficiency.
+- Evaluate a tokenizer by compression per language and domain, fertility, and vocabulary utilization, and train it on data that matches the model's training mixture.
+
+## Further reading
+
+Grattafiori, Aaron, et al. "The Llama 3 Herd of Models." arXiv preprint arXiv:2407.21783, 2024. https://arxiv.org/abs/2407.21783.
+
+Petrov, Aleksandar, et al. "Language Model Tokenizers Introduce Unfairness Between Languages." In *Advances in Neural Information Processing Systems 36*, 2023. https://arxiv.org/abs/2305.15425.
+
+Radford, Alec, et al. "Language Models Are Unsupervised Multitask Learners." OpenAI technical report, 2019. https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf.
+
+Touvron, Hugo, et al. "LLaMA: Open and Efficient Foundation Language Models." arXiv preprint arXiv:2302.13971, 2023. https://arxiv.org/abs/2302.13971.
+
+## Appendix: Code for Section 5.7
+
+These listings reproduce the measurements in this section. Run them in order in one Python session; they need the `tokenizers` and `tiktoken` packages, download tiny Shakespeare, and, for A.3, expect the Section 10 tokenizer saved as `bpe.py` in the working directory.
+
+### A.1 Compression as a function of vocabulary size
+
+Train byte-level BPE tokenizers of six sizes on 90 percent of tiny Shakespeare and measure them on the rest.
+
+```python
+import os, urllib.request
+from collections import Counter
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders
+
+if not os.path.exists("shakespeare.txt"):
+    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+    urllib.request.urlretrieve(url, "shakespeare.txt")
+text = open("shakespeare.txt", encoding="utf-8").read()
+split = int(0.9 * len(text))
+train, held_out = text[:split], text[split:]
+with open("train.txt", "w", encoding="utf-8") as f:
+    f.write(train)
+n_bytes = len(held_out.encode("utf-8"))
+
+for V in [512, 1000, 2000, 4000, 8000, 16000]:
+    tok = Tokenizer(models.BPE())
+    tok.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+    tok.decoder = decoders.ByteLevel()
+    trainer = trainers.BpeTrainer(vocab_size=V, show_progress=False,
+                                  initial_alphabet=pre_tokenizers.ByteLevel.alphabet())
+    tok.train(["train.txt"], trainer)
+    counts = Counter(tok.encode(train).ids)
+    rare = sum(1 for i in range(tok.get_vocab_size()) if counts[i] < 10)
+    n_tokens = len(tok.encode(held_out).ids)
+    print(V, n_tokens, round(n_bytes / n_tokens, 2), rare)
+```
+
+Output:
+
+```
+512 59401 1.88 193
+1000 49650 2.25 223
+2000 43755 2.55 373
+4000 38542 2.89 850
+8000 35070 3.18 5291
+16000 33720 3.31 13917
+```
+
+### A.2 Token counts across languages
+
+Count tokens for one sentence in ten languages with three OpenAI tokenizers.
 
 ```python
 import tiktoken
@@ -132,6 +201,8 @@ for lang, s in sentences.items():
     print(row)
 ```
 
+Output:
+
 ```
 English     66 bytes   18 (1.0x)   18 (1.0x)   18 (1.0x)
 French      71 bytes   29 (1.6x)   18 (1.0x)   17 (0.9x)
@@ -145,13 +216,9 @@ Hindi      153 bytes   89 (4.9x)   62 (3.4x)   16 (0.9x)
 Arabic      87 bytes   52 (2.9x)   34 (1.9x)   17 (0.9x)
 ```
 
-The columns are GPT-2, `cl100k_base`, and `o200k_base`. One sentence is only an illustration, and the ratios would shift with different text, but the pattern is large enough to trust. GPT-2's tokenizer, trained mostly on English web text, needs nearly five times as many tokens for the Hindi sentence as for the English one. `cl100k_base` narrows the gap for European languages but still needs 3.4 times as many for Hindi. `o200k_base`, with twice the vocabulary, brings every one of these languages close to parity with English. Petrov et al. (2023) measured such disparities systematically on parallel text in many languages and found differences in tokenized length of up to 15 times between languages for some tokenizers, with consequences for cost, latency, and how much content fits in the context window.
+### A.3 Prose versus code
 
-## The tokenizer's training data matters as much as its size
-
-The multilingual table shows that vocabulary size alone does not determine compression. What the vocabulary is spent on depends on the text the tokenizer was trained on. A tokenizer trained mostly on English prose spends its merges on English words and compresses other languages, code, and mathematical notation poorly.
-
-Code makes the point sharply. Measured on held-out Shakespeare and on the Python source of the tokenizer we build in Section 10, saved as `bpe.py`:
+Compare compression on Shakespeare and on Python source.
 
 ```python
 held = held_out
@@ -161,28 +228,9 @@ for label, t in [("Shakespeare", held), ("Python", code)]:
     print(label, b, {n: round(b / len(e.encode(t)), 2) for n, e in encs.items()})
 ```
 
+Output:
+
 ```
 Shakespeare 111540 {'gpt2': 3.09, 'cl100k_base': 3.54, 'o200k_base': 3.6}
 Python 3411 {'gpt2': 2.02, 'cl100k_base': 3.98, 'o200k_base': 4.0}
 ```
-
-On Shakespeare the three tokenizers differ by less than 17 percent. On Python they differ by a factor of two. Much of the difference is indentation. GPT-2's tokenizer has no tokens for runs of spaces, so a line indented by eight spaces costs it seven single-space tokens before the eighth space attaches to the first word, while `cl100k_base` encodes the first seven spaces as a single token. Section 8 returns to whitespace. The lesson for building a tokenizer is to train it on a sample that matches the mixture of languages, code, and other content the model will be trained on, and then to check compression on each part of that mixture separately.
-
-## Key takeaways
-
-- The vocabulary size $`V`$ sets the size of the embedding table and the output layer ($`V \times d`$ each, unless tied) and the cost of the output softmax.
-- Larger vocabularies give shorter sequences, which means more text per context window, less compute per document, and faster generation, but with sharply diminishing returns.
-- Large vocabularies contain many rare tokens whose embeddings are poorly trained.
-- Typical sizes have grown from about 30,000 to 50,000 in early models to 100,000 to 200,000 in recent ones, driven by larger models and multilingual and code coverage.
-- Matrices are often padded to a multiple of 64 or 128 for hardware efficiency.
-- Evaluate a tokenizer by compression per language and domain, fertility, and vocabulary utilization, and train it on data that matches the model's training mixture.
-
-## Further reading
-
-Grattafiori, Aaron, et al. "The Llama 3 Herd of Models." arXiv preprint arXiv:2407.21783, 2024. https://arxiv.org/abs/2407.21783.
-
-Petrov, Aleksandar, et al. "Language Model Tokenizers Introduce Unfairness Between Languages." In *Advances in Neural Information Processing Systems 36*, 2023. https://arxiv.org/abs/2305.15425.
-
-Radford, Alec, et al. "Language Models Are Unsupervised Multitask Learners." OpenAI technical report, 2019. https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf.
-
-Touvron, Hugo, et al. "LLaMA: Open and Efficient Foundation Language Models." arXiv preprint arXiv:2302.13971, 2023. https://arxiv.org/abs/2302.13971.
