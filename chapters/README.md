@@ -11,4 +11,5 @@
 9. [Reinforcement Learning Basics](09-reinforcement-learning-basics/)
 10. [RLHF](10-rlhf/)
 11. [More RL Methods for LLMs (PPO variants, DPO, etc.)](11-more-rl-methods-for-llms/)
-12. [Evaluation and Inference](12-evaluation-and-inference/)
+12. [Evaluation](12-evaluation/)
+13. [Inference](13-inference/)

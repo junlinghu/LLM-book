@@ -15,4 +15,5 @@ Code for topics in understanding and using LLMs.
 9. [Reinforcement Learning Basics](chapters/09-reinforcement-learning-basics/)
 10. [RLHF](chapters/10-rlhf/)
 11. [More RL Methods for LLMs (PPO variants, DPO, etc.)](chapters/11-more-rl-methods-for-llms/)
-12. [Evaluation and Inference](chapters/12-evaluation-and-inference/)
+12. [Evaluation](chapters/12-evaluation/)
+13. [Inference](chapters/13-inference/)
