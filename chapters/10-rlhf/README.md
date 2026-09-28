@@ -78,7 +78,7 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - GPT-3 itself was not trained with RLHF: it was a pretrained model used through few-shot prompting (Brown et al. 2020). InstructGPT fine-tuned GPT-3 with SFT and then PPO, and ChatGPT applied the same methods to a model from the GPT-3.5 series
 - Early demonstrations: PPO fine-tuning of GPT-2 from human comparisons, then summaries preferred over human-written references
 - Instruction following: a small RLHF model beat a much larger pretrained one, and was more truthful and less toxic
-- Assistants: ChatGPT, Anthropic's helpful-and-harmless assistant, and the Claude models that followed
+- Assistants: ChatGPT, Anthropic's helpful-and-harmless assistant, and the Claude models that followed (trained with RLHF, algorithm not named)
 - Frontier and open models: GPT-4 used PPO with extra rule-based rewards for safety, and Llama 2-Chat combined rejection-sampling fine-tuning with PPO
 - A close relative: DeepMind's Sparrow used the same RLHF recipe with an A2C optimizer instead of PPO, adding rule-specific reward models and cited evidence (Glaese et al. 2022)
 - PPO holds up in controlled comparisons: tuned carefully, it matched or beat DPO and other alignment methods on dialogue, math, and code (Xu et al. 2024; Ivison et al. 2024)
@@ -109,7 +109,7 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - The reward model turns human preferences into a number the RL step can optimize.
 - The KL penalty keeps the policy close to the SFT model so it doesn't exploit the reward model.
 - PPO for LLMs is Chapter 9's PPO plus four models, per-token KL shaping, and expensive generation.
-- PPO-based RLHF produced InstructGPT, ChatGPT, GPT-4, Llama 2-Chat, and early Claude models, and a small RLHF model can beat a much larger pretrained one; Chapter 11 covers its limitations and the methods that followed.
+- PPO-based RLHF produced InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat, and a small RLHF model can beat a much larger pretrained one; Chapter 11 covers its limitations and the methods that followed.
 
 ## Further reading
 
