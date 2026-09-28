@@ -14,13 +14,13 @@ Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the mo
 ## Outline
 
 ### 1. Where Chapter 10 left off: the limits of PPO-based RLHF
-- A short recap of the KL-regularized RLHF objective and the PPO pipeline (see Chapter 10; the PPO algorithm itself is in Chapter 9)
-- **Cost and complexity**: four models in memory (policy, value, reward, and reference) and slow online rollout generation
-- **Instability**: sensitivity to hyperparameters and implementation details
-- **Reward hacking and over-optimization**: pushing a learned reward model too hard raises its score while true quality falls, and the gap follows predictable scaling laws (Gao et al. 2023)
-- **Mode collapse and reduced diversity**: RLHF generalizes better than SFT to new inputs but narrows the range of outputs (Kirk et al. 2023)
-- **Sycophancy and confident-sounding answers**: people and reward models sometimes prefer responses that agree with the user over correct ones (Sharma et al. 2023)
-- A map of the chapter: critic-free RL drops the value model (Section 2), direct preference methods drop the reward model and sampling loop (Sections 3 and 4), verifiable rewards resist hacking (Section 5), and AI feedback cuts labeling cost (Section 6)
+- A short recap of the RLHF objective and PPO (see Chapters 9 and 10)
+- **Cost**: four models in memory and slow sampling, which critic-free RL (Section 2) reduces
+- **Instability**: training is sensitive to hyperparameters, which DPO and its variants avoid (Sections 3 and 4)
+- **Reward hacking**: the reward model's score keeps rising while real quality falls (Gao et al. 2023), which verifiable rewards resist (Section 5)
+- **Less diversity**: RLHF makes answers less varied than SFT does (Kirk et al. 2023)
+- **Sycophancy**: the model learns to agree with the user instead of being correct (Sharma et al. 2023)
+- How AI feedback (Section 6) cuts the cost of human labels
 
 ### 2. RL without a value model
 - Why the critic is expensive for LLMs
