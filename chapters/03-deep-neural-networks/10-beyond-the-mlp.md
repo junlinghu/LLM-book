@@ -30,7 +30,7 @@ Two assumptions are built in:
 - **Locality.** Each output depends only on a small neighborhood of the input ($`k \times k`$, often $`3 \times 3`$). Nearby pixels are related; distant ones are handled by later layers.
 - **Translation equivariance.** Because the same filter is applied at every position, shifting the input shifts the output by the same amount. A detector for vertical edges finds them anywhere in the image.
 
-Stacking convolutional layers builds the hierarchy described in Section 1. Each layer sees a slightly larger region of the original image than the one below: after $`L`$ layers of $`3 \times 3`$ filters, each unit's **receptive field** spans $`(2L + 1) \times (2L + 1)`$ pixels. Downsampling operations, such as pooling or strided convolution, reduce the spatial resolution between stages so that receptive fields grow faster and later layers can combine information from across the whole image. Early layers learn edge and color detectors, middle layers textures and parts, and late layers object-level features.
+LeCun et al. (1998) used networks of exactly this kind, trained by backpropagation, for handwritten digit and document recognition. Stacking convolutional layers builds the hierarchy described in Section 1. Each layer sees a slightly larger region of the original image than the one below: after $`L`$ layers of $`3 \times 3`$ filters, each unit's **receptive field** spans $`(2L + 1) \times (2L + 1)`$ pixels. Downsampling operations, such as pooling or strided convolution, reduce the spatial resolution between stages so that receptive fields grow faster and later layers can combine information from across the whole image. Early layers learn edge and color detectors, middle layers textures and parts, and late layers object-level features.
 
 All the techniques from this chapter apply directly to convolutional networks, and several were developed for them. He initialization (Section 3) was derived for deep ReLU convolutional networks; residual connections (Section 4) and batch normalization (Section 5) made very deep convolutional networks trainable, and ResNets combine both. The training recipe of Section 9 carries over almost unchanged.
 
@@ -122,7 +122,7 @@ and then updates the cell and hidden states:
 \mathbf{h}_t = \mathbf{o}_t \odot \tanh(\mathbf{c}_t).
 ```
 
-Here $`[\mathbf{h}_{t-1}; \mathbf{x}_t]`$ denotes concatenation. (The forget gate was added to the original LSTM design shortly after it was introduced; the form above is the standard modern one.)
+Here $`[\mathbf{h}_{t-1}; \mathbf{x}_t]`$ denotes concatenation. (The forget gate was added to the original LSTM design by Gers et al. (2000); the form above is the standard modern one.)
 
 Why does this help? Look at the cell-state path. Ignoring the gates' own dependence on the state, the Jacobian from one cell state to the next is
 
@@ -132,7 +132,7 @@ Why does this help? Look at the cell-state path. Ignoring the gates' own depende
 
 There is no repeated multiplication by a weight matrix and no squashing nonlinearity along this path. When the forget gate is near 1, the cell state, and the gradient flowing back through it, passes through almost unchanged for many steps. The network can *learn* to keep information (forget gate near 1) or discard it (near 0), depending on the input. This is the same idea as the residual connection of Section 4: an additive update path along which gradients flow without repeated attenuation. The LSTM's cell state was, in effect, a gated residual stream through time, nearly two decades before residual networks.
 
-A common practical detail is to initialize the forget gate's bias to a positive value (such as 1), so that the network starts out remembering by default. The **gated recurrent unit (GRU)** is a popular simplification with two gates and no separate cell state, which often performs comparably.
+A common practical detail is to initialize the forget gate's bias to a positive value (such as 1), so that the network starts out remembering by default. The **gated recurrent unit (GRU)** of Cho et al. (2014) is a popular simplification with two gates and no separate cell state, which often performs comparably.
 
 LSTMs made recurrent networks practical for language modeling, machine translation, and speech recognition, and were the dominant sequence models for years.
 

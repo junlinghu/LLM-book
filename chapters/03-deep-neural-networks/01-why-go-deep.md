@@ -26,7 +26,36 @@ In later practice, "layers" are often residual *blocks* that themselves contain 
 
 Chapter 2 stated the universal approximation theorem: a single hidden layer with a suitable nonlinearity can approximate any continuous function on a compact domain arbitrarily well, provided the hidden layer is wide enough. That result is an existence theorem. It does not say how many units you need, how to find the weights, or whether a deeper network might need far fewer units for the same accuracy.
 
-Depth can help dramatically for some functions. Telgarsky (2016) proved that there are functions that a deep network with ReLU activations can represent with a polynomial number of units, while any shallow network that approximates them well needs an exponential number of units. The constructions are about highly oscillatory functions whose level sets require many "pieces"; each layer of ReLUs can multiply the number of linear regions, so depth buys an exponential increase in representational power for a linear increase in parameters.
+Depth can help dramatically for some functions. Telgarsky (2016) proved that for every positive integer $`k`$, there are functions computed by ReLU networks with $`\Theta(k^3)`$ layers and a constant number of units per layer that cannot be approximated by networks with $`O(k)`$ layers unless those networks have exponentially many (order $`2^k`$) units. Deep networks can be exponentially more efficient than shallow ones.
+
+### A sawtooth example
+
+The intuition behind such results is easy to see in one dimension. A ReLU network computes a **piecewise linear** function: a continuous function made of straight segments. Count the segments.
+
+- A one-hidden-layer ReLU network with $`m`$ hidden units on a scalar input computes $`\sum_{i=1}^{m} a_i \,\mathrm{ReLU}(w_i x + b_i) + c`$. Each unit contributes at most one "kink" (at $`x = -b_i/w_i`$), so the function has at most $`m + 1`$ linear pieces. The number of pieces grows **linearly** with the number of units.
+- Now consider the "tent" map on $`[0, 1]`$, which rises from 0 to 1 and falls back to 0. It needs only two ReLUs:
+
+```math
+t(x) = 2\,\mathrm{ReLU}(x) - 4\,\mathrm{ReLU}(x - \tfrac{1}{2}).
+```
+
+Composing the tent map with itself folds the interval again: $`t(t(x))`$ has two teeth, $`t(t(t(x)))`$ has four, and $`k`$ compositions have $`2^{k-1}`$ teeth, that is, $`2^k`$ linear pieces. A network that computes $`k`$ compositions has $`k`$ layers of two ReLUs each: $`2k`$ units in total.
+
+```python
+import numpy as np
+
+relu = lambda z: np.maximum(z, 0)
+tent = lambda x: 2 * relu(x) - 4 * relu(x - 0.5)
+
+x = np.linspace(0, 1, 200_001)
+y = x.copy()
+for k in range(1, 7):
+    y = tent(y)                                    # one more layer
+    slopes = np.sign(np.round(np.diff(y) / np.diff(x), 6))
+    print(k, 1 + np.sum(slopes[1:] != slopes[:-1]))  # linear pieces: 2, 4, 8, ..., 64
+```
+
+To match the $`2^k`$ pieces of the $`k`$-layer sawtooth, a one-hidden-layer network needs at least $`2^k - 1`$ units. With $`k = 20`$, that is two ReLUs per layer for 20 layers (40 units) against more than a million units in a single layer. Depth multiplies the number of linear regions; width only adds to it. Telgarsky's theorem turns this counting argument into a statement about approximation: a shallow network with too few pieces cannot stay close to a function that oscillates this many times.
 
 The lesson for practitioners is not that every task needs a deep net, but that *width is not a free substitute for depth*. When the target has hierarchical or compositional structure, stacking layers is often the cheaper way to express it. When the target is essentially a smooth low-dimensional map, a shallow network may be enough.
 
@@ -48,9 +77,9 @@ Neural networks with many layers were studied for decades, but until the late 20
 
 1. **More data.** Large labeled datasets (and later, unlabeled text at internet scale) gave deep models enough signal to fit many parameters without immediate catastrophic overfitting.
 2. **GPUs and better software.** Matrix multiplications map well onto GPUs. Frameworks made it practical to define deep graphs and differentiate them automatically (Chapter 2).
-3. **Training techniques.** The bulk of this chapter—initialization, residual connections, normalization, adaptive optimizers, learning-rate schedules, and regularization—is the engineering that made deep stacks trainable. Without those, more data and faster chips alone were not enough.
+3. **Training techniques.** The bulk of this chapter (initialization, residual connections, normalization, adaptive optimizers, learning-rate schedules, and regularization) is the engineering that made deep stacks trainable. Without those, more data and faster chips alone were not enough. Some of the earliest successes in training deep networks, in the mid-2000s, relied on greedy layer-wise *pretraining*, training one layer at a time with an unsupervised objective before fine-tuning the whole stack. Better activations, initialization, and normalization later made that step unnecessary for most problems: deep networks could be trained end to end from random initialization.
 
-The ImageNet breakthrough with deep convolutional networks around 2012 made the pattern public: depth plus the right training recipe beat shallower alternatives. Language modeling followed a similar path from shallower nets and n-grams to deep recurrent models and then to deep transformers. The architectural details change; the need for the techniques in this chapter does not.
+The 2012 ImageNet result of Krizhevsky, Sutskever, and Hinton, whose deep convolutional network trained on GPUs with ReLU activations and dropout won the ImageNet image-classification challenge by a wide margin, made the pattern public: depth plus the right training recipe beat shallower alternatives. Language modeling followed a similar path from shallower nets and n-grams to deep recurrent models and then to deep transformers. The architectural details change; the need for the techniques in this chapter does not.
 
 ## Counting parameters and compute in a deep MLP
 
@@ -70,7 +99,9 @@ for large $`d`$. Roughly, **parameters grow linearly with depth and quadraticall
 
 **Forward-pass compute.** A dense matrix-vector product $`W\mathbf{h}`$ with $`W \in \mathbb{R}^{d \times d}`$ costs about $`2d^2`$ floating-point operations (one multiply and one add per weight). So one forward pass through $`L`$ hidden layers costs about $`2 L d^2`$ FLOPs per example (ignoring activations and biases, which are $`O(Ld)`$). A minibatch of size $`B`$ multiplies that by $`B`$.
 
-**Backward-pass compute.** Backpropagation through a linear layer needs a comparable amount of work to the forward pass (gradients with respect to activations and with respect to weights). A standard rule of thumb is that training costs on the order of **twice to three times** a forward pass per example, before counting the optimizer overhead discussed in Section 6.
+**Backward-pass compute.** Backpropagation through a linear layer needs two matrix products of the same size as the forward one: one to compute the gradient with respect to the layer's input ($`W^\top \boldsymbol{\delta}`$), and one to compute the gradient with respect to its weights ($`\boldsymbol{\delta}\mathbf{h}^\top`$). So the backward pass costs about twice the forward pass, and a full training step costs about **three times** a forward pass, roughly $`6 L d^2`$ FLOPs per example, before counting the optimizer's small per-parameter overhead (Section 6).
+
+**Activation memory.** Backpropagation needs the activations of every layer from the forward pass (Chapter 2). For a minibatch of $`B`$ examples, each layer stores on the order of $`B d`$ numbers, so activation memory grows as $`O(L B d)`$: linearly in depth and in batch size. For deep networks trained with large batches, activation memory can exceed the memory for the parameters themselves. Parameters, gradients, optimizer state, and activations together determine whether a model fits on a device, a theme Sections 6 and 9 return to.
 
 **Depth vs. width at fixed parameter budget.** Fix a budget of about $`N`$ weights. A shallow net with one hidden layer of width $`w`$ has roughly $`w \cdot d_{\text{in}} + d_{\text{out}} \cdot w`$ parameters. A deep net with $`L`$ layers of width $`d`$ has roughly $`L d^2`$ parameters. You can spend the same $`N`$ on large $`w`$ or on large $`L`$ (with smaller $`d`$). Empirically, for many tasks, spending on depth (up to a point) yields better sample efficiency and accuracy than spending only on width—but only if training succeeds. That last clause is the catch.
 
@@ -92,7 +123,11 @@ sizes = [784] + [512] * 10 + [10]
 print(mlp_params(sizes))                 # about 2.8e6
 ```
 
-The deep network has a similar parameter count but ten nonlinear stages instead of one. Whether that helps depends on the task—and on whether gradients still reach the early layers.
+The deep network has a similar parameter count (about 2.8 million against 3.3 million) but ten nonlinear stages instead of one. The forward FLOPs per example are roughly twice the parameter count in both cases, so the two networks cost about the same to run. Whether the deep one is better depends on the task, and on whether gradients still reach its early layers.
+
+### What counts as a layer
+
+Conventions for counting depth vary. Some authors count weight layers (so a one-hidden-layer MLP has depth 2); others count hidden layers. In residual architectures (Section 4), people usually count **blocks**, where each block contains two or more weight layers plus a normalization. The count that matters for training difficulty is the length of the longest path of nonlinear transforms a gradient must traverse, which is exactly what residual connections shorten. When comparing depths across papers, check which convention is in use.
 
 ## The catch: deeper is not automatically better
 
@@ -126,12 +161,16 @@ Depth is worth wanting. The next section explains precisely why the chain rule m
 
 - Depth is the number of nonlinear stages; width is the size of each stage. They buy capacity in different ways.
 - Universal approximation says one wide hidden layer is enough in principle; depth can represent some functions with far fewer units, as formalized by results such as Telgarsky (2016).
+- In one dimension, a ReLU layer adds linear pieces while composing layers multiplies them: $`k`$ layers of two units make a sawtooth with $`2^k`$ pieces.
 - Deep networks build hierarchical features by composing simple transforms, matching compositional structure in many tasks.
 - The deep learning revival combined more data, GPUs, and the training techniques in this chapter.
-- In a square MLP, parameters and FLOPs scale as about $`L d^2`$; naively increasing $`L`$ often hurts training until initialization, residuals, normalization, and optimizers are in place.
+- In a square MLP, parameters scale as about $`L d^2`$, a training step costs about $`6Ld^2`$ FLOPs per example, and activation memory grows with depth and batch size.
+- Naively increasing $`L`$ often hurts training until initialization, residuals, normalization, and optimizers are in place.
 
 ## Further reading
 
 Goodfellow, Ian, et al. *Deep Learning*. Cambridge, MA: MIT Press, 2016. https://www.deeplearningbook.org/.
+
+Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton. "ImageNet Classification with Deep Convolutional Neural Networks." In *Advances in Neural Information Processing Systems 25*, 2012. https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.
 
 Telgarsky, Matus. "Benefits of Depth in Neural Networks." In *Conference on Learning Theory*, 2016. https://arxiv.org/abs/1602.04485.

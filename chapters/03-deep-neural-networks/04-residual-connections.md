@@ -68,7 +68,7 @@ At initialization, if the residual branch $`F_\ell`$ outputs values near zero (s
 
 ### Ensemble and unrolled views
 
-Residual networks have also been interpreted as ensembles of many shorter paths (each path skipping different subsets of residual branches) and as iterative refinement of a representation. Those views are helpful conceptually; the practical takeaway is the same: depth becomes an iterative update to a shared representation rather than a single long chain of irreversible transforms.
+Expanding the product of block Jacobians $`\prod_\ell (I + \partial F_\ell/\partial \mathbf{h}_\ell)`$ gives a sum over $`2^L`$ terms, one for each subset of blocks: the identity term (skip every block), terms that pass through one block, terms that pass through two, and so on. Veit et al. (2016) interpreted residual networks as ensembles of these many paths of different lengths and found experimentally that, in the networks they studied, most of the gradient during training came from relatively short paths, and that deleting individual blocks at test time degraded performance only mildly, unlike in a plain network. Residual networks have also been interpreted as iterative refinement of a representation. Those views are helpful conceptually; the practical takeaway is the same: depth becomes an iterative update to a shared representation rather than a single long chain of irreversible transforms.
 
 ## Projection shortcuts when shapes differ
 
@@ -102,12 +102,26 @@ This view also clarifies **depth**: adding a block adds another writer. It does 
 
 ## Initializing residual branches
 
-If every residual branch adds a noise-scale update of variance $`\sigma^2`$ and the branches are roughly independent, the stream's variance after $`L`$ blocks grows like $`L \sigma^2`$ (plus the input variance). For large $`L`$, the stream blows up unless $`\sigma`$ is small. Two common countermeasures:
+Residual connections fix the gradient path, but they create a new forward-pass problem: every block *adds* to the stream, so the stream's variance grows with depth. Suppose a branch's output has variance $`g^2`$ times its input's variance and is roughly uncorrelated with it. Then
 
-1. **Small branch initialization.** Scale down the initial weights of the last layer inside each residual branch (or multiply the branch output by a small constant such as $`1/\sqrt{L}`$) so that the total added variance stays order 1 at initialization.
-2. **Normalization before the branch.** Pre-norm architectures (Section 5) normalize the stream before feeding it into $`F`$, which keeps branch inputs well scaled even when the stream's raw magnitude grows.
+```math
+\mathrm{Var}(\mathbf{h}_{\ell+1}) \approx \mathrm{Var}(\mathbf{h}_\ell) + g^2 \, \mathrm{Var}(\mathbf{h}_\ell) = (1 + g^2)\, \mathrm{Var}(\mathbf{h}_\ell),
+```
 
-Large language models combine both habits: pre-norm (or RMSNorm) residual blocks, and careful initialization of projections that write back into the stream. Papers on training very deep transformers often emphasize that *unscaled* residual additions at initialization make the stream variance grow with depth and destabilize early training.
+and after $`L`$ blocks the variance is multiplied by $`(1 + g^2)^L`$. If each branch is initialized with He-style weights so that it preserves variance on its own ($`g \approx 1`$), the stream's variance doubles with every block. In one run of the experiment below with width 256, the stream's standard deviation grew from 1 at the input to about 4 after 4 blocks, about 300 after 16 blocks, and about $`6 \times 10^9`$ after 64 blocks. The identity path does not help here; it is what carries the growing values forward.
+
+The fix is to make each branch start small. If the branch gain is $`g^2 = 1/L`$, the total factor is
+
+```math
+\left(1 + \frac{1}{L}\right)^{L} \lt e \approx 2.72,
+```
+
+bounded no matter how deep the network is. In the same experiment, scaling the last layer of each branch by $`1/\sqrt{L}`$ kept the standard deviation between about 1.5 and 1.7 for 4, 16, and 64 blocks, close to $`\sqrt{e} \approx 1.65`$. Two common countermeasures follow:
+
+1. **Small branch initialization.** Scale down the initial weights of the last layer inside each residual branch, typically by a factor proportional to $`1/\sqrt{L}`$, so that the total added variance stays bounded at initialization. GPT-2, for example, scaled the initial weights of the layers that write into the residual stream by $`1/\sqrt{N}`$, where $`N`$ is the number of residual layers. Some methods go further and initialize the last layer of each branch to exactly zero, so that every block starts as the identity.
+2. **Normalization before the branch.** Pre-norm architectures (Section 5) normalize the stream before feeding it into $`F`$, so each branch sees well-scaled inputs even when the stream's raw magnitude grows, and its output no longer scales with the stream.
+
+Large language models combine both habits: pre-norm (or RMSNorm) residual blocks, and scaled-down initialization of the projections that write back into the stream.
 
 A simple illustration for an MLP residual stack:
 
@@ -120,6 +134,8 @@ class ScaledResidualBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(width, width),
         )
+        nn.init.kaiming_normal_(self.f[0].weight, nonlinearity="relu")
+        nn.init.zeros_(self.f[0].bias)
         # Scale the last layer down so L blocks add O(1) variance at init.
         nn.init.kaiming_normal_(self.f[-1].weight, nonlinearity="linear")
         self.f[-1].weight.data *= depth_hint ** -0.5
@@ -129,7 +145,20 @@ class ScaledResidualBlock(nn.Module):
         return x + self.f(x)
 ```
 
-Exact scaling conventions differ across codebases; the principle is to keep the residual stream from exploding as depth increases *at initialization*, then let learning grow the updates as needed.
+Exact scaling conventions differ across codebases; the principle is to keep the residual stream from exploding as depth increases *at initialization*, then let learning grow the updates as needed. You can check the numbers quoted above by stacking these blocks with and without the scaling line and printing the standard deviation of the stream on random inputs:
+
+```python
+torch.manual_seed(0)
+for L in [4, 16, 64]:
+    x = torch.randn(512, 256)
+    blocks = [ScaledResidualBlock(256, depth_hint=L) for _ in range(L)]
+    with torch.no_grad():
+        for b in blocks:
+            x = b(x)
+    print(L, round(x.std().item(), 2))   # stays near 1.5-1.7 for every depth
+```
+
+Deleting the line that multiplies by `depth_hint ** -0.5` reproduces the explosive growth.
 
 ## Plain vs. residual: what to expect in a lab
 
@@ -150,10 +179,15 @@ Residual connections are necessary for today's deepest models, but they are not 
 - A residual block learns an additive update: $`\mathbf{h}_{\ell+1} = \mathbf{h}_\ell + F_\ell(\mathbf{h}_\ell)`$, so the identity is the default.
 - The block Jacobian $`I + \partial F_\ell / \partial \mathbf{h}_\ell`$ keeps a direct gradient path through depth.
 - Projection shortcuts match shapes when width or resolution changes; prefer identity shortcuts when shapes already match.
-- The residual stream is a shared running sum that every block reads from and writes to; scaling down residual branches at initialization keeps stream variance from growing with depth.
+- The residual stream is a shared running sum that every block reads from and writes to.
+- Unscaled branches multiply the stream's variance by about $`(1+g^2)`$ per block; scaling branch outputs by about $`1/\sqrt{L}`$ at initialization keeps it bounded for any depth.
 
 ## Further reading
 
 He, Kaiming, et al. "Deep Residual Learning for Image Recognition." In *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition*, 2016. https://arxiv.org/abs/1512.03385.
 
 He, Kaiming, et al. "Identity Mappings in Deep Residual Networks." In *European Conference on Computer Vision*, 2016. https://arxiv.org/abs/1603.05027.
+
+Radford, Alec, et al. "Language Models Are Unsupervised Multitask Learners." OpenAI technical report, 2019. https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf.
+
+Veit, Andreas, Michael Wilber, and Serge Belongie. "Residual Networks Behave Like Ensembles of Relatively Shallow Networks." In *Advances in Neural Information Processing Systems 29*, 2016. https://arxiv.org/abs/1605.06431.

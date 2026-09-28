@@ -84,7 +84,29 @@ To keep post-activation variance equal to the input variance, the linear transfo
 \mathrm{Var}(W_{ij}) = \frac{2}{n_{\text{in}}}.
 ```
 
-That is **He (Kaiming) initialization**. The factor of 2 compensates for ReLU's half-sparsity. For Leaky ReLU with negative slope $`a`$, the correction becomes $`2 / ((1 + a^2) n_{\text{in}})`$.
+That is **He (Kaiming) initialization**. The factor of 2 compensates for ReLU's half-sparsity.
+
+### The derivation, more carefully
+
+One subtlety: ReLU outputs are not zero-mean, so the one-layer formula above, which assumed zero-mean inputs, needs a small adjustment. He et al. track the second moment instead of the variance. For layer $`\ell`$ with pre-activations $`\mathbf{z}_\ell = W^{(\ell)} \mathbf{x}_\ell`$ and inputs $`\mathbf{x}_\ell = \mathrm{ReLU}(\mathbf{z}_{\ell-1})`$, independence of zero-mean weights from the inputs gives
+
+```math
+\mathrm{Var}(z_\ell) = n_{\text{in}} \, \mathrm{Var}(W^{(\ell)}) \, \mathbb{E}[x_\ell^2].
+```
+
+If $`z_{\ell-1}`$ is symmetric around zero, ReLU keeps exactly the positive half, so
+
+```math
+\mathbb{E}[x_\ell^2] = \mathbb{E}[\mathrm{ReLU}(z_{\ell-1})^2] = \tfrac{1}{2} \mathrm{Var}(z_{\ell-1}).
+```
+
+Combining the two,
+
+```math
+\mathrm{Var}(z_\ell) = \tfrac{1}{2} \, n_{\text{in}} \, \mathrm{Var}(W^{(\ell)}) \, \mathrm{Var}(z_{\ell-1}),
+```
+
+and over $`L`$ layers the pre-activation variance is multiplied by $`\prod_\ell \tfrac{1}{2} n_{\text{in}} \mathrm{Var}(W^{(\ell)})`$. Each factor equals 1 exactly when $`\mathrm{Var}(W) = 2/n_{\text{in}}`$. Any other choice multiplies the variance by a constant $`c \ne 1`$ per layer and hence by $`c^L`$ overall: the exponential behavior of Section 2. He et al. showed that the same condition, with $`n_{\text{out}}`$ in place of $`n_{\text{in}}`$, preserves gradient variance in the backward pass, and that for the networks they studied either choice suffices, since the ratio between the two is bounded across the network rather than compounding with depth. For Leaky ReLU with negative slope $`a`$, the correction becomes $`2 / ((1 + a^2) n_{\text{in}})`$.
 
 **Normal variant:**
 
@@ -108,6 +130,14 @@ PyTorch's `torch.nn.init.kaiming_normal_` accepts a `mode` argument:
 - `mode='fan_out'` uses $`n_{\text{out}}`$ (preserves backward variance).
 
 For Xavier, `nn.init.xavier_normal_` always uses the average of fan-in and fan-out. Knowing which mode you are in avoids matching the wrong formula when you reimplement initialization from scratch.
+
+### A family of rules
+
+Xavier and He are two members of one family: $`\mathrm{Var}(W) = g^2 / n`$, where $`n`$ is the fan-in (or an average of fan-in and fan-out) and the **gain** $`g`$ corrects for the activation function. **LeCun initialization**, $`\mathrm{Var}(W) = 1/n_{\text{in}}`$, is the $`g = 1`$ case, appropriate for linear layers and for activations that roughly preserve variance on their own. PyTorch exposes these gains through `nn.init.calculate_gain`, which returns, for example, $`\sqrt{2}`$ for ReLU and $`5/3`$ for tanh.
+
+For **convolutional layers** (Section 10), the fan-in is not the number of input channels but the number of inputs feeding each output value: $`n_{\text{in}} = C_{\text{in}} \times k \times k`$ for a $`k \times k`$ kernel with $`C_{\text{in}}`$ input channels. PyTorch's initializers compute this automatically from the weight tensor's shape.
+
+**Orthogonal initialization** is a different approach: draw a random orthogonal matrix (all singular values equal to 1) and multiply it by the gain. An orthogonal matrix preserves the length of every vector exactly, not just on average, so the singular-value spread of Section 2 does not grow with depth in a linear network. It is used in some recurrent networks (Section 10), where the same matrix is applied at every time step.
 
 ## Normal vs. uniform, and bias initialization
 
@@ -214,6 +244,7 @@ Variance-preserving initialization keeps the *start* of training well scaled. As
 - For a linear layer, $`\mathrm{Var}(z) = n_{\text{in}}\,\mathrm{Var}(W)\,\mathrm{Var}(x)`$; preserving variance fixes $`\mathrm{Var}(W)`$ in terms of fan-in and fan-out.
 - Xavier/Glorot uses $`\mathrm{Var}(W) = 2/(n_{\text{in}}+n_{\text{out}})`$ and suits tanh-like activations.
 - He/Kaiming uses $`\mathrm{Var}(W) = 2/n_{\text{in}}`$ to compensate for ReLU zeroing about half its inputs.
+- Xavier, He, and LeCun are one family, $`\mathrm{Var}(W) = g^2/n`$, differing in the gain $`g`$ and in which fan they use; for convolutions the fan-in is $`C_{\text{in}} k^2`$.
 - Biases are usually zero; framework defaults (such as PyTorch's `nn.Linear` uniform) are not always He or Xavier—override them for deep ReLU stacks.
 
 ## Further reading

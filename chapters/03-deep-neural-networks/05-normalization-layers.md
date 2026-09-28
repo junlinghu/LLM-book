@@ -27,7 +27,7 @@ The practical benefits of normalization, observed consistently across architectu
 3. **Less sensitivity to initialization.** A normalized network is more forgiving of imperfect initial scales, since each normalization layer resets the scale.
 4. **Smoother optimization.** Normalization tends to make the loss landscape better conditioned, so gradient steps are more predictable.
 
-Exactly *why* normalization helps has been debated. Ioffe and Szegedy motivated batch normalization as reducing "internal covariate shift" (the changing distribution of layer inputs during training). Later work questioned that explanation and argued that the main effect is a smoother loss landscape. For this chapter, the operational picture is enough: normalization keeps each layer's inputs in a stable range, and that makes training faster and more robust.
+Exactly *why* normalization helps has been debated. Ioffe and Szegedy motivated batch normalization as reducing "internal covariate shift" (the changing distribution of layer inputs during training). Later work (for example Santurkar et al. 2018) questioned that explanation and argued that the main effect is a smoother loss landscape. For this chapter, the operational picture is enough: normalization keeps each layer's inputs in a stable range, and that makes training faster and more robust.
 
 ## Batch normalization
 
