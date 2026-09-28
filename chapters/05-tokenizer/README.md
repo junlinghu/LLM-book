@@ -16,24 +16,43 @@ A language model never sees text. It sees a sequence of integers, and the tokeni
 ## Sections
 
 1. **[Why Tokenization Matters](01-why-tokenization-matters.md)**
+
    What encoding and decoding do, how token IDs select rows of the embedding table and index the output softmax, why context length, compute, and price are all counted in tokens, how the same sentence splits under five real tokenizers, and why many odd model behaviors are really tokenization effects.
+
 2. **[Characters, Words, and Subwords](02-characters-words-and-subwords.md)**
+
    The tradeoffs of word-, character-, byte-, and subword-level units measured on tiny Shakespeare (including a 4.59 percent unknown-word rate for a word vocabulary), compression in bytes per token, and a short history from subword translation to GPT-2's byte-level BPE.
+
 3. **[Byte Pair Encoding (BPE)](03-byte-pair-encoding.md)**
+
    BPE training and rank-ordered encoding, worked by hand on the classic "low, lower, newest, widest" corpus, then byte-level BPE, GPT-2's printable byte map (`Ġ` for a space), its regex pre-tokenizer, and BPE-dropout.
+
 4. **[WordPiece](04-wordpiece.md)**
+
    The likelihood-based merge criterion and how it differs from BPE on the same toy corpus, `##` continuation pieces, greedy longest-match encoding checked against BERT's tokenizer, `[UNK]` and its costs, and where WordPiece is still used.
+
 5. **[The Unigram Language Model and SentencePiece](05-unigram-and-sentencepiece.md)**
+
    Segmentation as a probabilistic model, Viterbi encoding, EM training with pruning, subword regularization, and SentencePiece's `▁` whitespace symbol, byte fallback, and default normalization, with a side-by-side comparison of the three algorithms.
+
 6. **[The Tokenization Pipeline](06-the-tokenization-pipeline.md)**
+
    Normalization (NFC vs. NFKC and what each destroys), pre-tokenization and digit grouping, special tokens and why user text must never produce them, chat templates, streaming decoding that buffers partial UTF-8 characters, and offset mappings.
+
 7. **[Choosing the Vocabulary Size](07-choosing-the-vocabulary-size.md)**
+
    What the vocabulary size costs in parameters and compute, the diminishing returns of larger vocabularies measured with a sweep from 512 to 16,000 entries, rare and intermediate tokens, sizes used by real models, hardware padding, and measuring compression across ten languages and on code.
+
 8. **[Tokenization Artifacts and Failure Modes](08-tokenization-artifacts.md)**
+
    Spelling and letter counting, inconsistent digit splits and arithmetic, multilingual cost, whitespace and code, prompts that end in a space, glitch tokens such as " SolidGoldMagikarp", non-canonical token sequences, bits per byte for comparing models, and byte-level models.
+
 9. **[Tokenizers in Practice](09-tokenizers-in-practice.md)**
+
    Using tiktoken, Hugging Face tokenizers, and SentencePiece, training a new tokenizer, inspecting and round-trip testing, common bugs, turning token IDs into packed training blocks, padded batches with attention masks, and embedding lookups, and extending a vocabulary.
+
 10. **[Building a Byte-Level BPE Tokenizer from Scratch](10-bpe-from-scratch.md)**
+
     A complete byte-level BPE tokenizer in about a hundred lines of Python, trained on tiny Shakespeare, with special tokens and round-trip tests, then loaded with GPT-2's published merges and verified to reproduce tiktoken's GPT-2 token IDs exactly on test strings and on the whole corpus.
 
 ## Suggested code labs
