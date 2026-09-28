@@ -2,18 +2,6 @@
 
 A large language model with hundreds of billions of parameters is, at bottom, one simple computation repeated at enormous scale: take a set of input numbers, multiply each by a learned weight, add a bias, and pass the sum through a nonlinear function. This unit is called an *artificial neuron*, and it is the basic building block of every network in this book. In this section we define the neuron, introduce the perceptron learning rule (the oldest algorithm for training one from labeled examples), and examine precisely what a single neuron can and cannot represent. Along the way you will see that a neuron is the same model as linear or logistic regression, depending on its activation function, and that its decision boundary is always a straight line (a hyperplane in higher dimensions). That geometric limitation means a single neuron cannot solve even a problem as simple as XOR, and it is what motivated networks with hidden layers, the subject of the rest of this chapter.
 
-## A short history
-
-The story begins in 1943, when the neurophysiologist Warren McCulloch and the logician Walter Pitts proposed a mathematical model of a nerve cell. A biological neuron receives electrical signals from other neurons through its dendrites, and if the combined input is strong enough, it "fires" a signal down its axon. McCulloch and Pitts abstracted this into a unit with binary inputs and a binary output: the unit outputs 1 if the sum of its excitatory inputs reaches a threshold and no inhibitory input is active, and 0 otherwise. They showed that networks of such units can compute any logical function. Their neurons had fixed, hand-set connections, though; nothing in the model *learned*.
-
-In 1958 the psychologist Frank Rosenblatt introduced the *perceptron*, which added the missing ingredient: adjustable weights and a rule for changing them from examples. Rosenblatt's perceptron could be shown labeled examples and would gradually adjust itself until it classified them correctly, provided a correct setting of the weights existed. The perceptron attracted enormous attention and optimism.
-
-That optimism faded after Marvin Minsky and Seymour Papert published their book *Perceptrons* in 1969. They analyzed carefully what single-layer perceptrons can compute and showed that some very simple functions are out of reach. The most famous example is XOR (exclusive or): output 1 if exactly one of two binary inputs is 1. No single perceptron can compute it, for a geometric reason we will see shortly. Multi-layer networks could in principle compute XOR, but nobody had a practical way to train the hidden layers. Research on neural networks slowed for more than a decade.
-
-The comeback came in 1986, when David Rumelhart, Geoffrey Hinton, and Ronald Williams showed in a widely read *Nature* paper that *backpropagation*, an efficient way to compute gradients through a multi-layer network, lets hidden units learn useful internal representations. (The underlying mathematics of reverse-mode differentiation had been discovered earlier, as Section 2.6 notes, but this paper made it the standard training method for neural networks.) Every model in this book, including every LLM, is trained by a descendant of that method.
-
-It is worth being clear about what the biological analogy does and does not buy us. Real neurons are far more complicated than the units in this chapter: they spike in time, their dendrites perform nonlinear computation, and brains do not appear to learn by backpropagation. Modern neural networks are best understood as a family of flexible mathematical functions that happen to have been inspired by neuroscience. From here on we will treat them as mathematics.
-
 ## The artificial neuron
 
 An artificial neuron takes an input vector $`\mathbf{x} = (x_1, \dots, x_d)`$, computes a weighted sum of the inputs plus a bias, and applies an *activation function* $g$ to the result:
@@ -70,7 +58,7 @@ The choice of $g$ matters a great deal, and Section 2.2 is devoted to it. For no
 
 ## The perceptron learning rule
 
-Rosenblatt's perceptron is a neuron with a step activation used as a binary classifier. It is convenient to label the two classes $y = +1$ and $y = -1$ and to predict
+The *perceptron*, introduced by the psychologist Frank Rosenblatt in 1958, is a neuron with a step activation used as a binary classifier. It is convenient to label the two classes $y = +1$ and $y = -1$ and to predict
 
 ```math
 \hat{y} = \operatorname{sign}(\mathbf{w}^\top \mathbf{x} + b).
@@ -190,6 +178,18 @@ Figure 2.5 shows both models fitted to small one-dimensional datasets.
 Compared with the perceptron, logistic regression has two advantages that will matter throughout the book. First, the sigmoid is smooth, so the loss is a differentiable function of the weights and we can train with gradient descent (Section 2.5) instead of a special-purpose mistake-driven rule. Second, the output is a probability, which lets us measure *how* wrong a prediction is rather than only *whether* it is wrong. The perceptron's step function has a derivative of zero everywhere except at the jump, where it is undefined, so gradients carry no information through it. This is why modern networks use smooth or piecewise-linear activations, the subject of the next section.
 
 The geometric limitation is unchanged, however. Linear regression can only fit linear trends, and logistic regression can only draw a linear boundary. To learn XOR, curved decision boundaries, or the intricate functions that map text to next-token probabilities, we need to combine many neurons into layers. That requires two ingredients: nonlinear activation functions (Section 2.2) and at least one hidden layer (Section 2.3).
+
+## A short history
+
+The story begins in 1943, when the neurophysiologist Warren McCulloch and the logician Walter Pitts proposed a mathematical model of a nerve cell. A biological neuron receives electrical signals from other neurons through its dendrites, and if the combined input is strong enough, it "fires" a signal down its axon. McCulloch and Pitts abstracted this into a unit with binary inputs and a binary output: the unit outputs 1 if the sum of its excitatory inputs reaches a threshold and no inhibitory input is active, and 0 otherwise. They showed that networks of such units can compute any logical function. Their neurons had fixed, hand-set connections, though; nothing in the model *learned*.
+
+In 1958 the psychologist Frank Rosenblatt introduced the *perceptron*, which added the missing ingredient: adjustable weights and a rule for changing them from examples. Rosenblatt's perceptron could be shown labeled examples and would gradually adjust itself until it classified them correctly, provided a correct setting of the weights existed. The perceptron attracted enormous attention and optimism.
+
+That optimism faded after Marvin Minsky and Seymour Papert published their book *Perceptrons* in 1969. They analyzed carefully what single-layer perceptrons can compute and showed that some very simple functions are out of reach. The most famous example is XOR (exclusive or): output 1 if exactly one of two binary inputs is 1. No single perceptron can compute it, for the geometric reason shown above. Multi-layer networks could in principle compute XOR, but nobody had a practical way to train the hidden layers. Research on neural networks slowed for more than a decade.
+
+The comeback came in 1986, when David Rumelhart, Geoffrey Hinton, and Ronald Williams showed in a widely read *Nature* paper that *backpropagation*, an efficient way to compute gradients through a multi-layer network, lets hidden units learn useful internal representations. (The underlying mathematics of reverse-mode differentiation had been discovered earlier, as Section 2.6 notes, but this paper made it the standard training method for neural networks.) Every model in this book, including every LLM, is trained by a descendant of that method.
+
+It is worth being clear about what the biological analogy does and does not buy us. Real neurons are far more complicated than the units in this chapter: they spike in time, their dendrites perform nonlinear computation, and brains do not appear to learn by backpropagation. Modern neural networks are best understood as a family of flexible mathematical functions that happen to have been inspired by neuroscience. From here on we will treat them as mathematics.
 
 ## Key takeaways
 
