@@ -104,6 +104,7 @@ P(\mathbf{x}) = \prod_{i=1}^{M} p(x_i), \qquad \mathbf{x}^* = \arg\max_{\mathbf{
 - **SentencePiece** in practice: training with the `spm_train` command or the Python API, and the `.model` file
 - Inspecting a tokenizer: listing the vocabulary and merges, visualizing token boundaries, and checking round-trip encode-decode on unusual inputs (emoji, mixed scripts, code, very long numbers)
 - Common bugs: adding special tokens twice, mismatched tokenizer and model checkpoints, padding side for batched generation, and silently truncated inputs
+- From token IDs to model inputs: batching and padding, attention masks that hide padding, and packing a token stream into fixed-length training blocks whose targets are the inputs shifted by one position
 - Extending a tokenizer with new tokens for a domain or language: resizing the embedding table and initializing the new rows (for example, as the average of the embeddings of the pieces the new token replaces)
 
 ### 10. Building a byte-level BPE tokenizer from scratch
@@ -118,15 +119,11 @@ P(\mathbf{x}) = \prod_{i=1}^{M} p(x_i), \qquad \mathbf{x}^* = \arg\max_{\mathbf{
 
 ## Suggested code labs
 
-1. **Tokenizer tour.** Tokenize the same paragraphs (English prose, another language, Python code, and a list of numbers) with GPT-2, `cl100k_base`, `o200k_base`, a BERT WordPiece tokenizer, and a SentencePiece model. Print the token boundaries and report tokens per word and bytes per token for each.
-2. **BPE by hand, then in code.** Run five merges of BPE on a tiny word-frequency table on paper, then implement character-level BPE training and encoding and check that it reproduces your hand-computed merges.
-3. **Byte-level BPE from scratch.** Build the byte-level BPE tokenizer of Section 10, train it on a few megabytes of text, and verify lossless round-tripping on arbitrary Unicode input, including emoji and mixed scripts.
-4. **Match GPT-2 exactly.** Load GPT-2's vocabulary and merges into your encoder and confirm that it produces the same IDs as tiktoken on a large sample of text. Track down and fix every mismatch.
-5. **Unigram LM segmentation.** Given a small vocabulary with token probabilities, implement Viterbi segmentation, then implement sampling of segmentations for subword regularization and compare the samples with the best segmentation.
-6. **Vocabulary size sweep.** Train BPE tokenizers with vocabulary sizes from 1K to 64K on the same corpus. Plot bytes per token against vocabulary size on held-out text, and count how many tokens appear fewer than ten times in the training data.
-7. **Multilingual cost.** Tokenize parallel sentences (the same content translated into several languages) with two or three tokenizers and plot the token count relative to English for each language.
-8. **Numbers and arithmetic.** Show how GPT-2 and a digit-splitting tokenizer split the numbers from 1 to 10,000. Count how many distinct segmentation patterns appear, and discuss which scheme makes digit-by-digit addition easiest to learn.
-9. **Find under-trained tokens.** For a small open model, compute the norm of each embedding row and list the tokens with the smallest norms. Try them in prompts and describe what happens.
+1. **Byte-level BPE from scratch.** Build the byte-level BPE tokenizer of Section 10: first check your merge loop against five merges computed by hand on a tiny word-frequency table, then train on a few megabytes of text and verify lossless round-tripping on arbitrary Unicode input, including emoji, mixed scripts, and code. (This is original code written for this book.)
+2. **Match GPT-2 exactly.** Load GPT-2's published vocabulary and merges into your encoder and confirm that it produces the same token IDs as tiktoken's `gpt2` encoding on a large sample of text. Track down and fix every mismatch, so your tokenizer can stand in for GPT-2's in any later code.
+3. **Special tokens and chat templates.** Add end-of-text, padding, and chat role-marker tokens to your tokenizer. Encode a multi-turn conversation into one token sequence, decode it back, and show that a user string containing `<|endoftext|>` is encoded as ordinary text unless special tokens are explicitly allowed. Finish with a streaming decoder that buffers incomplete UTF-8 bytes when decoding one token at a time.
+4. **From token IDs to model inputs.** Turn a tokenized corpus into training batches: concatenate documents with end-of-text separators, cut the stream into fixed-length blocks, and build input and target tensors shifted by one position. Separately, pad a batch of variable-length prompts and build its attention mask. Pass the IDs through an `nn.Embedding` table to get tensors of shape (batch, sequence length, model width), and save the tokenized corpus to disk for reuse.
+5. **Tokenizer tour.** Tokenize the same inputs (English prose, parallel sentences in several other languages, Python code, and numbers from 1 to 10,000) with GPT-2, `cl100k_base`, `o200k_base`, and a SentencePiece model. Print token boundaries, report bytes per token for each language and domain, and count the distinct ways each tokenizer splits numbers.
 
 ## Key takeaways
 
