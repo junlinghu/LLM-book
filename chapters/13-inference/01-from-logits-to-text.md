@@ -9,7 +9,7 @@ This section walks through that loop and the main decoding strategies used in pr
 Recall from Chapter 7 that a GPT-style model defines the probability of a sequence as a product of next-token conditionals:
 
 $$
-p_\theta(x_1, \dots, x_N) = \prod_{t=1}^{N} p_\theta(x_t \mid x_{<t}).
+p_\theta(x_1, \dots, x_N) = \prod_{t=1}^{N} p_\theta(x_t \mid x_{\lt t}).
 $$
 
 At each position the transformer produces a final hidden state $\mathbf{h}_t \in \mathbb{R}^{d}$. The *unembedding* (or "LM head") matrix $W_U \in \mathbb{R}^{V \times d}$ maps it to a vector of *logits*, one real number per vocabulary entry:
@@ -70,17 +70,17 @@ A useful mental model is that decoding trades off two failure modes: *too little
 
 ### Temperature
 
-Temperature $T > 0$ divides the logits before the softmax:
+Temperature $T \gt 0$ divides the logits before the softmax:
 
 $$
 p_T(i) = \frac{\exp(z_i / T)}{\sum_{j} \exp(z_j / T)}.
 $$
 
 - $T = 1$ leaves the model's distribution unchanged.
-- $T < 1$ sharpens it: differences between logits are magnified, so probable tokens become more probable. As $T \to 0$, the distribution collapses onto the argmax and sampling becomes greedy decoding. Many APIs treat "temperature 0" as a special case meaning greedy.
-- $T > 1$ flattens it toward uniform, making rare tokens more likely.
+- $T \lt 1$ sharpens it: differences between logits are magnified, so probable tokens become more probable. As $T \to 0$, the distribution collapses onto the argmax and sampling becomes greedy decoding. Many APIs treat "temperature 0" as a special case meaning greedy.
+- $T \gt 1$ flattens it toward uniform, making rare tokens more likely.
 
-Temperature does not change the *ranking* of tokens, only how peaked the distribution is. For two tokens with logits $z_a > z_b$, the probability ratio is $p_T(a)/p_T(b) = \exp\big((z_a - z_b)/T\big)$: halving the temperature squares this ratio.
+Temperature does not change the *ranking* of tokens, only how peaked the distribution is. For two tokens with logits $z_a \gt z_b$, the probability ratio is $p_T(a)/p_T(b) = \exp\big((z_a - z_b)/T\big)$: halving the temperature squares this ratio.
 
 In practice, low temperatures (roughly 0 to 0.3) are common for code, math, extraction, and other tasks with a single right answer, while values around 0.7 to 1.0 are common for chat and creative writing. These are conventions, not laws; the right value depends on the model and on how it was post-trained, because RLHF and similar methods already make a model's distribution much sharper than a base model's.
 
@@ -145,16 +145,16 @@ The first suggested code lab for this chapter asks you to wire a function like t
 
 Even with sampling, models sometimes repeat themselves. Several heuristics push against this by modifying the logits of tokens that have already appeared.
 
-The *repetition penalty* introduced with the CTRL model by Keskar et al. discounts the logits of tokens that already occur in the context by a factor $\theta > 1$. Because dividing a negative logit would *raise* it, common implementations divide positive logits and multiply negative ones:
+The *repetition penalty* introduced with the CTRL model by Keskar et al. discounts the logits of tokens that already occur in the context by a factor $\theta \gt 1$. Because dividing a negative logit would *raise* it, common implementations divide positive logits and multiply negative ones:
 
 $$
-z_i' = \begin{cases} z_i / \theta & \text{if } i \text{ appeared before and } z_i > 0, \\ z_i \cdot \theta & \text{if } i \text{ appeared before and } z_i \le 0, \\ z_i & \text{otherwise.} \end{cases}
+z_i' = \begin{cases} z_i / \theta & \text{if } i \text{ appeared before and } z_i \gt 0, \\ z_i \cdot \theta & \text{if } i \text{ appeared before and } z_i \le 0, \\ z_i & \text{otherwise.} \end{cases}
 $$
 
 *Frequency and presence penalties*, exposed by many chat APIs, are additive. If token $i$ has appeared $c_i$ times so far,
 
 $$
-z_i' = z_i - \alpha_{\text{freq}} \, c_i - \alpha_{\text{pres}} \, \mathbb{1}[c_i > 0].
+z_i' = z_i - \alpha_{\text{freq}} \, c_i - \alpha_{\text{pres}} \, \mathbb{1}[c_i \gt 0].
 $$
 
 The frequency penalty grows with each repetition; the presence penalty is a one-time charge for having used a token at all, which nudges the model toward new topics. A related option, the *no-repeat n-gram* rule, forbids any token that would complete an n-gram already present in the output.
@@ -176,7 +176,7 @@ Stop strings are subtler than they look, because the model generates *tokens* an
 Greedy decoding keeps one partial hypothesis. *Beam search* keeps $B$ of them. At each step, every hypothesis in the beam is extended by every possible next token, each extension is scored by its total log-probability,
 
 $$
-s(x_{1:t}) = \sum_{\tau=1}^{t} \log p_\theta(x_\tau \mid x_{<\tau}),
+s(x_{1:t}) = \sum_{\tau=1}^{t} \log p_\theta(x_\tau \mid x_{\lt \tau}),
 $$
 
 and the $B$ highest-scoring extensions become the new beam. Finished hypotheses (those that emitted the end token) are set aside, and the search ends when enough hypotheses have finished or a length limit is reached. With $B = 1$, beam search is greedy decoding.

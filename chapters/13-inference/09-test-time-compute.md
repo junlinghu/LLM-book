@@ -71,10 +71,10 @@ In a serving system the $N$ samples share the same prompt, so a paged KV cache (
 A simple model shows both the power and the limits of voting. Suppose each sample is correct independently with probability $p$, and consider a question with two possible answers. Majority voting over $N$ samples is correct with probability
 
 $$
-\Pr[\text{majority correct}] = \sum_{k > N/2} \binom{N}{k} p^k (1-p)^{N-k}.
+\Pr[\text{majority correct}] = \sum_{k \gt N/2} \binom{N}{k} p^k (1-p)^{N-k}.
 $$
 
-If $p = 0.6$, this rises from 0.60 with one sample to about 0.68 with five and 0.85 with 25. But if $p < 0.5$, voting makes things *worse* as $N$ grows, converging on the wrong answer. With many possible answers, plurality voting only needs the correct answer to be the most common one, which is a weaker requirement, but the lesson stands: voting amplifies what the model already tends to do. It cannot find answers the model rarely produces, and real samples are correlated, so gains are smaller than this independence model suggests.
+If $p = 0.6$, this rises from 0.60 with one sample to about 0.68 with five and 0.85 with 25. But if $p \lt 0.5$, voting makes things *worse* as $N$ grows, converging on the wrong answer. With many possible answers, plurality voting only needs the correct answer to be the most common one, which is a weaker requirement, but the lesson stands: voting amplifies what the model already tends to do. It cannot find answers the model rarely produces, and real samples are correlated, so gains are smaller than this independence model suggests.
 
 ### Best-of-N with a verifier
 

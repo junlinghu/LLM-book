@@ -38,7 +38,7 @@ Summing the partial results across devices, so that every device ends up with th
 
 Attention splits naturally by **heads**. Each device takes $h/p$ of the query heads, with the corresponding columns of $W_Q$, $W_K$, $W_V$, computes attention for its heads entirely locally, and applies its row slice of the output projection $W_O$. Another all-reduce sums the partial outputs. So a transformer block under tensor parallelism needs **two all-reduces per layer** in the forward pass: one after attention and one after the MLP.
 
-A pleasant side effect is that the **KV cache is split too**: each device stores keys and values only for its own heads. With grouped-query attention, if there are fewer key-value heads than devices ($h_{kv} < p$), some key-value heads must be replicated on several devices, and the cache savings are smaller.
+A pleasant side effect is that the **KV cache is split too**: each device stores keys and values only for its own heads. With grouped-query attention, if there are fewer key-value heads than devices ($h_{kv} \lt p$), some key-value heads must be replicated on several devices, and the cache savings are smaller.
 
 ### Properties
 

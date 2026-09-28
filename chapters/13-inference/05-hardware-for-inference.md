@@ -43,7 +43,7 @@ $$
 I^\star = \frac{P}{B}.
 $$
 
-For our hypothetical accelerator, $I^\star = 10^{15} / (3 \times 10^{12}) \approx 333$ FLOPs per byte. If a computation has $I < I^\star$, the compute units finish their work faster than memory can feed them and must wait: the computation is **memory-bound**. If $I > I^\star$, memory delivers data faster than it can be consumed: the computation is **compute-bound**.
+For our hypothetical accelerator, $I^\star = 10^{15} / (3 \times 10^{12}) \approx 333$ FLOPs per byte. If a computation has $I \lt I^\star$, the compute units finish their work faster than memory can feed them and must wait: the computation is **memory-bound**. If $I \gt I^\star$, memory delivers data faster than it can be consumed: the computation is **compute-bound**.
 
 ### The roofline model
 

@@ -50,7 +50,7 @@ For example, Mixtral 8x7B has about 47 billion total parameters but routes each 
 
 To see where the $2N$ FLOPs are spent, count the parameters in one transformer block.
 
-**Attention projections.** Standard multi-head attention has four $d \times d$ matrices: $W_Q$, $W_K$, $W_V$ project the input into queries, keys, and values, and $W_O$ projects the concatenated head outputs back to the residual stream. That is $4d^2$ parameters. With grouped-query attention (Section 4), where only $h_{kv} < h$ key-value heads are used, $W_K$ and $W_V$ shrink to $d \times h_{kv} d_h$ each, and the total becomes $2d^2 + 2 d \, h_{kv} d_h$.
+**Attention projections.** Standard multi-head attention has four $d \times d$ matrices: $W_Q$, $W_K$, $W_V$ project the input into queries, keys, and values, and $W_O$ projects the concatenated head outputs back to the residual stream. That is $4d^2$ parameters. With grouped-query attention (Section 4), where only $h_{kv} \lt h$ key-value heads are used, $W_K$ and $W_V$ shrink to $d \times h_{kv} d_h$ each, and the total becomes $2d^2 + 2 d \, h_{kv} d_h$.
 
 **Feed-forward (MLP).** The original transformer MLP has two matrices, $d \times d_{\text{ff}}$ and $d_{\text{ff}} \times d$, with $d_{\text{ff}} = 4d$, for $8d^2$ parameters. Many modern models use a gated MLP such as SwiGLU,
 
