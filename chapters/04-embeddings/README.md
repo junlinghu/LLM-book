@@ -1,4 +1,4 @@
-# Chapter 4: Embeddings
+# Chapter 4: Word Embeddings
 
 _Draft in progress._
 
