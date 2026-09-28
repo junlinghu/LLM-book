@@ -75,7 +75,10 @@ Chapter 10 covered the classic RLHF pipeline: a reward model and PPO. This chapt
 
 ## Further reading
 
-- Ahmadian et al., Back to Basics: Revisiting REINFORCE Style Optimization for Learning from Human Feedback in LLMs (2024)
-- Rafailov et al., Direct Preference Optimization (2023)
-- Shao et al., DeepSeekMath (2024), which introduced GRPO
-- DeepSeek-AI, DeepSeek-R1 (2025)
+Ahmadian, Arash, Chris Cremer, Matthias Gallé, Marzieh Fadaee, Julia Kreutzer, Olivier Pietquin, Ahmet Üstün, and Sara Hooker. "Back to Basics: Revisiting REINFORCE-Style Optimization for Learning from Human Feedback in LLMs." In *Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)*, 2024. https://arxiv.org/abs/2402.14740.
+
+DeepSeek-AI. "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning." arXiv preprint arXiv:2501.12948, 2025. https://arxiv.org/abs/2501.12948.
+
+Rafailov, Rafael, Archit Sharma, Eric Mitchell, Stefano Ermon, Christopher D. Manning, and Chelsea Finn. "Direct Preference Optimization: Your Language Model Is Secretly a Reward Model." In *Advances in Neural Information Processing Systems 36*, 2023. https://arxiv.org/abs/2305.18290.
+
+Shao, Zhihong, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, et al. "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models." arXiv preprint arXiv:2402.03300, 2024. https://arxiv.org/abs/2402.03300.
