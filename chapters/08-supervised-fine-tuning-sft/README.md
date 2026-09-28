@@ -12,80 +12,35 @@ Chapter 7 ended with a base model that continues text. Asked a question, it may 
 - Derive LoRA, count its trainable parameters, and explain how QLoRA fits large models on a single GPU.
 - Evaluate an SFT model, and describe the risks of fine-tuning: forgetting, hallucination, and weakened safety behavior.
 
-## Outline
+## Sections
 
-### 1. From base model to assistant
-- What a base model does with a request: it continues the text in whatever way its training data makes likely, which may or may not be an answer (Section 7.6)
-- Prompting helps only so far: few-shot examples (Section 7.6) take up context and still leave the model imitating a document rather than responding to a user
-- **Supervised fine-tuning (SFT)**: continue training the pretrained model on demonstrations, pairs of a prompt and a desired response, so that responding becomes the most likely continuation
-- A short history: fine-tuning a pretrained model for one task at a time (Radford et al. 2018; BERT in Section 6.12); **instruction tuning** on many NLP tasks rewritten as natural-language instructions, which improves zero-shot performance on unseen tasks (FLAN, a 137-billion-parameter model tuned on more than 60 datasets, Wei et al. 2022a; T0, Sanh et al. 2022; Super-NaturalInstructions, Wang et al. 2022); and demonstrations of open-ended assistant behavior written by people (Ouyang et al. 2022)
-- The InstructGPT result: after SFT and further training on human preferences, outputs of a 1.3-billion-parameter model were preferred by labelers over those of the 175-billion-parameter GPT-3 (Ouyang et al. 2022)
-- The **superficial alignment hypothesis**: most knowledge and ability come from pretraining, and SFT mainly teaches the format and style of responses; LIMA fine-tuned a 65-billion-parameter LLaMA model on only 1,000 carefully chosen examples and produced strong responses (Zhou et al. 2023a)
-- Where SFT sits in the pipeline: after pretraining, and before any training on preferences or rewards, which starts from the SFT model
+1. **[From Base Model to Assistant](01-from-base-model-to-assistant.md)**
 
-### 2. The SFT objective
-- A training example is a prompt $`\mathbf{x}`$ and a response $`\mathbf{y} = (y_1, \dots, y_m)`$; the model is trained to maximize the probability of the response given the prompt, the chain rule of Section 7.1 applied to the response only
+   What SmolLM2-135M and its instruction-tuned version do with the same requests, why few-shot prompting helps only so far, what supervised fine-tuning on demonstrations adds, a short history from task fine-tuning to FLAN and InstructGPT, the superficial alignment hypothesis, and where SFT sits in the training pipeline.
 
-```math
-\mathcal{L}_{\text{SFT}}(\theta) = -\sum_{t=1}^{m} \log p_\theta(y_t \mid \mathbf{x}, y_{\lt t})
-```
+2. **[The SFT Objective](02-the-sft-objective.md)**
 
-- Implementation: concatenate prompt and response into one sequence and run the ordinary shifted next-token loss of Section 7.1, but set the labels of prompt positions to an ignore value (commonly $`-100`$, Section 5.9) so they contribute nothing
-- Why mask the prompt: the model should learn to produce responses, not to imitate users; prompts may be templated or repetitive, and training on them spends model capacity on the wrong text
-- Multi-turn conversations: mask every user and system turn, and train on every assistant turn, each conditioned on the whole conversation before it
-- Ending the response: include the end-of-turn token in the loss, so the model learns when to stop (Section 5.6)
-- Averaging the loss over a batch: dividing by the number of response tokens in the batch weights every token equally, while averaging per example first weights every example equally and so gives short responses more influence per token; the choice changes what the model learns, especially with packing and gradient accumulation
-- SFT is teacher forcing (Section 6.9): the model always conditions on the reference response, never on its own earlier outputs, which is the root of a limitation discussed in Section 7
+   Next-token cross-entropy restricted to response tokens, loss masks built turn by turn for a real multi-turn conversation, why the prompt is masked and the end-of-turn token is kept, how averaging over tokens or over examples changes the batch loss, and teacher forcing and exposure bias.
 
-### 3. Formatting conversations
-- The chat template (Section 5.6): system, user, and assistant turns flattened into one token sequence, with special tokens marking the start and end of each turn and the speaker's role
-- Adding role tokens to a base model's vocabulary: new rows in the embedding and output matrices, initialized from existing embeddings rather than at random (Section 5.9)
-- The template is part of the model: at inference, prompts must be formatted exactly as in training and end with an open assistant turn, or quality drops quietly
-- System prompts: a first turn that sets the assistant's behavior, trained by including varied system prompts in the data
-- Beyond plain text: tool calls and tool results, and structured outputs such as JSON, are represented as further turns with their own markers, and the model learns them by SFT on examples
-- Special-token safety: user content must never be able to produce role tokens (Section 5.6)
-- Long conversations: truncating from the start while keeping the system prompt, and dropping examples that do not fit rather than cutting a response in the middle
+3. **[Formatting Conversations](03-formatting-conversations.md)**
 
-### 4. Instruction data
-- **Human-written demonstrations**: labelers write responses to real or invented prompts; InstructGPT's SFT set had about 13,000 training prompts (Ouyang et al. 2022), and Llama 2's SFT stage used 27,540 high-quality annotations, after its authors set aside millions of third-party examples in favor of fewer, higher-quality ones (Touvron et al. 2023)
-- **Templated NLP datasets**: existing labeled datasets rewritten with instruction templates; the Flan collection scaled this to 1,836 tasks and showed that mixing zero-shot, few-shot, and chain-of-thought templates helps (Chung et al. 2024; Longpre et al. 2023)
-- **Model-generated data**: Self-Instruct bootstraps 52,000 instructions from 175 human-written seed tasks by prompting a model to write new tasks and answers, then filtering them (Wang et al. 2023); generating training data with a stronger teacher model is a form of sequence-level knowledge distillation (Kim and Rush 2016)
-- The limits of imitation: a small model fine-tuned on a stronger model's outputs copies its style far better than its factual accuracy or ability (Gudibande et al. 2023)
-- **Reasoning traces**: responses that show step-by-step reasoning (Wei et al. 2022b) teach the model to reason before answering; DeepSeek-R1's authors fine-tuned smaller open models on about 800,000 samples curated with DeepSeek-R1, and the distilled models gained strong reasoning ability from SFT alone (DeepSeek-AI 2025)
-- **Quality, diversity, and mixture**: a small, diverse, carefully checked set can beat a large noisy one (Zhou et al. 2023a); open recipes such as Tulu 3 balance skills (chat, math, code, safety, and instruction following) by curating and mixing sources (Lambert et al. 2024)
-- Cleaning and hygiene: deduplication, filtering of wrong or unsafe responses, removing evaluation prompts to avoid contamination (Section 7.3), and respecting the licenses and terms of use of the data and of any model used to generate it
+   The same conversation in three chat templates, the generation prompt, the measured cost of prompting a model in the wrong format, adding role tokens to a vocabulary, keeping user text from producing special tokens, system prompts, tool calls and structured output, and truncating long conversations.
 
-### 5. The training recipe
-- Start from the pretrained weights and use the Chapter 7 training loop with a smaller learning rate, a short warmup, and a decaying schedule (Chapter 3), for a few epochs over a dataset that is tiny compared with the pretraining corpus
-- Batching: pad each example to the longest in its batch, or pack several examples into one block (Section 7.3) with a block-diagonal attention mask so examples cannot attend to each other (Section 6.4; Krell et al. 2021) and with loss masks carried along
-- Watching for overfitting: validation loss on held-out responses can start rising after an epoch or two, while response quality judged by people may still improve, so check samples and task metrics rather than loss alone (Ouyang et al. 2022)
-- **Catastrophic forgetting**: training only on the new data can erode abilities learned in pretraining (Kirkpatrick et al. 2017); remedies include a lower learning rate, fewer steps, and mixing some pretraining-style data or earlier tasks into the SFT data
-- The memory cost of full fine-tuning with Adam and mixed precision: 2 bytes per parameter for BF16 weights, 2 for gradients, and 12 for the FP32 master copy and Adam's two moments, about 16 bytes per parameter before activations (Rajbhandari et al. 2020; Chapter 3), so a 7-billion-parameter model needs about 112 GB for these states alone
-- Reducing memory: gradient checkpointing to trade compute for activation memory, gradient accumulation, and sharding optimizer states and parameters across devices (Rajbhandari et al. 2020), or training far fewer parameters (Section 6)
+4. **[Instruction Data](04-instruction-data.md)**
 
-### 6. Parameter-efficient fine-tuning
-- The idea: freeze the pretrained weights and train a small number of new parameters, which cuts optimizer memory, makes checkpoints small, and lets one base model serve many fine-tuned variants
-- Early approaches: **adapters**, small bottleneck layers inserted into each block (Houlsby et al. 2019); **prefix tuning** and **prompt tuning**, trained vectors prepended to the keys and values or to the input embeddings (Li and Liang 2021; Lester et al. 2021)
-- **LoRA** (Hu et al. 2022): keep a pretrained weight matrix $`W_0 \in \mathbb{R}^{d \times k}`$ frozen and learn a low-rank update, with rank $`r`$ much smaller than $`d`$ and $`k`$
+   Human demonstrations, templated NLP datasets in the style of FLAN, model-generated data with Self-Instruct's similarity filter, the limits of imitating a stronger model, reasoning traces, data mixtures, and deduplication, 13-gram decontamination, and licenses, each with a small worked example.
 
-```math
-W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r}, \quad A \in \mathbb{R}^{r \times k}
-```
+5. **[The Training Recipe](05-the-training-recipe.md)**
 
-- Initialization: $`A`$ random and $`B = 0`$, so the fine-tuned model starts exactly equal to the base model; $`\alpha`$ is a scale that keeps the update size roughly independent of $`r`$
-- Counting parameters: for a $`4096 \times 4096`$ projection, full fine-tuning trains 16,777,216 weights, while LoRA with $`r = 8`$ trains $`8 \cdot (4096 + 4096) = 65{,}536`$, about 0.4%; for GPT-3 175B, the LoRA paper reported 10,000 times fewer trainable parameters and 3 times less GPU memory than full fine-tuning with Adam (Hu et al. 2022)
-- Where to apply it: the attention projections of Section 6.5, and often the FFN matrices too; after training, $`BA`$ can be merged into $`W_0`$, so inference costs nothing extra
-- **QLoRA** (Dettmers et al. 2023): store the frozen base model in 4-bit precision and train LoRA adapters on top in higher precision, which let its authors fine-tune a 65-billion-parameter model on a single 48 GB GPU
-- LoRA versus full fine-tuning: LoRA usually learns less from large or very different data, such as new domains of code or math, but also forgets less of what the base model knew (Biderman et al. 2024)
+   Fine-tuning SmolLM2-135M on a synthetic instruction dataset on a CPU (from 0 to about 60 percent exact match, with held-out perplexity rising from 41.7 to 47.0), padding versus packing with a block-diagonal mask, why validation loss can mislead, catastrophic forgetting, and the 16-bytes-per-parameter memory bill of full fine-tuning.
 
-### 7. Evaluating SFT models and the limits of imitation
-- Held-out loss on responses measures fit to the demonstrations, not helpfulness; compare checkpoints with task metrics and samples instead
-- Instruction-following checks that can be verified by code, such as "answer in fewer than 100 words" or "use exactly three bullet points"; IFEval collects about 500 prompts with 25 types of verifiable instructions (Zhou et al. 2023b)
-- Pairwise comparison of two models' responses to the same prompts, by people or by a strong LLM acting as judge, with known biases such as favoring longer answers and the first response shown (Zheng et al. 2023)
-- Regression checks on the base model's abilities: perplexity on held-out text (Section 7.1) and few-shot benchmarks, to measure forgetting
-- **Hallucination**: fine-tuning on facts the base model does not already know is learned slowly and makes the model more likely to state falsehoods (Gekhman et al. 2024), consistent with the view that SFT teaches format rather than knowledge
-- **Safety can be undone by fine-tuning**: fine-tuning GPT-3.5 Turbo on only 10 adversarially designed examples, at a cost below $0.20, removed much of its refusal behavior, and even benign fine-tuning data weakened it (Qi et al. 2024)
-- What imitation cannot teach: SFT shows the model only good examples, never which of two responses is better or which mistakes to avoid; the model is trained on reference text but must condition on its own outputs at inference; and good demonstrations are expensive to write for hard tasks, while it is often easier for people to judge responses than to write them. These limits motivate training on comparisons and rewards, which starts from the SFT model
+6. **[Parameter-Efficient Fine-Tuning](06-parameter-efficient-fine-tuning.md)**
+
+   Adapters, prefix and prompt tuning, the LoRA update and its initialization, a parameter count for SmolLM2 checked against code, LoRA written from scratch and compared with full fine-tuning at three ranks, merging adapters into the weights, QLoRA, and why LoRA learns less and forgets less.
+
+7. **[Evaluating SFT Models and the Limits of Imitation](07-evaluating-sft-models-and-the-limits-of-imitation.md)**
+
+   Why held-out loss is not helpfulness, verifiable instruction checks in the style of IFEval, pairwise comparison and the biases of LLM judges (with a small judge whose verdict flips when the answers are swapped), regression checks, hallucination and fragile safety after fine-tuning, and what learning from demonstrations cannot teach.
 
 ## Suggested code labs
 
