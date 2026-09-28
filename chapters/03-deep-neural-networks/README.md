@@ -1,6 +1,6 @@
 # Chapter 3: Deep Neural Networks
 
-Chapter 2 built a neural network with one hidden layer and trained it with plain gradient descent. Modern models, LLMs included, stack dozens or hundreds of layers, and naively stacking more layers makes training fail: gradients vanish or explode, and optimization stalls. This chapter covers the ideas that make deep networks trainable: careful initialization, residual connections, normalization, adaptive optimizers such as Adam and AdamW, learning-rate schedules, and regularization. All of them reappear inside the transformer in Chapter 6 and in the LLM training recipes of Chapter 7.
+Chapter 2 built a neural network with one hidden layer and trained it with plain gradient descent. Modern models, LLMs included, stack dozens or hundreds of layers, and naively stacking more layers makes training fail: gradients vanish or explode, and optimization stalls. This chapter covers the ideas that make deep networks trainable: careful initialization, residual connections, normalization, adaptive optimizers such as Adam and AdamW, learning-rate schedules, and regularization. Together they form a practical recipe for training deep networks, and the chapter closes by showing how the same ideas extend to networks built for images and sequences: convolutional and recurrent networks.
 
 ## Learning goals
 
@@ -52,7 +52,6 @@ Chapter 2 built a neural network with one hidden layer and trained it with plain
 
 - Normal vs. uniform variants, and bias initialization
 - Framework defaults (what PyTorch's `nn.Linear` uses) and when to override them
-- Preview: LLMs often scale down the initialization of layers that write into the residual stream (Chapters 6 and 7)
 
 ### 4. Residual connections
 - The degradation problem: deeper plain networks can have higher training error than shallower ones (He et al. 2016)
@@ -64,7 +63,8 @@ Chapter 2 built a neural network with one hidden layer and trained it with plain
 
 - Why it helps: the identity path gives gradients a direct route back to early layers, and a block can start close to the identity
 - Projection shortcuts when input and output shapes differ
-- The "residual stream" view: each block reads from and writes to a shared running sum, the core of the transformer in Chapter 6
+- The "residual stream" view: each block reads from and writes to a shared running sum, so information and gradients flow through the whole network along one path
+- Initializing residual branches: scaling down the initial weights of layers that add into the running sum keeps its variance from growing with depth, a practice common in large models such as LLMs
 
 ### 5. Normalization layers
 - The idea: keep each layer's inputs in a stable range so training is faster and less sensitive to the learning rate
@@ -94,7 +94,7 @@ Chapter 2 built a neural network with one hidden layer and trained it with plain
 ```
 
 - **AdamW**: decouple weight decay from the adaptive update; the default optimizer for training transformers and LLMs (Loshchilov and Hutter 2019)
-- The memory cost: Adam keeps two extra values (first and second moments) for every parameter, which matters at LLM scale (Chapter 7)
+- The memory cost: Adam keeps two extra values (first and second moments) for every parameter, so parameters plus optimizer state take about three times the memory of the parameters alone, a major cost for large models
 - Hyperparameters that matter most: the learning rate first, then $`\beta_1`$, $`\beta_2`$, $`\epsilon`$, and weight decay
 
 ### 7. Learning-rate schedules
@@ -118,14 +118,14 @@ Chapter 2 built a neural network with one hidden layer and trained it with plain
 - **Mixed-precision training**: FP16 or BF16 arithmetic with FP32 master weights, and loss scaling for FP16 (Micikevicius et al. 2018)
 - A debugging checklist: overfit a single batch first, check the initial loss against its expected value, monitor gradient norms and the update-to-weight ratio, and watch for loss spikes and NaN values
 - Reproducibility: seeds, logging, and checkpointing
-- How this recipe scales up to the LLM training in Chapter 7
+- Scaling up the recipe: larger models and batches, and keeping training stable with gradient clipping, warmup, and monitoring for loss spikes
 
 ### 10. Beyond the MLP: toward sequence models
 - Building structure into networks: weight sharing and inductive bias
 - Convolutional networks in brief: local filters shared across positions
 - Recurrent networks for sequences: the same weights applied at each time step, and backpropagation through time
 - Why plain RNNs suffer badly from vanishing and exploding gradients over long sequences, and how gated units (LSTM) help (Hochreiter and Schmidhuber 1997)
-- The limits of recurrence (sequential computation, long-range dependencies) that motivate attention and the transformer in Chapter 6
+- The limits of recurrence: computation must proceed one time step at a time, and information from distant steps is hard to preserve even with gating
 
 ## Suggested code labs
 
@@ -144,7 +144,7 @@ Chapter 2 built a neural network with one hidden layer and trained it with plain
 - Variance-preserving initialization, residual connections, and normalization are what make deep networks trainable.
 - Adam and AdamW adapt the step size per parameter, and AdamW with warmup and decay is the standard for transformers.
 - Weight decay, dropout, and early stopping control overfitting; gradient clipping and mixed precision keep large-scale training stable and affordable.
-- Nearly every ingredient of this chapter appears again in the transformer (Chapter 6) and in LLM pretraining (Chapter 7).
+- The same ingredients carry across architectures: MLPs, convolutional networks, and recurrent networks all depend on good initialization, normalization, adaptive optimizers, and regularization.
 
 ## Further reading
 
