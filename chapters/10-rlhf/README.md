@@ -74,7 +74,7 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - Frontier and open models: GPT-4 used PPO with extra rule-based rewards for safety, and Llama 2-Chat combined rejection-sampling fine-tuning with PPO
 - A close relative: DeepMind's Sparrow used the same RLHF recipe with an A2C optimizer instead of PPO, adding rule-specific reward models and cited evidence (Glaese et al. 2022)
 - PPO holds up in controlled comparisons: tuned carefully, it matched or beat DPO and other alignment methods on dialogue, math, and code (Xu et al. 2024; Ivison et al. 2024)
-- After 2024: PPO remains in use for RL with verifiable rewards (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking); closed reasoning models from o1 onward do not disclose their algorithm. Chapter 11 (Section 8) covers the shift toward DPO and GRPO-style methods
+- After 2024: PPO remains in use for RL with verifiable rewards (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking); closed reasoning models from o1 onward do not disclose their algorithm. Chapter 13 (Section 8) covers the shift toward DPO and GRPO-style methods
 
 | Model | What PPO-based RLHF achieved | Source |
 |---|---|---|
@@ -101,7 +101,7 @@ r_t = -\beta \log \frac{\pi_{\theta}(y_t \mid x, y_{\lt t})}{\pi_{\mathrm{ref}}(
 - The reward model turns human preferences into a number the RL step can optimize.
 - The KL penalty keeps the policy close to the SFT model so it doesn't exploit the reward model.
 - PPO for LLMs is Chapter 9's PPO plus four models, per-token KL shaping, and expensive generation.
-- PPO-based RLHF produced InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat, and a small RLHF model can beat a much larger pretrained one; Chapter 11 covers its limitations and the methods that followed.
+- PPO-based RLHF produced InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat, and a small RLHF model can beat a much larger pretrained one; Chapter 13 covers its limitations and the methods that followed.
 
 ## Further reading
 

@@ -20,7 +20,7 @@ the IPO loss is
 
 The target $`1/(2\beta)`$ is the margin at which IPO wants the chosen response to beat the rejected one, measured in nats of log-ratio against the reference. Once $`h_{\theta}`$ reaches that value, the gradient on the pair vanishes. DPO has no such point. Its logistic loss keeps rewarding a wider margin forever, with a weight that only decays as a sigmoid.
 
-$\beta$ still means what it meant. A smaller $\beta$ is a larger target margin and a more aggressive policy, just as a smaller $\beta$ in the KL-regularized objective allows more divergence. The difference is that the target is finite. On a three-way softmax with $`\beta = 0.1`$, the target gap is $`1/(2 \times 0.1) = 5`$ nats. [Code 11.4.1](#code-1141-dpo-does-not-stop-ipo-stops-at-the-target-margin) runs both losses from a uniform start. IPO settles at a gap of 5. DPO passes 5 and is still widening the gap when the run stops, with the rejected response's probability down to about $`0.001`$. That is the overfitting Azar et al. (2024) derive, visible on a problem small enough to solve by hand.
+$\beta$ still means what it meant. A smaller $\beta$ is a larger target margin and a more aggressive policy, just as a smaller $\beta$ in the KL-regularized objective allows more divergence. The difference is that the target is finite. On a three-way softmax with $`\beta = 0.1`$, the target gap is $`1/(2 \times 0.1) = 5`$ nats. [Code 13.4.1](#code-1341-dpo-does-not-stop-ipo-stops-at-the-target-margin) runs both losses from a uniform start. IPO settles at a gap of 5. DPO passes 5 and is still widening the gap when the run stops, with the rejected response's probability down to about $`0.001`$. That is the overfitting Azar et al. (2024) derive, visible on a problem small enough to solve by hand.
 
 IPO is the right variant when the labels are clean and nearly hard, and when DPO runs show the chosen and rejected log-probabilities separating without bound while evaluations flatten. It is still an offline pair loss with a reference model. It does not fix distribution shift, and it does not accept unpaired labels.
 
@@ -54,7 +54,7 @@ A one-line numerical example, with $\beta = 1$ and $`z_0 = 0.02`$. A desirable r
 v_{\mathrm{des}} = \sigma(0.470 - 0.02) \approx 0.611, \qquad v_{\mathrm{und}} = \sigma(0.02 - (-0.693)) \approx 0.671,
 ```
 
-and the losses are $`1 - v`$, about 0.389 and 0.329. Both are below the $`0.5`$ of a response sitting on the reference point, which is what we want: the good answer is already above $`z_0`$ and the bad answer is already below it. [Code 11.4.2](#code-1142-kto-simpo-and-orpo-on-toy-numbers) evaluates the same inputs.
+and the losses are $`1 - v`$, about 0.389 and 0.329. Both are below the $`0.5`$ of a response sitting on the reference point, which is what we want: the good answer is already above $`z_0`$ and the bad answer is already below it. [Code 13.4.2](#code-1342-kto-simpo-and-orpo-on-toy-numbers) evaluates the same inputs.
 
 KTO is the method to reach for when the data are binary and unpaired. It still uses a reference model. It does not need a second response, which is the expensive object. Ethayarajh et al. (2024) report it matching or exceeding pair-based losses on the datasets in their paper, including settings where they throw away the pairing and keep only the binary label. The comparison is the reason to try it, not a guarantee: a carefully collected pair still contains more information than a lone thumb, and if you have the pairs, DPO or IPO can use them.
 
@@ -69,7 +69,7 @@ Odds Ratio Preference Optimization (ORPO) folds the SFT term and the preference 
 
 The combined loss is $`\mathcal{L}_{\mathrm{SFT}} + \lambda\, \mathcal{L}_{\mathrm{OR}}`$. The coefficient $\lambda$ balances "imitate the chosen response" against "prefer the chosen response to the rejected one." There is no $`\pi_{\mathrm{ref}}`$. The SFT term is the anchor that the reference model provided in DPO: without it, nothing would stop the policy from lowering both probabilities as long as the ratio moved the right way.
 
-For a full response, $`\pi_{\theta}(y \mid x)`$ is a product of token probabilities and is tiny, so $`1 - \pi_{\theta}(y \mid x)`$ is indistinguishable from 1 at any precision that matters. On a pair with sequence probabilities $`10^{-8}`$ and $`10^{-9}`$, the log odds ratio and the plain log probability ratio differ by about $`10^{-8}`$ nats ([Code 11.4.2](#code-1142-kto-simpo-and-orpo-on-toy-numbers)). The odds formula is the theoretically complete one, and it reduces to a reference-free logistic loss on $`\log \pi(y_w) - \log \pi(y_l)`$ for real sequences. The piece that actually replaces the reference is the SFT term, not the difference between odds and probabilities.
+For a full response, $`\pi_{\theta}(y \mid x)`$ is a product of token probabilities and is tiny, so $`1 - \pi_{\theta}(y \mid x)`$ is indistinguishable from 1 at any precision that matters. On a pair with sequence probabilities $`10^{-8}`$ and $`10^{-9}`$, the log odds ratio and the plain log probability ratio differ by about $`10^{-8}`$ nats ([Code 13.4.2](#code-1342-kto-simpo-and-orpo-on-toy-numbers)). The odds formula is the theoretically complete one, and it reduces to a reference-free logistic loss on $`\log \pi(y_w) - \log \pi(y_l)`$ for real sequences. The piece that actually replaces the reference is the SFT term, not the difference between odds and probabilities.
 
 ORPO is attractive when the starting point is not already a good instruction model, or when storing a second copy of the weights is the constraint. It is one stage instead of SFT-then-DPO. The cost is a loss with two jobs. If $\lambda$ is too small, the run is plain SFT and the rejected responses are ignored. If $\lambda$ is too large, the preference term dominates and the likelihood-displacement problem of Section 3 returns, because the odds ratio, like the DPO margin, is a comparison.
 
@@ -86,7 +86,7 @@ p_{\theta}(x, y) = \frac{\beta}{|y|} \sum_{t=1}^{|y|} \log \pi_{\theta}(y_t \mid
 
 The average removes the mechanical advantage of length. The margin $\gamma$ plays a role related to IPO's target: a zero gap is not enough, so the loss does not treat a pair of identical average log-probabilities as solved. Both $\beta$ and $\gamma$ are tuned. $\beta$ here is a scale on the reward, not a KL coefficient, because there is no reference distribution in the loss.
 
-A five-token response and a two-token response show the discrepancy the average is aimed at. Suppose the policy improves on the reference by $`+0.05`$ nats per token on the long response and by $`+0.08`$ nats per token on the short one. DPO's implicit rewards, at the usual $\beta = 0.1$, are $`0.1 \times 0.05 \times 5 = 0.025`$ and $`0.1 \times 0.08 \times 2 = 0.016`$. The long response wins the comparison despite being worse on every token. SimPO at $\beta = 2$ scores them $`2 \times 0.05 = 0.10`$ and $`2 \times 0.08 = 0.16`$. The short response wins, which matches the per-token fact. [Code 11.4.2](#code-1142-kto-simpo-and-orpo-on-toy-numbers) evaluates both.
+A five-token response and a two-token response show the discrepancy the average is aimed at. Suppose the policy improves on the reference by $`+0.05`$ nats per token on the long response and by $`+0.08`$ nats per token on the short one. DPO's implicit rewards, at the usual $\beta = 0.1$, are $`0.1 \times 0.05 \times 5 = 0.025`$ and $`0.1 \times 0.08 \times 2 = 0.016`$. The long response wins the comparison despite being worse on every token. SimPO at $\beta = 2$ scores them $`2 \times 0.05 = 0.10`$ and $`2 \times 0.08 = 0.16`$. The short response wins, which matches the per-token fact. [Code 13.4.2](#code-1342-kto-simpo-and-orpo-on-toy-numbers) evaluates both.
 
 Length normalization is not free. If the true preference really is "say more, because the extra sentences are useful," an average can under-reward the longer good answer. $\gamma$ and the data have to carry that judgment. Meng et al. (2024) report that the combination, a reference-free average plus a margin, improves length-controlled win rates against DPO on the chat benchmarks in their paper. As with the other variants, that is a reason to include SimPO in a comparison on your own pairs, especially if DPO's outputs are getting longer and the evaluations are not getting better.
 
@@ -105,13 +105,13 @@ The labels are now on-policy, which is the distribution PPO was sampling from, a
 
 Iterative DPO is the same idea in larger rounds. Generate a dataset from the current policy, label it, run offline DPO to convergence, and use the result as the next generator. Yuan et al. (2024) do this with the model judging its own outputs, which Section 6 covers as self-rewarding. The Llama 3 post-training recipe uses rejection sampling and DPO in place of PPO, choosing them as more stable and easier to scale (Grattafiori et al. 2024). The pattern across these systems is that "DPO" in a modern report often means a DPO *loss* inside a loop that refreshes the data, not a single offline pass.
 
-The failure mode that remains is the judge. Online DPO will cheerfully fit whatever the labeler rewards, including length, sycophancy, and the quirks of an LLM judge (Section 12.6). Refreshing the pairs removes distribution shift. It does not remove reward hacking of the labeler.
+The failure mode that remains is the judge. Online DPO will cheerfully fit whatever the labeler rewards, including length, sycophancy, and the quirks of an LLM judge (Section 11.6). Refreshing the pairs removes distribution shift. It does not remove reward hacking of the labeler.
 
 ## Rejection sampling fine-tuning
 
 The simplest use of a reward is not a new loss at all. Sample $`n`$ responses to a prompt from the current model, score them, throw away all but the best, and run supervised fine-tuning on what remains. This is rejection sampling fine-tuning, also called reward-ranked fine-tuning or RAFT (Dong et al. 2023). Llama 2's early RLHF rounds did exactly this, and only the later rounds added PPO (Touvron et al. 2023; Section 10.8).
 
-The method is best-of-$`n`$ (Section 13.9) used as a data filter rather than as an inference procedure. At inference, best-of-$`n`$ spends extra samples on every user request and does not change the weights. Rejection sampling spends the samples once, during training, and the fine-tuned model then produces a single answer at ordinary cost. The training objective on the kept answers is the SFT loss of Chapter 8. There is no KL term, no preference margin, and no importance ratio. The hope is that the best of $`n`$ draws from a decent model is a better demonstration than the average draw, so imitating it moves the model toward the reward.
+The method is best-of-$`n`$ (Section 12.9) used as a data filter rather than as an inference procedure. At inference, best-of-$`n`$ spends extra samples on every user request and does not change the weights. Rejection sampling spends the samples once, during training, and the fine-tuned model then produces a single answer at ordinary cost. The training objective on the kept answers is the SFT loss of Chapter 8. There is no KL term, no preference margin, and no importance ratio. The hope is that the best of $`n`$ draws from a decent model is a better demonstration than the average draw, so imitating it moves the model toward the reward.
 
 It works when the model already puts some probability on good answers, so that $`n`$ samples contain at least one. It cannot discover a behavior the sampler never produces. It also inherits the reward's mistakes directly: if the highest-scoring of $`n`$ answers is long and empty, that is the new demonstration. A KL penalty or a cap on how far the selected answers may be from the sampler reduces that, at which point the method starts to resemble the KL-regularized objective again.
 
@@ -131,7 +131,7 @@ Rejection sampling is the right baseline whenever a paper claims a complicated p
 
 ## Code for this section
 
-### Code 11.4.1: DPO does not stop; IPO stops at the target margin
+### Code 13.4.1: DPO does not stop; IPO stops at the target margin
 
 A three-way softmax (chosen, rejected, other), $`\beta = 0.1`$, reference equal to the uniform initial policy. IPO's target gap is $`1/(2\beta) = 5`$ nats. DPO is run with a larger step size so that it is visible, on this convex toy, that the logistic loss is still increasing the gap after it has passed 5.
 
@@ -168,7 +168,7 @@ dpo   pi [0.964, 0.0013, 0.0348]  h 6.644  target 5.0
 ipo   pi [0.9184, 0.0062, 0.0754]  h 5.000  target 5.0
 ```
 
-### Code 11.4.2: KTO, SimPO, and ORPO on toy numbers
+### Code 13.4.2: KTO, SimPO, and ORPO on toy numbers
 
 ```python
 import math

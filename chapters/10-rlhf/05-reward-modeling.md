@@ -32,7 +32,7 @@ The Bradley-Terry model assumes that each item $i$ has a latent strength $`s_i`$
 P(i \succ j) = \frac{\exp(s_i)}{\exp(s_i) + \exp(s_j)} = \frac{1}{1 + \exp\big(-(s_i - s_j)\big)} = \sigma(s_i - s_j),
 ```
 
-where $\sigma$ is the logistic sigmoid of Section 2.2. Only the *difference* of strengths matters. A difference of 0 means a coin flip; a difference of 1 means the stronger item wins with probability $\sigma(1) \approx 0.73$; a difference of 3 gives about 0.95. The Elo ratings of chess and the Chatbot Arena leaderboard (Section 12.3) are built on the same model.
+where $\sigma$ is the logistic sigmoid of Section 2.2. Only the *difference* of strengths matters. A difference of 0 means a coin flip; a difference of 1 means the stronger item wins with probability $\sigma(1) \approx 0.73$; a difference of 3 gives about 0.95. The Elo ratings of chess and the Chatbot Arena leaderboard (Section 11.3) are built on the same model.
 
 For RLHF, the "items" are responses to the same prompt, and the strength of a response is its reward: $`s = r_{\phi}(x, y)`$. The probability that a labeler prefers the chosen response is modeled as
 
@@ -136,7 +136,7 @@ A reward model is a learned approximation of human judgment, trained on a finite
 
 **A single number for many goals.** Helpfulness, honesty, and harmlessness can conflict (Section 1). One scalar must encode a fixed trade-off between them. Llama 2 addressed this by training separate helpfulness and safety reward models and combining their scores with a rule that prioritizes safety on prompts tagged as potentially unsafe (Touvron et al. 2023).
 
-These weaknesses motivate the remaining machinery of RLHF: the KL penalty that keeps the policy in the region where the reward model is trustworthy (Section 6), iterated data collection that refreshes the reward model where the policy now operates (Section 3), and ensembles of reward models, which reduce but do not remove exploitation (Coste et al. 2024; Eisenstein et al. 2024). Chapter 11 studies reward hacking and over-optimization directly.
+These weaknesses motivate the remaining machinery of RLHF: the KL penalty that keeps the policy in the region where the reward model is trustworthy (Section 6), iterated data collection that refreshes the reward model where the policy now operates (Section 3), and ensembles of reward models, which reduce but do not remove exploitation (Coste et al. 2024; Eisenstein et al. 2024). Chapter 13 studies reward hacking and over-optimization directly.
 
 ## Lab: train a reward model
 

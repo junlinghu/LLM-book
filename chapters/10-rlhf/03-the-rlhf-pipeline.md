@@ -43,7 +43,7 @@ The first stage is Chapter 8 in its entirety. A pretrained model is fine-tuned o
 3. **The source of responses to compare.** At first, the responses that labelers compare in Stage 2 are sampled from $`\pi_{\mathrm{SFT}}`$ (and sometimes from other models). The reward model is therefore trained on the kind of text the policy will produce, at least at the start of RL.
 4. **The reward model's initialization.** The reward model is usually a copy of the SFT model (or a related model) with its output layer replaced by a scalar head (Section 5). Starting from a model that understands the prompts and the style of the responses gives the reward model a strong head start.
 
-The SFT stage is not strictly necessary for RL to work. Chapter 11 describes DeepSeek-R1-Zero, which ran RL directly on a pretrained model with rule-based rewards for math and code. But for RLHF with a learned reward model and open-ended prompts, every system in Section 8 starts from an SFT model.
+The SFT stage is not strictly necessary for RL to work. Chapter 13 describes DeepSeek-R1-Zero, which ran RL directly on a pretrained model with rule-based rewards for math and code. But for RLHF with a learned reward model and open-ended prompts, every system in Section 8 starts from an SFT model.
 
 ## Stage 2: the reward model
 
@@ -51,7 +51,7 @@ The second stage turns human judgments into a function. For each of many prompts
 
 Two properties of the result shape Stage 3.
 
-- **The reward model is frozen during RL.** It is a fixed function that the policy tries to maximize. Because the policy can change and the reward model cannot, the policy will find and exploit any systematic error the reward model makes. This is the root of reward hacking (Chapter 11), and the main reason for the KL penalty.
+- **The reward model is frozen during RL.** It is a fixed function that the policy tries to maximize. Because the policy can change and the reward model cannot, the policy will find and exploit any systematic error the reward model makes. This is the root of reward hacking (Chapter 13), and the main reason for the KL penalty.
 - **Only reward differences are meaningful.** The Bradley-Terry loss depends only on the difference of two scores, so adding a constant to every reward changes nothing. Implementations fix the offset by a convention; InstructGPT, for example, added a bias so that labeler demonstrations had a mean reward of 0 before RL (Ouyang et al. 2022). The scale matters too, because it sets the exchange rate between reward and KL divergence (Section 6).
 
 ## Stage 3: reinforcement learning
@@ -82,10 +82,10 @@ Several systems in Section 8 did exactly this. Bai et al. (2022) updated their p
 
 ## Variations on Stage 3
 
-PPO is not the only way to use a reward model. Two alternatives appear in Section 8 and are developed in Chapter 11.
+PPO is not the only way to use a reward model. Two alternatives appear in Section 8 and are developed in Chapter 13.
 
 - **Rejection sampling fine-tuning (best-of-$n$).** Sample $n$ responses per prompt, keep the one with the highest reward, and fine-tune on these winners with the SFT loss. It needs no value model and no on-policy RL, and it is easy to run at scale. Llama 2-Chat used it for its early rounds and combined it with PPO later (Touvron et al. 2023).
-- **Direct preference optimization (DPO).** Chapter 11 shows that the optimal policy for the RLHF objective can be written in closed form (Section 6 previews it), and uses this to train the policy directly on preference pairs, merging Stages 2 and 3 into one supervised-style step with no explicit reward model and no sampling.
+- **Direct preference optimization (DPO).** Chapter 13 shows that the optimal policy for the RLHF objective can be written in closed form (Section 6 previews it), and uses this to train the policy directly on preference pairs, merging Stages 2 and 3 into one supervised-style step with no explicit reward model and no sampling.
 
 These methods share the same ingredients (a starting SFT model, preference data, and a reference model to stay close to) and they optimize closely related objectives. PPO-based RLHF is the original version and the one that produced the models of Section 8, which is why this chapter builds it in full.
 
@@ -108,7 +108,7 @@ The pipeline begins with people comparing responses. How should those comparison
 - The reward model is frozen during RL and only reward differences are meaningful; a bias term fixes the offset, and its scale sets the exchange rate with the KL penalty.
 - The RL stage needs prompts but no labels; InstructGPT also mixed in pretraining gradients (PPO-ptx) to reduce regressions on NLP benchmarks.
 - Many systems iterate the pipeline, collecting new comparisons on the latest policy so that the reward model stays accurate where the policy now operates.
-- Rejection sampling and DPO use the same ingredients with a simpler optimization step; Chapter 11 covers them.
+- Rejection sampling and DPO use the same ingredients with a simpler optimization step; Chapter 13 covers them.
 
 ## Further reading
 

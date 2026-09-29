@@ -13,7 +13,7 @@ There are two basic ways to spend more inference computation on a problem:
 
 These can be combined, for example by sampling several long reasoning chains, or by searching a tree of partial reasoning steps. In all cases the cost of answering a query grows with the number of generated tokens, while the model's parameters stay the same.
 
-The central empirical finding is that, for many tasks with checkable answers, such as math, coding, and logic puzzles, accuracy improves steadily as test-time compute grows. Snell et al. studied how best to allocate a fixed inference budget and found that the best strategy depends on problem difficulty, and that in some settings, spending extra compute at test time was more effective than using a much larger model. OpenAI's o1 announcement in 2024 reported that performance improved with both more reinforcement-learning training compute and more "thinking" time at test time, and the DeepSeek-R1 paper (2025) described in detail how reinforcement learning with verifiable rewards (Chapter 11) produces models that learn on their own to generate long reasoning chains.
+The central empirical finding is that, for many tasks with checkable answers, such as math, coding, and logic puzzles, accuracy improves steadily as test-time compute grows. Snell et al. studied how best to allocate a fixed inference budget and found that the best strategy depends on problem difficulty, and that in some settings, spending extra compute at test time was more effective than using a much larger model. OpenAI's o1 announcement in 2024 reported that performance improved with both more reinforcement-learning training compute and more "thinking" time at test time, and the DeepSeek-R1 paper (2025) described in detail how reinforcement learning with verifiable rewards (Chapter 13) produces models that learn on their own to generate long reasoning chains.
 
 ## Chain of thought
 
@@ -28,7 +28,7 @@ Why does writing out reasoning help? Two complementary explanations are useful:
 
 ### Reasoning models
 
-Prompted chain of thought uses whatever reasoning ability the model has. **Reasoning models** are trained specifically to reason at length before answering. As Chapter 11 describes, they are typically trained with reinforcement learning on problems with verifiable answers, such as math with known solutions and code with test cases, which rewards the final answer and lets the model discover useful reasoning behaviors such as trying an approach, checking intermediate results, noticing mistakes, and backtracking. Such models often produce thousands or tens of thousands of "thinking" tokens before a final answer, and many APIs expose a setting that controls how much reasoning effort the model spends.
+Prompted chain of thought uses whatever reasoning ability the model has. **Reasoning models** are trained specifically to reason at length before answering. As Chapter 13 describes, they are typically trained with reinforcement learning on problems with verifiable answers, such as math with known solutions and code with test cases, which rewards the final answer and lets the model discover useful reasoning behaviors such as trying an approach, checking intermediate results, noticing mistakes, and backtracking. Such models often produce thousands or tens of thousands of "thinking" tokens before a final answer, and many APIs expose a setting that controls how much reasoning effort the model spends.
 
 Sequential test-time compute can also be controlled directly. Muennighoff et al. introduced *budget forcing*: to cap reasoning, the decoder forces the end of the thinking phase once a token budget is reached; to extend it, the decoder suppresses the end-of-thinking marker and appends a word such as "Wait", prompting the model to keep reasoning. They reported that accuracy on some math benchmarks rose as the forced thinking budget increased.
 
@@ -44,7 +44,7 @@ $$
 \hat{y} = \arg\max_{y} \sum_{i=1}^{N} \mathbb{1}[\text{answer}(r_i) = y], \qquad r_i \sim p_\theta(\cdot \mid x).
 $$
 
-The intuition is that there are many ways to reason to a correct answer but errors tend to scatter across different wrong answers, so the correct answer is often the plurality even if no single chain is reliable. Self-consistency needs no extra model, and the vote share also serves as a confidence signal (Chapter 12 uses the same idea to flag likely hallucinations). It requires answers that can be compared, such as numbers, multiple-choice letters, or short strings; for free-form text, a model can be asked to pick the most consistent response.
+The intuition is that there are many ways to reason to a correct answer but errors tend to scatter across different wrong answers, so the correct answer is often the plurality even if no single chain is reliable. Self-consistency needs no extra model, and the vote share also serves as a confidence signal (Chapter 11 uses the same idea to flag likely hallucinations). It requires answers that can be compared, such as numbers, multiple-choice letters, or short strings; for free-form text, a model can be asked to pick the most consistent response.
 
 ```python
 import re
@@ -88,7 +88,7 @@ The scorer can be:
 
 - **An exact verifier.** For code, run the unit tests; for math with a checkable result, check it; for a formal proof, run the proof checker. If a correct candidate exists and the verifier is exact, best-of-N succeeds.
 - **A learned verifier or reward model.** Cobbe et al. trained verifiers to judge the correctness of solutions to grade-school math problems and found that generating many candidates and choosing the one the verifier ranked highest improved accuracy substantially over the generator alone. The reward models of RLHF (Chapter 10) can be used the same way.
-- **An LLM judge** (Chapter 12), with all its biases.
+- **An LLM judge** (Chapter 11), with all its biases.
 
 When an exact verifier exists, the relevant quantity is **coverage**: the probability that at least one of $N$ samples is correct. With independent samples each correct with probability $p$,
 
@@ -96,7 +96,7 @@ $$
 \text{coverage}(N) = 1 - (1 - p)^N,
 $$
 
-which is the pass@$k$ metric of Chapter 12 with $k = N$. Even a small $p$ grows quickly: with $p = 0.4$, five samples give 92 percent coverage. Brown et al. found that coverage keeps rising over several orders of magnitude of samples on coding and math tasks, so that repeated sampling from a weaker model can match or beat single attempts from a stronger one when answers can be verified automatically. Without an exact verifier, the benefit is limited by the verifier's accuracy: a learned verifier can be fooled, and optimizing hard against it runs into the same reward over-optimization seen in RLHF.
+which is the pass@$k$ metric of Chapter 11 with $k = N$. Even a small $p$ grows quickly: with $p = 0.4$, five samples give 92 percent coverage. Brown et al. found that coverage keeps rising over several orders of magnitude of samples on coding and math tasks, so that repeated sampling from a weaker model can match or beat single attempts from a stronger one when answers can be verified automatically. Without an exact verifier, the benefit is limited by the verifier's accuracy: a learned verifier can be fooled, and optimizing hard against it runs into the same reward over-optimization seen in RLHF.
 
 ### Search over reasoning steps
 

@@ -54,7 +54,7 @@ The leave-one-out advantage is the centered reward up to a constant that depends
 A_i^{\mathrm{RLOO}} = R_i - \frac{K\bar{R} - R_i}{K - 1} = \frac{K}{K - 1}\big(R_i - \bar{R}\big).
 ```
 
-For a fixed group size, RLOO and "subtract the group mean" are the same gradient direction. The factor $`K/(K-1)`$ is 2 when $`K = 2`$ and approaches 1 as the group grows. Using the group mean directly is slightly biased, because $`\bar{R}`$ contains $`R_i`$; multiplying the centered reward by $`K/(K-1)`$ is the unbiased version. [Code 11.2.1](#code-1121-rloo-and-grpo-advantages-on-one-group) checks the identity on a group of four scores.
+For a fixed group size, RLOO and "subtract the group mean" are the same gradient direction. The factor $`K/(K-1)`$ is 2 when $`K = 2`$ and approaches 1 as the group grows. Using the group mean directly is slightly biased, because $`\bar{R}`$ contains $`R_i`$; multiplying the centered reward by $`K/(K-1)`$ is the unbiased version. [Code 13.2.1](#code-1321-rloo-and-grpo-advantages-on-one-group) checks the identity on a group of four scores.
 
 A worked group makes the arithmetic obvious. Four responses to one prompt score $`1, 0, 1, 0`$. The group mean is $`0.5`$. The centered rewards are $`+0.5, -0.5, +0.5, -0.5`$. The leave-one-out baselines are $`1/3, 2/3, 1/3, 2/3`$, and the RLOO advantages are $`+2/3, -2/3, +2/3, -2/3`$, which is $`4/3`$ times the centered rewards. The two correct answers are pushed up equally; the two incorrect answers are pushed down equally. If all four scores are $`1`$, every advantage is zero. The prompt contributes nothing, which is the right outcome: the samples do not tell the policy which way to move.
 
@@ -98,7 +98,7 @@ The KL term is not folded into the reward, as it was in the shaped reward of Sec
 \mathbb{D}_{\mathrm{KL}}^{(i,t)} = \rho^{\mathrm{ref}}_{i,t} - \log \rho^{\mathrm{ref}}_{i,t} - 1.
 ```
 
-The estimator is always at least zero and is unbiased for the per-token KL between $`\pi_{\theta}`$ and $`\pi_{\mathrm{ref}}`$. [Code 11.2.1](#code-1121-rloo-and-grpo-advantages-on-one-group) computes it for three tokens. On that example the raw log-ratio sums to $`-0.1`$ (a single sample can land where the reference is more probable), while the non-negative estimator sums to about $`0.045`$.
+The estimator is always at least zero and is unbiased for the per-token KL between $`\pi_{\theta}`$ and $`\pi_{\mathrm{ref}}`$. [Code 13.2.1](#code-1321-rloo-and-grpo-advantages-on-one-group) computes it for three tokens. On that example the raw log-ratio sums to $`-0.1`$ (a single sample can land where the reference is more probable), while the non-negative estimator sums to about $`0.045`$.
 
 Putting the pieces together, one GRPO iteration is:
 
@@ -120,7 +120,7 @@ flowchart LR
     U --> S
 ```
 
-*Figure 11.2.1. One GRPO iteration. The advantage is computed from the group of rewards for a single prompt. The value model of Figure 10.7.1 is absent.*
+*Figure 13.2.1. One GRPO iteration. The advantage is computed from the group of rewards for a single prompt. The value model of Figure 10.7.1 is absent.*
 
 ## How these compare with PPO
 
@@ -141,7 +141,7 @@ Empirically, the paper that introduced each method is the evidence to read, and 
 
 ## Code for this section
 
-### Code 11.2.1: RLOO and GRPO advantages on one group
+### Code 13.2.1: RLOO and GRPO advantages on one group
 
 Four responses to one prompt score $`1, 0, 1, 0`$. The listing checks that the leave-one-out advantage equals $`K/(K-1)`$ times the centered reward, computes the GRPO z-scores, and compares the two KL estimators of Section 10.6 on three arbitrary token log-probabilities.
 

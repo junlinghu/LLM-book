@@ -119,7 +119,7 @@ The FFN still has about $`8d^2`$ weights, and the block still has about $`12d^2`
 | Biases | yes | usually none |
 | Weights per block | about $`12d^2`$ | about $`12d^2`$ |
 
-None of these changes alters the shape of the computation: a pre-norm stack of blocks, each with causal self-attention and a position-wise FFN on a residual stream. Other changes that recent models make to attention itself, such as sharing keys and values across heads to shrink the key-value cache, are about inference cost and belong to Chapter 13.
+None of these changes alters the shape of the computation: a pre-norm stack of blocks, each with causal self-attention and a position-wise FFN on a residual stream. Other changes that recent models make to attention itself, such as sharing keys and values across heads to shrink the key-value cache, are about inference cost and belong to Chapter 12.
 
 ## Implementation
 

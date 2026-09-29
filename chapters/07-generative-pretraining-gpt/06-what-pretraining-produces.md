@@ -119,7 +119,7 @@ RAG has several attractive properties. The knowledge lives in the document colle
 - **The right chunk was never retrieved.** If the embedding model does not place the question near the passage that answers it, the model never sees the answer. Domain-specific vocabulary, such as legal, medical, or internal jargon, is a common cause, and hybrid keyword-plus-embedding search helps.
 - **Chunking split the answer.** A chunk boundary can separate a statement from the context that qualifies it. Chunk size and overlap are tuning knobs.
 - **Relevant is not the same as similar.** Embedding similarity measures relatedness of use (Section 4.3). A passage stating the opposite of the answer, or answering a closely related but different question, can score highly.
-- **The model may ignore or misuse the context.** Retrieval reduces unsupported answers but does not eliminate them; the model can still misread a passage or fall back on what it learned in pretraining. Chapter 12 discusses how to evaluate systems like this.
+- **The model may ignore or misuse the context.** Retrieval reduces unsupported answers but does not eliminate them; the model can still misread a passage or fall back on what it learned in pretraining. Chapter 11 discusses how to evaluate systems like this.
 
 ## Evaluating a base model
 
@@ -137,7 +137,7 @@ How do we tell whether one base model is better than another? Three kinds of mea
 
 The mini GPT of Section 4, trained on the other 90% of this very corpus, reached a validation loss of 4.87 nats per token with the same tokens (measured on windows of 128 tokens rather than 1,024, which favors GPT-2 somewhat), so GPT-2 small, which never trained on tiny Shakespeare as such, predicts it better than a model trained on nothing else. Pretraining on a broad corpus gives a model that is good at text in general, including text of a kind it saw only a little of. The table also carries a warning. GPT-2 large does worse here than GPT-2 medium, although Radford et al. (2019) found that larger GPT-2 models were generally better on their language modeling benchmarks. One corpus of about 34,000 tokens, in an archaic style, is a narrow test, and a single loss number on one kind of text can mislead; evaluations average over many texts and tasks for this reason. Because all GPT-2 sizes share a tokenizer, the per-token losses here are directly comparable; bits per byte would also allow a comparison with a model that tokenizes differently, such as a character-level model.
 
-**Few-shot benchmarks.** Loss says how well a model predicts text, but not directly how well it performs the tasks people care about. The GPT-3 results above are the other standard approach: a suite of tasks, each posed zero-shot or few-shot in a fixed prompt format, scored by accuracy or a task-specific metric. Such benchmarks measure what the model can do rather than how well it predicts, but their results depend on the prompt format, the number of examples, and the details of scoring, and a benchmark whose test questions appeared in the pretraining data measures memory rather than skill. Chapter 12 discusses how to choose and read such evaluations.
+**Few-shot benchmarks.** Loss says how well a model predicts text, but not directly how well it performs the tasks people care about. The GPT-3 results above are the other standard approach: a suite of tasks, each posed zero-shot or few-shot in a fixed prompt format, scored by accuracy or a task-specific metric. Such benchmarks measure what the model can do rather than how well it predicts, but their results depend on the prompt format, the number of examples, and the details of scoring, and a benchmark whose test questions appeared in the pretraining data measures memory rather than skill. Chapter 11 discusses how to choose and read such evaluations.
 
 ## From a base model to an assistant
 
@@ -146,7 +146,7 @@ A base model contains a great deal of knowledge and skill, but as we have seen, 
 - **Supervised fine-tuning (Chapter 8)** continues training the base model, with the same next-token loss, on demonstrations: prompts paired with the responses a helpful assistant should give, written or selected by people. The model learns the format of a conversation and the habit of answering the user.
 - **Reinforcement learning (Chapter 9)** supplies the tools for improving a model from a score rather than from a demonstration: Markov decision processes, value functions, policy gradients, and Proximal Policy Optimization (PPO).
 - **Learning from human preferences (Chapter 10)** applies those tools to language models. People compare pairs of model responses, a reward model is trained to predict their preferences, and the language model is optimized to produce responses that the reward model scores highly, while staying close to the fine-tuned model.
-- **Further methods (Chapter 11)** extend and simplify this recipe: reinforcement learning without a value model, direct preference optimization, which learns from preferences without a separate reward model, and reinforcement learning with rewards that can be checked automatically, such as the correctness of a math answer.
+- **Further methods (Chapter 13)** extend and simplify this recipe: reinforcement learning without a value model, direct preference optimization, which learns from preferences without a separate reward model, and reinforcement learning with rewards that can be checked automatically, such as the correctness of a math answer.
 
 Ouyang et al. (2022) demonstrated the combined effect with InstructGPT, which fine-tuned GPT-3 on demonstrations and then on human preferences. On the prompts that customers submitted to their API, people preferred the outputs of a 1.3-billion-parameter InstructGPT model to those of the 175-billion-parameter GPT-3, despite its having over 100 times fewer parameters. Pretraining had provided the knowledge and the skills; the further training taught the model to use them in the way users wanted.
 
@@ -319,8 +319,8 @@ print(build_prompt("I can't log in to my mailbox. What should I do?", chunks))
 - In-context learning uses examples in the prompt, zero-, one-, or few-shot, to specify a task without any weight updates; the benefit grows with model size (Brown et al. 2020) and is weak or absent at GPT-2's size in our experiment.
 - The language modeling objective is misaligned with being a helpful assistant: base models do not reliably follow instructions, refuse harmful requests, or avoid falsehoods and the biases of their data.
 - Retrieval-augmented generation retrieves passages with an embedding model (Section 6.13) and places them in the prompt, so the model can answer from documents it never trained on; it is only as good as its retrieval.
-- Base models are evaluated by validation loss or perplexity, by bits per byte across tokenizers, and by few-shot benchmarks (Chapter 12).
-- Supervised fine-tuning (Chapter 8) and learning from human preferences (Chapters 9 to 11) turn a base model into an assistant; a small InstructGPT model was preferred to a GPT-3 over 100 times its size (Ouyang et al. 2022).
+- Base models are evaluated by validation loss or perplexity, by bits per byte across tokenizers, and by few-shot benchmarks (Chapter 11).
+- Supervised fine-tuning (Chapter 8) and learning from human preferences (Chapters 9, 10, and 13) turn a base model into an assistant; a small InstructGPT model was preferred to a GPT-3 over 100 times its size (Ouyang et al. 2022).
 
 ## Further reading
 

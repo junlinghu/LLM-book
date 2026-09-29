@@ -28,7 +28,7 @@ InstructGPT's lesson was that post-training could matter more than a hundredfold
 
 **Anthropic's helpful and harmless assistant (2022).** Bai et al. (2022) trained assistants of up to 52 billion parameters with preference modeling and PPO, using separate helpfulness and harmlessness (red-teaming) data collected from crowdworkers in open-ended conversations. They found that RLHF improved performance on almost all the NLP evaluations they ran for their larger models. Smaller models paid an "alignment tax," while the 13B and 52B models did better on zero-shot evaluations after RLHF and the same on few-shot ones, an "alignment bonus." RLHF was also compatible with specialized skills: it improved the programming evaluations of models first fine-tuned on code, and combining it with summarization training cost nothing on either. They ran *iterated online* RLHF, updating preference models and policies on a roughly weekly cadence with fresh feedback, and they reported the roughly linear relation between reward and the square root of KL divergence discussed in Section 6.
 
-**The Claude models (2023 onward).** Anthropic's Claude models were trained with RLHF and Constitutional AI. The model card for Claude 2 states that Claude models are "trained via unsupervised learning, RLHF, and Constitutional AI (including both a supervised and Reinforcement Learning (RL) phase)," and reports that Claude 2 improved over Claude 1.3 on helpfulness and honesty in human preference evaluations while scoring similarly on harmlessness (Anthropic 2023). The model card does not name the RL algorithm. Anthropic's published research on RLHF used PPO, but that does not tell us what was used for Claude, so we do not attribute Claude to PPO. Constitutional AI, which replaces some human labels with AI feedback, is covered in Chapter 11 (Section 6).
+**The Claude models (2023 onward).** Anthropic's Claude models were trained with RLHF and Constitutional AI. The model card for Claude 2 states that Claude models are "trained via unsupervised learning, RLHF, and Constitutional AI (including both a supervised and Reinforcement Learning (RL) phase)," and reports that Claude 2 improved over Claude 1.3 on helpfulness and honesty in human preference evaluations while scoring similarly on harmlessness (Anthropic 2023). The model card does not name the RL algorithm. Anthropic's published research on RLHF used PPO, but that does not tell us what was used for Claude, so we do not attribute Claude to PPO. Constitutional AI, which replaces some human labels with AI feedback, is covered in Chapter 13 (Section 6).
 
 ## Frontier and open models
 
@@ -42,7 +42,7 @@ DeepMind's **Sparrow** (Glaese et al. 2022), an information-seeking dialogue age
 
 ## Does PPO hold up?
 
-From 2023, simpler methods, especially DPO (Chapter 11), became popular because they avoid the four models and the sampling loop of Section 7. Did that mean PPO was worse? Two controlled studies in 2024 suggest that, when tuned carefully, it was not.
+From 2023, simpler methods, especially DPO (Chapter 13), became popular because they avoid the four models and the sampling loop of Section 7. Did that mean PPO was worse? Two controlled studies in 2024 suggest that, when tuned carefully, it was not.
 
 - Xu et al. (2024) compared DPO and PPO on dialogue and code generation. They argued that DPO is sensitive to distribution shift between the policy's outputs and the preference data, identified advantage normalization, large batch sizes, and an exponential moving average of the reference model as critical for PPO, and found that PPO consistently outperformed DPO in their experiments, achieving state-of-the-art results on the CodeContests competitive programming benchmark.
 - Ivison et al. (2024) disentangled four aspects of learning from preferences: the preference data, the learning algorithm, the reward model, and the prompts used for policy training. Better preference data gave the largest improvements, followed by the choice of algorithm. PPO outperformed DPO by up to 2.5% in math and 1.2% in general domains.
@@ -51,7 +51,7 @@ Neither study says PPO is always the right choice. Both say its reputation for b
 
 ## After 2024
 
-The center of gravity has since shifted. Many open post-training recipes since late 2024 use DPO as a cheap offline stage and critic-free, group-baseline RL methods such as GRPO for online RL, a shift that Chapter 11 (Section 8) documents. But PPO has not disappeared:
+The center of gravity has since shifted. Many open post-training recipes since late 2024 use DPO as a cheap offline stage and critic-free, group-baseline RL methods such as GRPO for online RL, a shift that Chapter 13 (Section 8) documents. But PPO has not disappeared:
 
 - **RL with verifiable rewards.** Tulu 3 used PPO for its final stage of reinforcement learning with verifiable rewards (RLVR), where the reward is a check of the answer, such as a correct math result or satisfied instruction constraints, instead of a learned reward model (Lambert et al. 2024). OLMo 2 followed the Tulu 3 recipe, running RLVR with PPO for its 7B and 13B models, with PPO's value function initialized from the corresponding reward models, and with GRPO for its 1B and 32B models (Team OLMo 2024).
 - **Value-based variants for reasoning.** VAPO is a value-model-based PPO variant for long chain-of-thought reasoning that addresses value-model bias, heterogeneous sequence lengths, and sparse rewards; with a Qwen2.5-32B base model it reported a score of 60.4 on AIME 2024 (Yue et al. 2025). ByteDance's Seed1.5-Thinking reasoning model was trained with techniques from VAPO and its critic-free sibling DAPO (ByteDance Seed 2025).
@@ -82,7 +82,7 @@ A few patterns run through these results.
 - **Safety became part of the reward.** Separate safety reward models (Llama 2), rule-based reward models (GPT-4), and rule-conditional reward models (Sparrow) all extend the single scalar reward of Section 5 with explicit safety signals.
 - **The same weaknesses keep appearing.** Verbosity (ChatGPT), over-optimization (Stiennon et al.), and exploitation of labeler heuristics (Ziegler et al.) are the failure modes that Sections 5 and 6 predicted.
 
-Those weaknesses, together with PPO's cost and complexity, are where Chapter 11 begins: its first section examines the limits of PPO-based RLHF, and the rest of the chapter covers the critic-free, direct, verifiable, and AI-feedback methods that followed.
+Those weaknesses, together with PPO's cost and complexity, are where Chapter 13 begins: its first section examines the limits of PPO-based RLHF, and the rest of the chapter covers the critic-free, direct, verifiable, and AI-feedback methods that followed.
 
 ## Key takeaways
 
@@ -91,7 +91,7 @@ Those weaknesses, together with PPO's cost and complexity, are where Chapter 11 
 - InstructGPT's 1.3B model was preferred to 175B GPT-3, and was more truthful and less toxic, with regressions on NLP benchmarks reduced by PPO-ptx.
 - Anthropic's HH assistant, GPT-4 (with rule-based reward models during PPO), and Llama 2-Chat (rejection sampling, then PPO) extended the recipe to assistants and frontier models; Claude models were trained with RLHF, but their RL algorithm is not disclosed.
 - Sparrow used the same recipe with A2C instead of PPO; carefully tuned PPO matched or beat DPO in controlled comparisons.
-- After 2024, PPO remains in use for RLVR (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking), while most open recipes moved to DPO and GRPO-style methods (Chapter 11).
+- After 2024, PPO remains in use for RLVR (Tulu 3, OLMo 2) and in value-based variants (VAPO, Seed1.5-Thinking), while most open recipes moved to DPO and GRPO-style methods (Chapter 13).
 
 ## Further reading
 

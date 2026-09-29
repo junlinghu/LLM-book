@@ -79,7 +79,7 @@ In full RL problems exploration becomes both more important and harder. With man
 - **ε-greedy** action selection for value-based methods such as Q-learning and DQN (Sections 9.4 and 9.5), usually with $`\epsilon`$ decayed from 1 toward a small value during training.
 - **Stochastic policies** for policy gradient methods (Sections 9.6 and 9.7). The policy samples its actions, so it explores naturally wherever it is uncertain, and an *entropy bonus* in the loss discourages it from becoming deterministic too early.
 
-For language models, the second mechanism is the one that matters. The model's softmax over the vocabulary is a stochastic policy, and sampling at a temperature above zero produces varied responses to the same prompt. An RL method can only reinforce good responses that the model actually samples, so a model that never produces a correct answer to a hard problem cannot learn to produce one from reward alone. This is the exploration problem in its LLM form, and it returns in Chapters 10 and 11.
+For language models, the second mechanism is the one that matters. The model's softmax over the vocabulary is a stochastic policy, and sampling at a temperature above zero produces varied responses to the same prompt. An RL method can only reinforce good responses that the model actually samples, so a model that never produces a correct answer to a hard problem cannot learn to produce one from reward alone. This is the exploration problem in its LLM form, and it returns in Chapters 10 and 13.
 
 ## A short history
 

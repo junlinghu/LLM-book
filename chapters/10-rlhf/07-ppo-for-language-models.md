@@ -50,7 +50,7 @@ A rollout in RLHF is a batch of prompts and the responses the current policy gen
 1. **Generation.** Sample one response per prompt from $`\pi_{\theta}`$, token by token, at temperature 1 and without top-$k$ or top-$p$ truncation, up to a maximum length (Section 2).
 2. **Scoring.** Run four forward passes over the prompt-plus-response sequences, all without gradients: the policy, for $`\log \pi_{\theta_{\mathrm{old}}}(y_t \mid s_t)`$, which PPO's ratio needs; the reference model, for $`\log \pi_{\mathrm{ref}}(y_t \mid s_t)`$; the value model, for $`V(s_t)`$; and the reward model, for the scalar score $`r_{\phi}(x, y)`$.
 
-**Generation often dominates training time.** Scoring is a single parallel forward pass over each sequence, like training. Generation is autoregressive: one full forward pass of the policy per generated token, each limited by memory bandwidth rather than compute (Section 13.3). For long responses, generation can take most of each iteration's wall-clock time. Production systems therefore generate with optimized inference engines, such as vLLM with its paged KV cache (Section 13.4), and copy the latest policy weights into the engine after each update; frameworks such as OpenRLHF and HybridFlow (veRL) are organized around this split between a generation engine and a training engine (Hu et al. 2024; Sheng et al. 2025).
+**Generation often dominates training time.** Scoring is a single parallel forward pass over each sequence, like training. Generation is autoregressive: one full forward pass of the policy per generated token, each limited by memory bandwidth rather than compute (Section 12.3). For long responses, generation can take most of each iteration's wall-clock time. Production systems therefore generate with optimized inference engines, such as vLLM with its paged KV cache (Section 12.4), and copy the latest policy weights into the engine after each update; frameworks such as OpenRLHF and HybridFlow (veRL) are organized around this split between a generation engine and a training engine (Hu et al. 2024; Sheng et al. 2025).
 
 The reward model may use a different tokenizer from the policy, or expect a different format. The simplest robust approach, used in this section's code, is to decode the policy's tokens to text and re-tokenize for the reward model.
 
@@ -128,9 +128,9 @@ Common ways to reduce this:
 - **A smaller reward model and value model.** InstructGPT used a 6B reward model and value function even for its 175B policy (Ouyang et al. 2022).
 - **Sharing a backbone.** A value head on the policy's backbone removes one large model, at some risk to stability.
 - **Parameter-efficient training.** With LoRA (Section 8.6), the policy is the frozen SFT weights plus small adapters, and the reference model is the same weights with the adapters switched off, so one copy of the base weights serves both roles.
-- **Offloading and sharding.** Frozen models can be offloaded to CPU memory when not in use, and all models can be sharded across devices (Section 13.7).
+- **Offloading and sharding.** Frozen models can be offloaded to CPU memory when not in use, and all models can be sharded across devices (Section 12.7).
 
-The loop itself alternates between two very different workloads: generation, which is latency- and memory-bandwidth-bound and benefits from inference optimizations, and training, which is compute-bound and needs gradients and optimizer states. Systems such as DeepSpeed-Chat switch a single set of GPUs between the two modes (Yao et al. 2023); others place generation and training on separate GPUs and synchronize weights between them (Hu et al. 2024; Sheng et al. 2025). The cost and complexity of this machinery is one of the main motivations for the simpler methods of Chapter 11.
+The loop itself alternates between two very different workloads: generation, which is latency- and memory-bandwidth-bound and benefits from inference optimizations, and training, which is compute-bound and needs gradients and optimizer states. Systems such as DeepSpeed-Chat switch a single set of GPUs between the two modes (Yao et al. 2023); others place generation and training on separate GPUs and synchronize weights between them (Hu et al. 2024; Sheng et al. 2025). The cost and complexity of this machinery is one of the main motivations for the simpler methods of Chapter 13.
 
 ## Lab: PPO on a small language model
 
@@ -307,7 +307,7 @@ for it in range(ITERS):
 - The reward is shaped per token: $`-\beta \log(\pi_{\theta} / \pi_{\mathrm{ref}})`$ at every token, plus the reward model's score at the last token. GAE with $\gamma = 1$ turns it into per-token advantages.
 - The clip bounds each update relative to the rollout policy; the KL penalty bounds the total drift from the reference.
 - Stable training depends on reward normalization and advantage whitening, handling responses without EOS, small learning rates, large prompt batches, no dropout, and careful monitoring of reward, KL, and length.
-- Four large models and an alternating generate-and-train loop make PPO memory-hungry and complex, which motivates the methods of Chapter 11.
+- Four large models and an alternating generate-and-train loop make PPO memory-hungry and complex, which motivates the methods of Chapter 13.
 
 ## Further reading
 

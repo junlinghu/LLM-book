@@ -1,6 +1,6 @@
 # 13.8 What's Used in Practice
 
-Sections 11.2 through 11.6 described the methods. This section records which of them public reports actually used, as of September 2026. The picture is more specific than "PPO was replaced by DPO." PPO is no longer the default optimizer in open post-training reports. DPO did not take its place as the final stage. The usual final stage, when a report names one, is critic-free group-relative RL, most often GRPO or a close variant, with a checker where the task allows one and a judge where it does not. DPO remains a cheap stage before or after that RL, not a substitute for it.
+Sections 13.2 through 13.6 described the methods. This section records which of them public reports actually used, as of September 2026. The picture is more specific than "PPO was replaced by DPO." PPO is no longer the default optimizer in open post-training reports. DPO did not take its place as the final stage. The usual final stage, when a report names one, is critic-free group-relative RL, most often GRPO or a close variant, with a checker where the task allows one and a judge where it does not. DPO remains a cheap stage before or after that RL, not a substitute for it.
 
 The table attributes an algorithm to a model only when the developers named it. Closed labs often confirm that they ran large-scale RL and do not say which optimizer. Those rows say so, and the last part of the section explains why guessing further is not a technical claim.
 

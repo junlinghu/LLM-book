@@ -26,7 +26,7 @@ Many engines implement this design, with different emphases. Three widely used e
 
 **llama.cpp** is an open-source C/C++ implementation focused on running models efficiently on commodity hardware: laptop and desktop CPUs, Apple Silicon (whose unified memory lets the GPU use most of the system RAM), and consumer GPUs. It introduced the GGUF file format and a family of quantization types (from 8-bit down to 2-bit variants), and supports grammar-constrained decoding. It is the engine underneath many local-LLM desktop applications and is designed for single-user or small-scale use rather than large-scale serving.
 
-Other notable engines include SGLang, which introduced RadixAttention for automatic prefix reuse and a frontend language for structured LLM programs (Zheng et al.), and Hugging Face's Text Generation Inference (TGI). The landscape changes quickly, and relative performance depends heavily on the model, hardware, and workload, so published comparisons should be read with the same skepticism Chapter 12 recommends for benchmarks. Benchmark your own workload before choosing.
+Other notable engines include SGLang, which introduced RadixAttention for automatic prefix reuse and a frontend language for structured LLM programs (Zheng et al.), and Hugging Face's Text Generation Inference (TGI). The landscape changes quickly, and relative performance depends heavily on the model, hardware, and workload, so published comparisons should be read with the same skepticism Chapter 11 recommends for benchmarks. Benchmark your own workload before choosing.
 
 Running an engine is usually a single command. For example, vLLM can serve a model from the Hugging Face Hub behind an OpenAI-compatible endpoint:
 

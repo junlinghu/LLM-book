@@ -38,7 +38,7 @@ A policy maps a state to a probability distribution over actions (Section 9.2). 
 \pi_{\theta}(a \mid s_t) = \frac{\exp(z_{t,a} / \tau)}{\sum_{a' \in \mathcal{V}} \exp(z_{t,a'} / \tau)},
 ```
 
-where $\tau$ is the sampling temperature (Section 13.1). Sampling a response token by token is running this policy in the MDP. The probability of a whole response factorizes by the chain rule, so its log-probability is a sum over tokens:
+where $\tau$ is the sampling temperature (Section 12.1). Sampling a response token by token is running this policy in the MDP. The probability of a whole response factorizes by the chain rule, so its log-probability is a sum over tokens:
 
 ```math
 \log \pi_{\theta}(y \mid x) = \sum_{t=1}^{T} \log \pi_{\theta}(y_t \mid x, y_{\lt t}).
@@ -64,7 +64,7 @@ where $`R(x, y)`$ can come from several sources:
 
 - a **reward model** $`r_{\phi}(x, y)`$ trained on human preferences, the classic RLHF case and the subject of Section 5;
 - a **human** directly, which is too slow and expensive to use for every sample during training, but is the gold standard for evaluation;
-- a **checker** or program, such as one that compares a final numerical answer with the known solution or runs unit tests on generated code. These *verifiable rewards* are the basis of the reasoning-model methods in Chapter 11 (Section 5).
+- a **checker** or program, such as one that compares a final numerical answer with the known solution or runs unit tests on generated code. These *verifiable rewards* are the basis of the reasoning-model methods in Chapter 13 (Section 5).
 
 A reward that arrives only at the end is called *sparse*. With no discounting ($\gamma = 1$, the standard choice for text, used for example by Ziegler et al. 2019 and Ouyang et al. 2022), the return from every step is the same number, $G_t = R(x, y)$ for all $t$. Section 7 will add small per-token rewards from a KL penalty, but the signal that says whether the response was *good* still comes only at the end.
 
@@ -82,7 +82,7 @@ with a baseline $b(x)$ that may depend on the prompt but not on the response (Se
 
 **The token-level MDP view.** Treat each token as an action, as in the previous section. Stiennon et al. (2020) described their setup this way: "each time step is a BPE token." This view lets us define a value function over partial responses, $`V(s_t)`$, the expected final reward given the prompt and the first $t-1$ tokens, and per-token advantages $`A_t = Q(s_t, a_t) - V(s_t)`$. It also lets rewards arrive at individual tokens, which the KL penalty of Section 7 exploits.
 
-With $\gamma = 1$ and only a terminal reward, the two views give the same expected gradient; the policy gradient theorem of Section 9.6 applied to the MDP gives back the bandit formula. They differ in how the gradient is *estimated*: which baseline is subtracted and therefore how the variance behaves. The bandit view is the natural home of the critic-free methods of Chapter 11, which compare several responses to the same prompt. The MDP view is the natural home of PPO with a learned value model, the classic RLHF algorithm of Section 7.
+With $\gamma = 1$ and only a terminal reward, the two views give the same expected gradient; the policy gradient theorem of Section 9.6 applied to the MDP gives back the bandit formula. They differ in how the gradient is *estimated*: which baseline is subtracted and therefore how the variance behaves. The bandit view is the natural home of the critic-free methods of Chapter 13, which compare several responses to the same prompt. The MDP view is the natural home of PPO with a learned value model, the classic RLHF algorithm of Section 7.
 
 A third granularity appears in multi-turn dialogue. Bai et al. (2022) treated each assistant *response* as a time step and a whole conversation as the trajectory. For single-turn RLHF, which covers most of this chapter, the response is the episode.
 
@@ -92,7 +92,7 @@ Suppose a model answers a math question with ten correct steps, one arithmetic s
 
 REINFORCE with a prompt-level baseline gives the same answer for every token: all of them had advantage $R - b(x)$, so all of them become less likely, the ten good steps along with the slip. Over many samples this averages out: good steps appear in both high- and low-reward responses, while the slip appears mostly in low-reward ones, so the slip is pushed down more consistently. But averaging out takes many samples, which is another way of saying the gradient estimate has high variance.
 
-A learned value function can do better. If $`V(s_t)`$ estimates the probability that the response will end up correct given the prefix so far, then the TD error $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$ is near zero for tokens that do not change the prospects and strongly negative at the token where things went wrong. Generalized advantage estimation (Section 9.7) combines these TD errors into per-token advantages. In principle, then, the critic localizes credit. In practice, learning an accurate value function for partial text is itself hard, and Chapter 11 discusses evidence that for long reasoning chains a critic-free approach with many samples per prompt can work as well or better. Another route to finer credit is to make the reward itself finer: process reward models, which score each step of a solution, are covered in Chapter 11 (Section 5).
+A learned value function can do better. If $`V(s_t)`$ estimates the probability that the response will end up correct given the prefix so far, then the TD error $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$ is near zero for tokens that do not change the prospects and strongly negative at the token where things went wrong. Generalized advantage estimation (Section 9.7) combines these TD errors into per-token advantages. In principle, then, the critic localizes credit. In practice, learning an accurate value function for partial text is itself hard, and Chapter 13 discusses evidence that for long reasoning chains a critic-free approach with many samples per prompt can work as well or better. Another route to finer credit is to make the reward itself finer: process reward models, which score each step of a solution, are covered in Chapter 13 (Section 5).
 
 ## Why policy gradients
 
@@ -119,7 +119,7 @@ The sum of log-ratios of the sampled tokens is an unbiased single-sample estimat
 
 In our CPU run (60 steps of 16 samples each, DistilGPT-2, seed 0), the two settings behaved very differently. Without a penalty ($`\beta = 0`$), the reward rose from 0.00 at the first step to 0.94 at the last: almost every sample now contained " happy". But the KL estimate climbed to about 11 nats: to earn the reward on nearly every sample, the policy had moved far from the distribution of the original model, and nothing in the objective asked it to keep writing the way the original model did. With $`\beta = 0.1`$, the policy moved much more slowly. The reward stayed near zero for the first 20 steps, reached 0.69 at step 50, and fell back to 0.44 at the last step, while the KL estimate stayed between about 0.5 and 4.5 nats, and the samples remained varied, ordinary-looking continuations. These are single runs, and batch-level numbers from 16 samples are noisy, so the exact values will change with the seed and library versions. The qualitative pattern is robust, though: the penalty trades reward for staying close to the reference model, and the size of $`\beta`$ sets the exchange rate.
 
-This small experiment previews the rest of the chapter. The reward was a crude stand-in for what we want, the policy found the cheapest way to earn it, and the KL penalty was what kept it tied to the original model. Chapter 11 (Lab 1) extends this setup to deliberately flawed rewards to study reward hacking. To replace the hand-written reward with human judgment, we need a pipeline that collects preferences, turns them into a reward model, and optimizes against it. What are its stages, and what does each one produce?
+This small experiment previews the rest of the chapter. The reward was a crude stand-in for what we want, the policy found the cheapest way to earn it, and the KL penalty was what kept it tied to the original model. Chapter 13 (Lab 1) extends this setup to deliberately flawed rewards to study reward hacking. To replace the hand-written reward with human judgment, we need a pipeline that collects preferences, turns them into a reward model, and optimizes against it. What are its stages, and what does each one produce?
 
 ## Code for this section
 

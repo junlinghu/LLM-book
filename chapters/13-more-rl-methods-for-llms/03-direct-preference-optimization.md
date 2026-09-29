@@ -82,7 +82,7 @@ A numerical pair shows the quantities before any update. Suppose $`\beta = 0.1`$
 \hat{r}(y_w) = 0.1 \times (-1.20 - (-1.00)) = -0.020, \qquad \hat{r}(y_l) = 0.1 \times (-0.80 - (-1.10)) = 0.030.
 ```
 
-The margin is $`-0.050`$, so the model assigns probability $`\sigma(-0.050) \approx 0.488`$ to the observed preference. The loss is $`-\log \sigma(-0.050) \approx 0.718`$, a little worse than the $`\log 2 \approx 0.693`$ of a tie, and the gradient weight is $`\sigma(0.050) \approx 0.512`$. [Code 11.3.1](#code-1131-the-dpo-loss-on-one-pair) computes these values and then walks a three-way softmax, initialized at a tie, for a few steps of gradient descent. The chosen response's probability rises, the rejected response's falls, and the implicit margin grows from 0 to about 0.025 in five steps of size 0.5. The third response, which appears in neither side of the pair, barely moves. That last fact is not always true, and the weakness section explains when it fails.
+The margin is $`-0.050`$, so the model assigns probability $`\sigma(-0.050) \approx 0.488`$ to the observed preference. The loss is $`-\log \sigma(-0.050) \approx 0.718`$, a little worse than the $`\log 2 \approx 0.693`$ of a tie, and the gradient weight is $`\sigma(0.050) \approx 0.512`$. [Code 13.3.1](#code-1331-the-dpo-loss-on-one-pair) computes these values and then walks a three-way softmax, initialized at a tie, for a few steps of gradient descent. The chosen response's probability rises, the rejected response's falls, and the implicit margin grows from 0 to about 0.025 in five steps of size 0.5. The third response, which appears in neither side of the pair, barely moves. That last fact is not always true, and the weakness section explains when it fails.
 
 ## The role of beta and the reference model
 
@@ -110,15 +110,15 @@ Rafailov et al. (2023) showed that this loss can match PPO-based RLHF on the sum
 
 **The loss trusts the pairs.** There is no reward model whose calibration can be inspected, and there is no KL budget plotted against a gold score in the sense of Gao et al. (2023), because there is no separate score. Label noise, length bias, and sycophancy in the comparisons (Section 1) go straight into the policy. A pair that prefers a long, agreeable, wrong answer teaches the model to produce one. Filtering the dataset is the corresponding lever: DPO has fewer training tricks than PPO and fewer excuses for bad labels.
 
-**Both likelihoods can fall.** The loss depends on the margin $`\hat{r}(y_w) - \hat{r}(y_l)`$, not on either reward alone. Any change that lowers the rejected response's probability more than the chosen response's improves the loss, even if the chosen response also becomes less likely. In the three-way softmax of [Code 11.3.1](#code-1131-the-dpo-loss-on-one-pair) this did not happen, because the chosen and rejected responses had independent logits and the gradient had no reason to touch the third one. Real responses share parameters.
+**Both likelihoods can fall.** The loss depends on the margin $`\hat{r}(y_w) - \hat{r}(y_l)`$, not on either reward alone. Any change that lowers the rejected response's probability more than the chosen response's improves the loss, even if the chosen response also becomes less likely. In the three-way softmax of [Code 13.3.1](#code-1331-the-dpo-loss-on-one-pair) this did not happen, because the chosen and rejected responses had independent logits and the gradient had no reason to touch the third one. Real responses share parameters.
 
-[Code 11.3.2](#code-1132-likelihood-displacement-when-responses-share-a-direction) is a small model of that sharing. Three responses get scores from vectors dotted with one parameter vector. The chosen and rejected vectors point almost the same way, and a third vector points elsewhere. Gradient descent on the DPO loss increases the margin, as it should: after seven steps the log-ratio gap $`h`$ has moved from 0 to about 0.030. Over those same steps the log-probability of the chosen response moves from about $`-0.987`$ to about $`-0.999`$, and the rejected response's from about $`-1.002`$ to about $`-1.043`$. Both fell. The third response's log-probability rose, from about $`-1.347`$ to about $`-1.275`$. The optimizer satisfied the pairwise constraint by draining probability from the pair into a response that was in neither label.
+[Code 13.3.2](#code-1332-likelihood-displacement-when-responses-share-a-direction) is a small model of that sharing. Three responses get scores from vectors dotted with one parameter vector. The chosen and rejected vectors point almost the same way, and a third vector points elsewhere. Gradient descent on the DPO loss increases the margin, as it should: after seven steps the log-ratio gap $`h`$ has moved from 0 to about 0.030. Over those same steps the log-probability of the chosen response moves from about $`-0.987`$ to about $`-0.999`$, and the rejected response's from about $`-1.002`$ to about $`-1.043`$. Both fell. The third response's log-probability rose, from about $`-1.347`$ to about $`-1.275`$. The optimizer satisfied the pairwise constraint by draining probability from the pair into a response that was in neither label.
 
 Razin et al. (2025) call this *likelihood displacement* and show that it is not a toy pathology. When the chosen and rejected responses induce similar hidden states, the update that separates them can move probability onto a third response with a different meaning. In one of their experiments, preference pairs whose two sides were both refusals reduced Llama-3-8B-Instruct's refusal rate on SORRY-Bench from 74.4% to 33.4%: the model became less likely to say either refusal, and more likely to comply. Their practical warning matches the arithmetic. Pairs in which $`y_w`$ and $`y_l`$ are near-paraphrases are exactly the pairs DPO is most willing to satisfy by abandoning both. An SFT term on the chosen response, a larger $\beta$, or simply dropping pairs whose two sides are too alike, all limit the damage. Section 4's IPO loss faces a related version of the same issue, a margin with no finite target, and fixes that version differently.
 
 ## Code for this section
 
-### Code 11.3.1: The DPO loss on one pair
+### Code 13.3.1: The DPO loss on one pair
 
 The first half evaluates the implicit rewards on the numerical pair from this section. The second half optimizes a three-way softmax (chosen, rejected, other) from a tie, for five steps. The reference is the initial policy, so the implicit margin starts at zero.
 
@@ -167,7 +167,7 @@ step 4: loss 0.6832 -> pi [0.3603, 0.3792, 0.2605]  margin 0.0249
 
 The loss printed on each line is the loss *before* that step; the probabilities are *after* it. The chosen response gains what the rejected response loses. The third probability stays near a quarter.
 
-### Code 11.3.2: Likelihood displacement when responses share a direction
+### Code 13.3.2: Likelihood displacement when responses share a direction
 
 The chosen and rejected responses have nearly aligned score vectors, and a third response points somewhere else. The DPO margin rises while both labeled responses lose probability.
 
