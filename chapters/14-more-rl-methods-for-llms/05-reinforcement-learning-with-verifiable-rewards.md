@@ -64,41 +64,7 @@ The split used in practice follows the split in the R1 pipeline. Use a verifier 
 
 ### Code 14.5.1: A verifier and the advantages it induces
 
-```python
-import re
-import torch
-
-def boxed_answer(text):
-    found = re.findall(r"\\boxed\{([^}]*)\}", text)
-    return found[-1].strip() if found else None
-
-def verify(text, gold):
-    """1 if the last boxed span matches the gold answer, else 0."""
-    return 1.0 if boxed_answer(text) == gold else 0.0
-
-samples = [
-    r"17*20=340 and 17*3=51, so 391. \boxed{391}",
-    r"17*23 = 17*25 - 34 = 391. The answer is 391.",   # right, but no box
-    r"\boxed{381}",
-    r"20*23 - 3*23 = 460 - 69 = \boxed{391}",
-]
-rewards = torch.tensor([verify(s, "391") for s in samples])
-std = rewards.std(unbiased=False)
-advantages = torch.zeros_like(rewards) if std == 0 else (rewards - rewards.mean()) / std
-print("extracted:", [boxed_answer(s) for s in samples])
-print("rewards:  ", rewards.tolist())
-print("GRPO adv: ", [round(a, 4) for a in advantages.tolist()])
-```
-
-Output:
-
-```text
-extracted: ['391', None, '381', '391']
-rewards:   [1.0, 0.0, 0.0, 1.0]
-GRPO adv:  [1.0, -1.0, -1.0, 1.0]
-```
-
-The second sample states the right number and scores zero, because the extractor found no box. A format reward exists so that this sample is not the maximum of the group's reward.
+Notebook: [14.5.1-a-verifier-and-the-advantages-it-induces.ipynb](../../code/14-more-rl-methods-for-llms/14.5.1-a-verifier-and-the-advantages-it-induces.ipynb)
 
 ## Key takeaways
 

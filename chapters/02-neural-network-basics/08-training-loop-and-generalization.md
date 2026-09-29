@@ -138,63 +138,8 @@ The listings below collect the code for this section in the order in which the t
 
 Data splitting, evaluation, and a `fit` function that trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, and stops early, followed by a single evaluation on the test set. It relies on `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2, also in [`code/02-neural-network-basics/numpy_mlp.py`](../../code/02-neural-network-basics/numpy_mlp.py)) and on `make_moons` from [`code/02-neural-network-basics/style.py`](../../code/02-neural-network-basics/style.py).
 
-```python
-import copy
-import numpy as np
+Notebook: [2.8.1-a-complete-training-loop-with-early-stopping.ipynb](../../code/02-neural-network-basics/2.8.1-a-complete-training-loop-with-early-stopping.ipynb)
 
-def split(X, y, frac_val=0.15, frac_test=0.15, seed=0):
-    rng = np.random.default_rng(seed)
-    idx = rng.permutation(len(X))
-    n_test, n_val = int(frac_test * len(X)), int(frac_val * len(X))
-    test, val, train = idx[:n_test], idx[n_test:n_test + n_val], idx[n_test + n_val:]
-    return (X[train], y[train]), (X[val], y[val]), (X[test], y[test])
-
-def evaluate(P, X, y):
-    Z, _ = forward(P, X)
-    loss, _ = softmax_cross_entropy(Z, y)
-    return loss, np.mean(Z.argmax(axis=1) == y)
-
-def fit(train, val, n_hidden=128, lr=0.1, batch_size=16, max_epochs=500, patience=50, seed=0):
-    (X_tr, y_tr), (X_val, y_val) = train, val
-    rng = np.random.default_rng(seed)
-    P = init_params(X_tr.shape[1], n_hidden, int(y_tr.max()) + 1, seed=seed)
-    best = {"val_loss": np.inf, "epoch": -1, "params": None}
-    history = []
-    for epoch in range(max_epochs):
-        order = rng.permutation(len(X_tr))                 # reshuffle every epoch
-        for start in range(0, len(X_tr), batch_size):
-            idx = order[start:start + batch_size]          # 1. sample a minibatch
-            Z, cache = forward(P, X_tr[idx])               # 2. forward pass
-            loss, dZ = softmax_cross_entropy(Z, y_tr[idx]) # 3. loss (and dL/dZ)
-            grads = backward(P, cache, dZ)                 # 4. backward pass
-            for k in P:                                    # 5. update
-                P[k] -= lr * grads[k]
-        tr_loss, _ = evaluate(P, X_tr, y_tr)
-        val_loss, val_acc = evaluate(P, X_val, y_val)
-        history.append((epoch, tr_loss, val_loss))
-        if val_loss < best["val_loss"]:                    # keep the best checkpoint
-            best = {"val_loss": val_loss, "epoch": epoch, "params": copy.deepcopy(P)}
-        elif epoch - best["epoch"] >= patience:            # early stopping
-            break
-    return best, history
-
-X, y = make_moons(n=300, noise=0.35, seed=5)
-train, val, test = split(X, y)
-best, history = fit(train, val)
-last_epoch, last_train, last_val = history[-1]
-print(f"stopped after epoch {last_epoch}: train loss {last_train:.3f}, val loss {last_val:.3f}")
-print(f"best epoch {best['epoch']}: val loss {best['val_loss']:.3f}")
-test_loss, test_acc = evaluate(best["params"], *test)    # touched once, at the very end
-print(f"test loss {test_loss:.3f}, test accuracy {test_acc:.2f}")
-```
-
-Output:
-
-```text
-stopped after epoch 281: train loss 0.240, val loss 0.343
-best epoch 231: val loss 0.226
-test loss 0.229, test accuracy 0.91
-```
 ## Key takeaways
 
 - Every training loop repeats the same steps: sample a minibatch, forward pass, loss, backward pass, update, with periodic evaluation on held-out data.

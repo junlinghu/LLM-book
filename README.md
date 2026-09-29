@@ -7,7 +7,7 @@ This repo holds the book’s chapter drafts, figures, and accompanying code. It 
 ## What this repo is for
 
 - **Read the book in progress.** Chapter text lives under [`chapters/`](chapters/) as Markdown.
-- **Run the examples.** Code that supports a chapter (from-scratch labs, figure scripts, notebooks) lives under [`code/`](code/), in a folder with the same slug as the chapter (`code/02-neural-network-basics/`, and so on).
+- **Run the examples.** Section labs (`### Code X.Y.Z` in the chapter text) are Jupyter notebooks under [`code/`](code/), next to the figure scripts, in a folder with the same slug as the chapter (`code/02-neural-network-basics/`, and so on).
 - **Regenerate figures.** Where a chapter ships plotting scripts, you can rebuild the images from those scripts rather than editing PNGs by hand.
 
 It is **not** a pretrained-model zoo, a production serving stack, or a complete copy of every commercial LLM paper. The focus is understanding the pipeline end to end.
@@ -23,7 +23,7 @@ LLM-book/
 │   ├── 02-neural-network-basics/
 │   ├── …
 │   └── 14-more-rl-methods-for-llms/
-└── code/                     ← runnable examples, labs, and figure scripts
+└── code/                     ← notebooks, labs, and figure scripts
     ├── README.md
     ├── 01-introduction/
     ├── 02-neural-network-basics/
@@ -70,6 +70,8 @@ Readers who want a clear picture of LLMs without unnecessary jargon: engineers, 
 
 Requirements vary by chapter. A typical setup for the neural-network chapters is Python 3 with **NumPy**, **Matplotlib**, and **PyTorch**.
 
+Section labs live as `.ipynb` files under [`code/<chapter>/`](code/), alongside the figure scripts. Each `### Code X.Y.Z` heading in a chapter links to a notebook named `X.Y.Z-<kebab-title>.ipynb`. Open that notebook and run it from the top. Later listings in a section are self-contained: imports and definitions they reuse are included in the notebook. Printed results from the chapter are kept as an "Expected output" markdown cell.
+
 Example (Chapter 2 figures). From the repository root:
 
 ```bash
@@ -83,7 +85,7 @@ Those scripts write PNGs into `chapters/02-neural-network-basics/figures/`. Othe
 python code/06-transformer-basic-architecture/make_figures.py
 ```
 
-See each chapter’s `README.md` for that chapter’s labs and dependencies.
+See [`code/README.md`](code/README.md) for the notebook layout, and each chapter’s `README.md` for that chapter’s dependencies.
 
 ## Status
 

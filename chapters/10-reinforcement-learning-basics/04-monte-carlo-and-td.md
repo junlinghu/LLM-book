@@ -120,147 +120,17 @@ The listings below collect the code for this section in the order in which the t
 
 Generates episodes of the uniform random policy from random non-terminal start cells, walks each episode backward to compute returns, and moves each visited state's estimate toward its return. With `alpha=None` the step size is $`1/N(s)`$, giving the running mean.
 
-```python
-import numpy as np
-from gridworld import GridWorld
-
-env = GridWorld()
-GAMMA = 0.9
-nonterminal = np.flatnonzero(~env.terminal)
-
-def generate_episode(env, rng):
-    """One episode of the uniform random policy; returns states and rewards."""
-    s = rng.choice(nonterminal)
-    states, rewards = [], []
-    done = False
-    while not done:
-        a = rng.integers(env.n_actions)
-        s2, r, done = env.step(s, a)
-        states.append(s)
-        rewards.append(r)
-        s = s2
-    return states, rewards
-
-def mc_prediction(env, n_episodes, rng, alpha=None, gamma=GAMMA):
-    """Every-visit Monte Carlo: move V(s) toward each observed return G_t."""
-    V, N = np.zeros(env.n_states), np.zeros(env.n_states)
-    history = []
-    for _ in range(n_episodes):
-        states, rewards = generate_episode(env, rng)
-        G = 0.0
-        for s, r in zip(reversed(states), reversed(rewards)):   # walk backward
-            G = r + gamma * G                                   # return from s
-            N[s] += 1
-            step = 1.0 / N[s] if alpha is None else alpha
-            V[s] += step * (G - V[s])
-        history.append(V.copy())
-    return np.array(history)
-```
+Notebook: [10.4.1-monte-carlo-prediction.ipynb](../../code/10-reinforcement-learning-basics/10.4.1-monte-carlo-prediction.ipynb)
 
 ### Code 10.4.2: TD(0) prediction
 
 Updates after every step toward the one-step TD target, and measures the RMS error of both methods against the exact values from Code 10.2.2 (the 100-run averages plotted in Figure 10.9 repeat this with seeds 1000 to 1099).
 
-```python
-from gridworld import policy_evaluation, random_policy
-
-def td0_prediction(env, n_episodes, rng, alpha, gamma=GAMMA):
-    """TD(0): after every step, move V(s) toward r + gamma * V(s')."""
-    V = np.zeros(env.n_states)
-    history = []
-    for _ in range(n_episodes):
-        s = rng.choice(nonterminal)
-        done = False
-        while not done:
-            a = rng.integers(env.n_actions)
-            s2, r, done = env.step(s, a)
-            target = r + (0.0 if done else gamma * V[s2])
-            V[s] += alpha * (target - V[s])
-            s = s2
-        history.append(V.copy())
-    return np.array(history)
-
-V_true = policy_evaluation(env, random_policy(env), GAMMA)
-def rms(history):
-    return np.sqrt(((history[:, nonterminal] - V_true[nonterminal]) ** 2).mean(axis=1))
-
-for alpha in (0.02, 0.05):
-    mc = np.mean([rms(mc_prediction(env, 300, np.random.default_rng(1000 + i), alpha))
-                  for i in range(100)], axis=0)
-    td = np.mean([rms(td0_prediction(env, 300, np.random.default_rng(1000 + i), alpha))
-                  for i in range(100)], axis=0)
-    print(f"alpha={alpha}: RMS error after 300 episodes  MC {mc[-1]:.3f}  TD(0) {td[-1]:.3f}")
-```
-
-Output:
-
-```text
-alpha=0.02: RMS error after 300 episodes  MC 0.063  TD(0) 0.036
-alpha=0.05: RMS error after 300 episodes  MC 0.097  TD(0) 0.045
-```
+Notebook: [10.4.2-td0-prediction.ipynb](../../code/10-reinforcement-learning-basics/10.4.2-td0-prediction.ipynb)
 
 ### Code 10.4.3: SARSA and Q-learning on CliffWalking
 
 Tabular SARSA and Q-learning with ε-greedy exploration on Gymnasium's `CliffWalking-v1`. The two methods share everything except the target. `greedy_path` follows the learned greedy policy from the start state (for at most 100 steps) and reports its return.
 
-```python
-import gymnasium as gym
+Notebook: [10.4.3-sarsa-and-q-learning-on-cliffwalking.ipynb](../../code/10-reinforcement-learning-basics/10.4.3-sarsa-and-q-learning-on-cliffwalking.ipynb)
 
-def eps_greedy(Q, s, eps, rng):
-    if rng.random() < eps:
-        return int(rng.integers(Q.shape[1]))
-    q = Q[s]
-    return int(rng.choice(np.flatnonzero(q == q.max())))     # random tie-break
-
-def train(method, n_episodes=500, alpha=0.5, gamma=1.0, eps=0.1, seed=0):
-    """Tabular SARSA or Q-learning; returns Q and the reward of every episode."""
-    env = gym.make("CliffWalking-v1")
-    rng = np.random.default_rng(seed)
-    Q = np.zeros((env.observation_space.n, env.action_space.n))
-    episode_rewards = []
-    for ep in range(n_episodes):
-        s, _ = env.reset(seed=seed * 10_000 + ep)
-        a = eps_greedy(Q, s, eps, rng)
-        total, done = 0.0, False
-        while not done:
-            s2, r, terminated, truncated, _ = env.step(a)
-            done = terminated or truncated
-            a2 = eps_greedy(Q, s2, eps, rng)
-            if method == "sarsa":        # on-policy: the action we will really take
-                target = r + gamma * Q[s2, a2] * (not terminated)
-            else:                        # Q-learning: the greedy action
-                target = r + gamma * Q[s2].max() * (not terminated)
-            Q[s, a] += alpha * (target - Q[s, a])
-            s, a = s2, a2
-            total += r
-        episode_rewards.append(total)
-    return Q, np.array(episode_rewards)
-
-def greedy_path(Q, max_steps=100):
-    """Follow the greedy policy from the start; return visited states and return."""
-    env = gym.make("CliffWalking-v1")
-    s, _ = env.reset(seed=0)
-    path, total = [s], 0.0
-    for _ in range(max_steps):
-        s, r, terminated, truncated, _ = env.step(int(Q[s].argmax()))
-        path.append(s)
-        total += r
-        if terminated:
-            break
-    return path, total
-
-for method in ("sarsa", "qlearning"):
-    runs = [train(method, seed=i) for i in range(50)]
-    online = np.mean([rewards[-100:].mean() for _, rewards in runs])
-    greedy = [greedy_path(Q)[1] for Q, _ in runs]
-    vals, counts = np.unique(greedy, return_counts=True)
-    print(f"{method:9s} reward per episode (last 100): {online:6.1f}   greedy returns: "
-          + ", ".join(f"{v:.0f} (x{c})" for v, c in zip(vals, counts)))
-```
-
-Output:
-
-```text
-sarsa     reward per episode (last 100):  -26.3   greedy returns: -100 (x7), -19 (x3), -17 (x40)
-qlearning reward per episode (last 100):  -49.3   greedy returns: -13 (x50)
-```

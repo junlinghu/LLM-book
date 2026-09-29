@@ -129,84 +129,13 @@ The listings below collect the code for this section in the order in which the t
 
 Cuts the example sentence into inputs and labels shifted by one token, computes the loss of the released GPT-2 small model by hand and with Hugging Face's built-in loss, and checks that an untrained GPT-2 starts near $`\ln V`$.
 
-```python
-import math
-import tiktoken
-import torch
-import torch.nn.functional as F
-from transformers import GPT2LMHeadModel, GPT2Config
-
-enc = tiktoken.get_encoding("gpt2")
-text = "The cat sat on the mat because it was tired."
-ids = enc.encode(text)
-print(len(ids), enc.n_vocab)                           # tokens in the text, vocabulary size V
-x = torch.tensor(ids)
-inputs, labels = x[:-1], x[1:]                         # a block of n + 1 tokens gives n training positions
-for i, l in zip(inputs[:4].tolist(), labels[:4].tolist()):
-    print(repr(enc.decode([i])), "->", repr(enc.decode([l])))
-
-model = GPT2LMHeadModel.from_pretrained("gpt2").eval()
-with torch.no_grad():
-    logits = model(inputs[None]).logits[0]             # (n, V): one distribution per position
-    loss = F.cross_entropy(logits, labels)             # average of -log p(x_{t+1} | x_{<=t})
-    hf_loss = model(x[None], labels=x[None]).loss      # Hugging Face shifts the labels internally
-print(f"loss {loss:.4f} nats, HF loss {hf_loss:.4f}, perplexity {loss.exp():.1f}")
-
-# An untrained model spreads its probability almost evenly: loss close to ln V
-torch.manual_seed(0)
-untrained = GPT2LMHeadModel(GPT2Config()).eval()
-with torch.no_grad():
-    print(f"untrained loss {untrained(x[None], labels=x[None]).loss:.3f}, ln V = {math.log(enc.n_vocab):.3f}")
-# 11 50257
-# 'The' -> ' cat'
-# ' cat' -> ' sat'
-# ' sat' -> ' on'
-# ' on' -> ' the'
-# loss 3.8762 nats, HF loss 3.8762, perplexity 48.2
-# untrained loss 11.048, ln V = 10.825
-```
+Notebook: [8.1.1-shift-by-one-loss-and-perplexity-with-gpt-2.ipynb](../../code/08-generative-pretraining-gpt/8.1.1-shift-by-one-loss-and-perplexity-with-gpt-2.ipynb)
 
 ### Code 8.1.2: A bigram baseline on tiny Shakespeare
 
 Tokenizes tiny Shakespeare with GPT-2's tokenizer, holds out the last 10% for validation, and scores add-$`\alpha`$ bigram models against the uniform model.
 
-```python
-import math, os, urllib.request
-from collections import Counter
-import tiktoken
-
-url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-if not os.path.exists("input.txt"):
-    urllib.request.urlretrieve(url, "input.txt")
-text = open("input.txt", encoding="utf-8").read()
-enc = tiktoken.get_encoding("gpt2")
-ids = enc.encode(text)
-split = int(0.9 * len(ids))
-train, val = ids[:split], ids[split:]
-V = enc.n_vocab
-print(len(text), len(ids), f"{len(text.encode()) / len(ids):.2f} bytes per token")
-
-pair = Counter(zip(train[:-1], train[1:]))             # c(a, b)
-first = Counter(train[:-1])                            # c(a)
-
-def bigram_loss(tokens, alpha):
-    """Average -log p(b | a) with add-alpha smoothing over all V tokens."""
-    nll = 0.0
-    for a, b in zip(tokens[:-1], tokens[1:]):
-        nll -= math.log((pair[(a, b)] + alpha) / (first[a] + alpha * V))
-    return nll / (len(tokens) - 1)
-
-print(f"uniform model: {math.log(V):.3f}")
-for alpha in [0.1, 0.01, 0.001, 0.0001]:
-    tr, va = bigram_loss(train, alpha), bigram_loss(val, alpha)
-    print(f"alpha={alpha}: train {tr:.3f}, val {va:.3f} (perplexity {math.exp(va):.0f})")
-# 1115394 338025 3.30 bytes per token
-# uniform model: 10.825
-# alpha=0.1: train 6.057, val 6.878 (perplexity 970)
-# alpha=0.01: train 4.672, val 6.095 (perplexity 444)
-# alpha=0.001: train 3.849, val 5.859 (perplexity 350)
-# alpha=0.0001: train 3.501, val 6.074 (perplexity 435)
-```
+Notebook: [8.1.2-a-bigram-baseline-on-tiny-shakespeare.ipynb](../../code/08-generative-pretraining-gpt/8.1.2-a-bigram-baseline-on-tiny-shakespeare.ipynb)
 
 ## Key takeaways
 

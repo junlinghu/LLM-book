@@ -175,50 +175,14 @@ The listings below collect the code for this section in the order in which the t
 
 Compares the direct softmax formula with the max-shifted version on large logits. The naive version overflows and returns NaN; the stable version does not.
 
-```python
-import numpy as np
-
-def softmax_naive(z):
-    e = np.exp(z)
-    return e / e.sum()
-
-def softmax(z):
-    e = np.exp(z - z.max())   # shift so the largest logit is 0
-    return e / e.sum()
-
-z = np.array([1000.0, 1001.0, 1002.0])
-with np.errstate(over="ignore", invalid="ignore"):
-    print("naive: ", softmax_naive(z))
-print("stable:", softmax(z))
-# naive:  [nan nan nan]
-# stable: [0.09003057 0.24472847 0.66524096]
-```
+Notebook: [2.4.1-naive-versus-numerically-stable-softmax.ipynb](../../code/02-neural-network-basics/2.4.1-naive-versus-numerically-stable-softmax.ipynb)
 
 ### Code 2.4.2: Checking the softmax cross-entropy gradient
 
 Compares the analytic gradient $`\mathbf{p} - \mathbf{y}`$ with centered finite differences for the example logits. It reuses `np` and `softmax` from Code 2.4.1.
 
-```python
-def cross_entropy_from_logits(z, c):
-    zs = z - z.max()
-    return -(zs[c] - np.log(np.exp(zs).sum()))   # -log softmax(z)[c], computed stably
+Notebook: [2.4.2-checking-the-softmax-cross-entropy-gradient.ipynb](../../code/02-neural-network-basics/2.4.2-checking-the-softmax-cross-entropy-gradient.ipynb)
 
-z = np.array([2.0, 0.5, -1.0])
-c = 2                                            # the correct class is the third one
-analytic = softmax(z) - np.eye(3)[c]             # p - y
-eps = 1e-6
-numeric = np.array([
-    (cross_entropy_from_logits(z + eps * np.eye(3)[i], c) -
-     cross_entropy_from_logits(z - eps * np.eye(3)[i], c)) / (2 * eps)
-    for i in range(3)
-])
-print("loss    ", round(cross_entropy_from_logits(z, c), 4))
-print("analytic", analytic.round(6))
-print("numeric ", numeric.round(6))
-# loss     3.2413
-# analytic [ 0.785597  0.17529  -0.960887]
-# numeric  [ 0.785597  0.17529  -0.960887]
-```
 ## Key takeaways
 
 - A loss function turns "how wrong is the model?" into one number whose gradient tells us how to improve the weights.

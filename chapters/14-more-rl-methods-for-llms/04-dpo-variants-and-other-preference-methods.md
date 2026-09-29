@@ -135,73 +135,11 @@ Rejection sampling is the right baseline whenever a paper claims a complicated p
 
 A three-way softmax (chosen, rejected, other), $`\beta = 0.1`$, reference equal to the uniform initial policy. IPO's target gap is $`1/(2\beta) = 5`$ nats. DPO is run with a larger step size so that it is visible, on this convex toy, that the logistic loss is still increasing the gap after it has passed 5.
 
-```python
-import torch
-import torch.nn.functional as F
-
-def run(kind, steps, lr, beta=0.1):
-    logits = torch.zeros(3, requires_grad=True)
-    ref = F.log_softmax(logits.detach(), dim=0)
-    opt = torch.optim.SGD([logits], lr=lr)
-    for _ in range(steps):
-        logp = F.log_softmax(logits, dim=0)
-        h = (logp[0] - ref[0]) - (logp[1] - ref[1])
-        loss = -F.logsigmoid(beta * h) if kind == "dpo" else (h - 1 / (2 * beta)) ** 2
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-    with torch.no_grad():
-        logp = F.log_softmax(logits, dim=0)
-        h = (logp[0] - ref[0]) - (logp[1] - ref[1])
-        pi = logp.exp()
-        print(f"{kind:4s}  pi {[round(p, 4) for p in pi.tolist()]}  h {h.item():.3f}  "
-              f"target {1 / (2 * beta):.1f}")
-
-run("dpo", steps=40, lr=2.0)
-run("ipo", steps=80, lr=0.05)
-```
-
-Output:
-
-```text
-dpo   pi [0.964, 0.0013, 0.0348]  h 6.644  target 5.0
-ipo   pi [0.9184, 0.0062, 0.0754]  h 5.000  target 5.0
-```
+Notebook: [14.4.1-dpo-does-not-stop-ipo-stops-at-the-target-margin.ipynb](../../code/14-more-rl-methods-for-llms/14.4.1-dpo-does-not-stop-ipo-stops-at-the-target-margin.ipynb)
 
 ### Code 14.4.2: KTO, SimPO, and ORPO on toy numbers
 
-```python
-import math
-import torch
-
-beta, z0 = 1.0, 0.02
-r_des = math.log(0.40) - math.log(0.25)
-r_und = math.log(0.15) - math.log(0.30)
-v_des = torch.sigmoid(torch.tensor(beta * (r_des - z0)))
-v_und = torch.sigmoid(torch.tensor(beta * (z0 - r_und)))
-print(f"KTO  r_des {r_des:.3f} loss {1 - v_des:.3f}   r_und {r_und:.3f} loss {1 - v_und:.3f}")
-
-# Per-token log-ratio +0.05 on a 5-token response, +0.08 on a 2-token one.
-dpo_w, dpo_l = 0.1 * 0.05 * 5, 0.1 * 0.08 * 2
-sim_w, sim_l = 2.0 * 0.05, 2.0 * 0.08
-print(f"DPO implicit rewards  long {dpo_w:.3f} short {dpo_l:.3f}  (long wins)")
-print(f"SimPO rewards         long {sim_w:.3f} short {sim_l:.3f}  (short wins)")
-
-pw, pl = 1e-8, 1e-9
-log_odds = math.log((pw / (1 - pw)) / (pl / (1 - pl)))
-log_prob = math.log(pw / pl)
-print(f"ORPO log-odds {log_odds:.6f}  log-prob ratio {log_prob:.6f}  "
-      f"difference {log_odds - log_prob:.3e}")
-```
-
-Output:
-
-```text
-KTO  r_des 0.470 loss 0.389   r_und -0.693 loss 0.329
-DPO implicit rewards  long 0.025 short 0.016  (long wins)
-SimPO rewards         long 0.100 short 0.160  (short wins)
-ORPO log-odds 2.302585  log-prob ratio 2.302585  difference 9.000e-09
-```
+Notebook: [14.4.2-kto-simpo-and-orpo-on-toy-numbers.ipynb](../../code/14-more-rl-methods-for-llms/14.4.2-kto-simpo-and-orpo-on-toy-numbers.ipynb)
 
 ## Key takeaways
 

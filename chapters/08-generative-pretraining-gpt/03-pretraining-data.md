@@ -108,102 +108,21 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 8.3.1: Exact and near-duplicate detection
 
-Builds five toy documents, one a whitespace variant and one a one-word variant of another. Exact deduplication hashes a normalized copy of each document; near-duplicate detection compares word 3-gram sets by their Jaccard index and estimates it with a 128-hash MinHash signature. The MinHash uses salted MD5 hashes for clarity; production implementations use fast non-cryptographic hash families and locality-sensitive hashing to avoid comparing every pair of signatures.
+Builds five toy documents, one a whitespace variant and one a one-word variant of another.
 
-```python
-import hashlib, re
-import torch
-import tiktoken
-
-enc = tiktoken.get_encoding("gpt2")
-EOT = enc.eot_token                                     # <|endoftext|>, id 50256
-page = ("The museum is open from nine in the morning until five in the evening, "
-        "and admission is free for children under twelve and for students with a valid card.")
-docs = [page,
-        "Pretraining data is measured in tokens.",
-        page.replace(" ", "  "),                          # duplicate up to whitespace
-        page.replace("five", "six"),                      # near duplicate: one word changed
-        "A short one."]
-
-# Exact deduplication: hash a normalized copy of each document
-def normalize(s):
-    return re.sub(r"\s+", " ", s.lower()).strip()
-seen, unique = set(), []
-for doc in docs:
-    key = hashlib.sha256(normalize(doc).encode()).hexdigest()
-    if key not in seen:
-        seen.add(key); unique.append(doc)
-print(len(docs), "->", len(unique), "documents after exact dedup")
-
-# Near-duplicate detection: Jaccard similarity of word 3-gram sets, estimated with MinHash
-def shingles(s, k=3):
-    w = re.findall(r"\w+", s.lower())
-    return {" ".join(w[i:i + k]) for i in range(len(w) - k + 1)}
-def minhash(sh, num_hashes=128):
-    return [min(int(hashlib.md5(f"{i}:{g}".encode()).hexdigest()[:8], 16) for g in sh)
-            for i in range(num_hashes)]
-a, b = shingles(unique[0]), shingles(unique[2])
-jaccard = len(a & b) / len(a | b)
-ma, mb = minhash(a), minhash(b)
-estimate = sum(x == y for x, y in zip(ma, mb)) / len(ma)
-print(f"Jaccard {jaccard:.2f}, MinHash estimate {estimate:.2f}")
-# 5 -> 4 documents after exact dedup
-# Jaccard 0.80, MinHash estimate 0.83
-```
+Notebook: [8.3.1-exact-and-near-duplicate-detection.ipynb](../../code/08-generative-pretraining-gpt/8.3.1-exact-and-near-duplicate-detection.ipynb)
 
 ### Code 8.3.2: Packing documents into blocks
 
 Appends GPT-2's end-of-text token to each surviving document, concatenates them, and cuts the stream into blocks of $`n + 1 = 9`$ tokens. It reuses the definitions of Code 8.3.1.
 
-```python
-# Packing: append <|endoftext|> to each document, concatenate, cut into blocks of n + 1 tokens
-stream = []
-for doc in unique:
-    stream += enc.encode(doc) + [EOT]
-n = 8
-blocks = torch.tensor(stream[: len(stream) // (n + 1) * (n + 1)]).view(-1, n + 1)
-inputs, labels = blocks[:, :-1], blocks[:, 1:]
-print(len(stream), "tokens ->", tuple(blocks.shape), "blocks; dropped", len(stream) % (n + 1))
-print([enc.decode([t]) for t in inputs[4].tolist()])
-# 79 tokens -> (8, 9) blocks; dropped 7
-# [' is', ' measured', ' in', ' tokens', '.', '<|endoftext|>', 'The', ' museum']
-```
+Notebook: [8.3.2-packing-documents-into-blocks.ipynb](../../code/08-generative-pretraining-gpt/8.3.2-packing-documents-into-blocks.ipynb)
 
 ### Code 8.3.3: A block-diagonal causal mask and its leak test
 
 Builds the block-diagonal causal mask for the block that crosses a document boundary, then checks with a toy attention layer that overwriting tokens of the previous document leaves the outputs for the next document unchanged. It reuses the definitions of Code 8.3.1 and 8.3.2.
 
-```python
-# A block-diagonal causal mask: a token may attend only to earlier tokens of its own document
-def document_causal_mask(tokens, eot=EOT):
-    doc_id = torch.cumsum((tokens == eot).long(), dim=-1)
-    doc_id = doc_id - (tokens == eot).long()            # an EOT token belongs to the document it ends
-    same_doc = doc_id[:, :, None] == doc_id[:, None, :]
-    causal = torch.tril(torch.ones(tokens.size(-1), tokens.size(-1), dtype=torch.bool))
-    return same_doc & causal                            # True = allowed
-print(document_causal_mask(inputs[4:5])[0].int())
-
-# Leak test: with the document mask, changing the previous document leaves the next one unchanged
-torch.manual_seed(0)
-emb = torch.nn.Embedding(enc.n_vocab, 16)
-def attend(tok):
-    x = emb(tok)
-    scores = (x @ x.transpose(-2, -1)).masked_fill(~document_causal_mask(tok), float("-inf"))
-    return scores.softmax(-1) @ x
-x = inputs[4:5]
-x2 = x.clone(); x2[0, :2] = 1000                        # overwrite tokens of the previous document
-start = int((x[0] == EOT).nonzero()[0]) + 1             # first position of the next document
-print(torch.allclose(attend(x)[0, start:], attend(x2)[0, start:]))
-# tensor([[1, 0, 0, 0, 0, 0, 0, 0],
-#         [1, 1, 0, 0, 0, 0, 0, 0],
-#         [1, 1, 1, 0, 0, 0, 0, 0],
-#         [1, 1, 1, 1, 0, 0, 0, 0],
-#         [1, 1, 1, 1, 1, 0, 0, 0],
-#         [1, 1, 1, 1, 1, 1, 0, 0],
-#         [0, 0, 0, 0, 0, 0, 1, 0],
-#         [0, 0, 0, 0, 0, 0, 1, 1]], dtype=torch.int32)
-# True
-```
+Notebook: [8.3.3-a-block-diagonal-causal-mask-and-its-leak-test.ipynb](../../code/08-generative-pretraining-gpt/8.3.3-a-block-diagonal-causal-mask-and-its-leak-test.ipynb)
 
 ## Key takeaways
 

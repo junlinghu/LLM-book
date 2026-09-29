@@ -187,185 +187,29 @@ The listings below are taken from [`code/10-reinforcement-learning-basics/ppo.py
 
 Separate policy and value networks with two hidden layers of 64 tanh units, orthogonal initialization, and a small initial scale for the policy's output so that the initial policy is nearly uniform.
 
-```python
-import numpy as np
-import torch
-import torch.nn as nn
-import gymnasium as gym
-
-def layer(inp, out, std=np.sqrt(2)):
-    """A linear layer with orthogonal weights and zero bias."""
-    lin = nn.Linear(inp, out)
-    nn.init.orthogonal_(lin.weight, std)
-    nn.init.zeros_(lin.bias)
-    return lin
-
-class ActorCritic(nn.Module):
-    """Separate policy (actor) and value (critic) networks."""
-    def __init__(self, obs_dim, n_actions, hidden=64):
-        super().__init__()
-        self.actor = nn.Sequential(layer(obs_dim, hidden), nn.Tanh(),
-                                   layer(hidden, hidden), nn.Tanh(),
-                                   layer(hidden, n_actions, std=0.01))
-        self.critic = nn.Sequential(layer(obs_dim, hidden), nn.Tanh(),
-                                    layer(hidden, hidden), nn.Tanh(),
-                                    layer(hidden, 1, std=1.0))
-
-    def dist(self, s):
-        return torch.distributions.Categorical(logits=self.actor(s))
-
-    def value(self, s):
-        return self.critic(s).squeeze(-1)
-```
+Notebook: [10.7.1-the-actor-critic-networks.ipynb](../../code/10-reinforcement-learning-basics/10.7.1-the-actor-critic-networks.ipynb)
 
 ### Code 10.7.2: Collecting rollouts
 
 Runs each of several environments for `n_steps` with the current policy, storing everything the update will need, including the old log-probabilities and values. An episode that ends by the time limit (truncation) gets the discounted value of its final state added to its last reward.
 
-```python
-def collect_rollout(envs, obs, model, n_steps, gamma, stats):
-    """Run every environment for n_steps with the current policy.
-
-    Returns a dict of tensors with a leading (n_steps, n_envs) shape and the
-    observations to continue from. Finished-episode returns go into stats.
-    """
-    n_envs = len(envs)
-    buf = {k: [] for k in ("obs", "act", "logp", "rew", "term", "val")}
-    for _ in range(n_steps):
-        s = torch.as_tensor(np.array(obs), dtype=torch.float32)
-        with torch.no_grad():
-            d = model.dist(s)
-            a = d.sample()
-            logp, v = d.log_prob(a), model.value(s)
-        rew, term = np.zeros(n_envs, np.float32), np.zeros(n_envs, np.float32)
-        for i, env in enumerate(envs):
-            s2, r, terminated, truncated, _ = env.step(int(a[i]))
-            stats["ep_ret"][i] += r
-            if truncated and not terminated:
-                # A time limit is not a real ending: bootstrap from V(s_final).
-                with torch.no_grad():
-                    r += gamma * model.value(torch.as_tensor(s2, dtype=torch.float32)).item()
-            if terminated or truncated:
-                stats["finished"].append(stats["ep_ret"][i])
-                stats["ep_ret"][i] = 0.0
-                s2, _ = env.reset()
-            rew[i], term[i] = r, float(terminated or truncated)
-            obs[i] = s2
-        for k, x in zip(buf, (s, a, logp, torch.as_tensor(rew), torch.as_tensor(term), v)):
-            buf[k].append(x)
-    return {k: torch.stack(x) for k, x in buf.items()}, obs
-```
+Notebook: [10.7.2-collecting-rollouts.ipynb](../../code/10-reinforcement-learning-basics/10.7.2-collecting-rollouts.ipynb)
 
 ### Code 10.7.3: Generalized advantage estimation
 
 The backward recursion $`\hat{A}_t = \delta_t + \gamma\lambda \hat{A}_{t+1}`$, cut at episode boundaries, and the value targets $`\hat{R}_t = \hat{A}_t + V(s_t)`$.
 
-```python
-def compute_gae(rew, val, term, last_val, gamma, lam):
-    """Generalized advantage estimation, computed backward in time.
-
-    delta_t = r_t + gamma V(s_{t+1}) - V(s_t);  A_t = delta_t + gamma lam A_{t+1},
-    with the recursion cut wherever an episode ended.
-    """
-    T = rew.shape[0]
-    adv = torch.zeros_like(rew)
-    next_adv, next_val = torch.zeros_like(last_val), last_val
-    for t in reversed(range(T)):
-        not_done = 1.0 - term[t]
-        delta = rew[t] + gamma * next_val * not_done - val[t]
-        next_adv = delta + gamma * lam * not_done * next_adv
-        adv[t] = next_adv
-        next_val = val[t]
-    return adv, adv + val            # advantages and value targets (returns)
-```
+Notebook: [10.7.3-generalized-advantage-estimation.ipynb](../../code/10-reinforcement-learning-basics/10.7.3-generalized-advantage-estimation.ipynb)
 
 ### Code 10.7.4: The PPO update
 
 Several epochs of shuffled minibatch updates on the combined loss: the clipped policy objective (with advantages normalized per minibatch), the value loss, and the entropy bonus. It also records the approximate KL and the clip fraction.
 
-```python
-def ppo_update(model, opt, batch, clip_eps, epochs, n_minibatches,
-               vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5):
-    """Several epochs of minibatch updates on the clipped PPO loss."""
-    N = batch["obs"].shape[0]
-    mb_size = N // n_minibatches
-    kls, clipfracs = [], []
-    for _ in range(epochs):
-        perm = torch.randperm(N)
-        for start in range(0, N, mb_size):
-            idx = perm[start:start + mb_size]
-            d = model.dist(batch["obs"][idx])
-            logp = d.log_prob(batch["act"][idx])
-            log_ratio = logp - batch["logp"][idx]
-            ratio = log_ratio.exp()
-            adv = batch["adv"][idx]
-            adv = (adv - adv.mean()) / (adv.std() + 1e-8)       # normalize per minibatch
-            unclipped = ratio * adv
-            clipped = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * adv
-            policy_loss = -torch.min(unclipped, clipped).mean()
-            value_loss = ((model.value(batch["obs"][idx]) - batch["ret"][idx]) ** 2).mean()
-            entropy = d.entropy().mean()
-            loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
-            opt.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-            opt.step()
-            with torch.no_grad():                              # diagnostics
-                kls.append(((ratio - 1) - log_ratio).mean().item())
-                clipfracs.append(((ratio - 1).abs() > clip_eps).float().mean().item())
-    return np.mean(kls), np.mean(clipfracs)
-```
+Notebook: [10.7.4-the-ppo-update.ipynb](../../code/10-reinforcement-learning-basics/10.7.4-the-ppo-update.ipynb)
 
 ### Code 10.7.5: The training loop
 
 Alternates rollout collection, GAE, and PPO updates, annealing the learning rate linearly to zero. Each row of the returned log holds the number of environment steps so far, the mean return of the last 10 finished episodes, the approximate KL, and the clip fraction.
 
-```python
-def train_ppo(total_steps=100_000, n_envs=4, n_steps=128, gamma=0.99, lam=0.95,
-              clip_eps=0.2, epochs=4, n_minibatches=4, lr=2.5e-4, seed=0,
-              anneal_lr=True):
-    torch.manual_seed(seed)
-    envs = [gym.make("CartPole-v1") for _ in range(n_envs)]
-    obs = [env.reset(seed=seed * 100 + i)[0] for i, env in enumerate(envs)]
-    model = ActorCritic(4, 2)
-    opt = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-5)
-    stats = {"ep_ret": np.zeros(n_envs), "finished": []}
-    n_iters = total_steps // (n_envs * n_steps)
-    log = []
-    for it in range(n_iters):
-        if anneal_lr:                                   # linear decay to zero
-            opt.param_groups[0]["lr"] = lr * (1 - it / n_iters)
-        roll, obs = collect_rollout(envs, obs, model, n_steps, gamma, stats)
-        with torch.no_grad():
-            last_val = model.value(torch.as_tensor(np.array(obs), dtype=torch.float32))
-        adv, ret = compute_gae(roll["rew"], roll["val"], roll["term"], last_val, gamma, lam)
-        batch = {"obs": roll["obs"].reshape(-1, 4), "act": roll["act"].reshape(-1),
-                 "logp": roll["logp"].reshape(-1), "adv": adv.reshape(-1),
-                 "ret": ret.reshape(-1)}
-        kl, clipfrac = ppo_update(model, opt, batch, clip_eps, epochs, n_minibatches)
-        recent = stats["finished"][-10:]
-        log.append(((it + 1) * n_envs * n_steps, np.mean(recent) if recent else np.nan,
-                    kl, clipfrac))
-    return np.array(log)
+Notebook: [10.7.5-the-training-loop.ipynb](../../code/10-reinforcement-learning-basics/10.7.5-the-training-loop.ipynb)
 
-# The configuration of Figure 10.20 (seeds 0-4); the ablations change one argument.
-log = train_ppo(total_steps=100_000, lr=1e-3, epochs=10, clip_eps=0.2, lam=0.95, seed=0)
-solved = log[log[:, 1] >= 500, 0]
-print(f"first reached 500 after {int(solved[0])} steps; final return {log[-1, 1]:.1f}; "
-      f"mean approx KL {log[:, 2].mean():.4f}; mean clip fraction {log[:, 3].mean():.3f}")
-```
-
-Output (seed 0):
-
-```text
-first reached 500 after 24064 steps; final return 500.0; mean approx KL 0.0029; mean clip fraction 0.034
-```
-
-The summary printed by `fig_s7_ppo.py` over all runs:
-
-```text
-PPO (clip 0.2, lambda 0.95)  first step with 10-ep mean 500: [24064, 32768, 23552, 28160, 29696]; mean return over training 432.2; mean return after 50k steps 500.0; final [500.0, 500.0, 500.0, 500.0, 500.0]; iterations below 200 after reaching 500: [0, 0, 0, 0, 0]; mean/max approx KL 0.0031/0.021; mean clip fraction 0.037
-no clipping                  first step with 10-ep mean 500: [32768, 68096, 45568, 48128, 79872]; mean return over training 280.8; mean return after 50k steps 359.3; final [500.0, 384.9, 150.5, 500.0, 500.0]; iterations below 200 after reaching 500: [14, 0, 83, 11, 0]; mean/max approx KL 0.0965/6.040; mean clip fraction 0.000
-lambda = 0                   first step with 10-ep mean 500: [None, 68096, 44544]; mean return over training 240.3; mean return after 50k steps 325.9; final [23.3, 500.0, 500.0]; iterations below 200 after reaching 500: [0, 0, 0]; mean/max approx KL 0.0114/0.280; mean clip fraction 0.080
-lambda = 1                   first step with 10-ep mean 500: [62464, 56320, 67072]; mean return over training 387.9; mean return after 50k steps 479.8; final [500.0, 500.0, 500.0]; iterations below 200 after reaching 500: [0, 0, 0]; mean/max approx KL 0.0021/0.038; mean clip fraction 0.021
-```

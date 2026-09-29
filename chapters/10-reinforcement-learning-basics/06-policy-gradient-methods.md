@@ -177,147 +177,17 @@ The listings below collect the code for this section in the order in which the t
 
 Compares the exact gradient of a softmax policy's expected reward on a three-armed bandit with the average of 200,000 single-sample score-function estimates, with and without a baseline.
 
-```python
-import numpy as np
-
-theta = np.array([0.5, 0.0, -0.5])          # logits
-r_mean = np.array([1.0, 2.0, 3.0])          # expected reward of each arm
-pi = np.exp(theta) / np.exp(theta).sum()
-
-# Exact gradient: dJ/dtheta_k = pi_k (r_k - J)
-J = pi @ r_mean
-exact = pi * (r_mean - J)
-
-rng = np.random.default_rng(0)
-n = 200_000
-a = rng.choice(3, size=n, p=pi)
-r = rng.normal(r_mean[a], 1.0)              # noisy rewards
-score = np.eye(3)[a] - pi                   # grad of log softmax: onehot(a) - pi
-for name, b in [("no baseline", 0.0), ("baseline b = J", J)]:
-    g = score * (r - b)[:, None]            # one gradient estimate per sample
-    print(f"{name:15s} mean {np.round(g.mean(0), 3)}  total variance {g.var(0).sum():.3f}")
-print(f"{'exact':15s} grad {np.round(exact, 3)}  (pi = {np.round(pi, 3)}, J = {J:.3f})")
-```
-
-Output:
-
-```text
-no baseline     mean [-0.341  0.1    0.24 ]  total variance 3.248
-baseline b = J  mean [-0.344  0.1    0.244]  total variance 0.864
-exact           grad [-0.344  0.098  0.246]  (pi = [0.506 0.307 0.186], J = 1.680)
-```
+Notebook: [10.6.1-checking-the-log-derivative-trick.ipynb](../../code/10-reinforcement-learning-basics/10.6.1-checking-the-log-derivative-trick.ipynb)
 
 ### Code 10.6.2: REINFORCE with an optional baseline
 
 A categorical policy network, a function that plays one episode, the reward-to-go computation, the surrogate loss, and the training loop. The value network is trained on the returns in both settings (so that Code 10.6.3 can use it), but only `use_baseline=True` subtracts its predictions in the policy update.
 
-```python
-import numpy as np
-import torch
-import torch.nn as nn
-import gymnasium as gym
-
-def mlp(inp, out, hidden=64):
-    return nn.Sequential(nn.Linear(inp, hidden), nn.Tanh(),
-                         nn.Linear(hidden, hidden), nn.Tanh(),
-                         nn.Linear(hidden, out))
-
-class Policy(nn.Module):
-    """A categorical policy: the network outputs one logit per action."""
-    def __init__(self, obs_dim, n_actions):
-        super().__init__()
-        self.logits = mlp(obs_dim, n_actions)
-
-    def dist(self, s):
-        return torch.distributions.Categorical(logits=self.logits(s))
-
-def rollout(env, policy, seed=None):
-    """Play one episode with the current policy; return states, actions, rewards."""
-    s, _ = env.reset(seed=seed)
-    states, actions, rewards = [], [], []
-    done = False
-    while not done:
-        with torch.no_grad():
-            a = int(policy.dist(torch.as_tensor(s, dtype=torch.float32)).sample())
-        s2, r, terminated, truncated, _ = env.step(a)
-        states.append(s)
-        actions.append(a)
-        rewards.append(r)
-        s, done = s2, terminated or truncated
-    return (torch.as_tensor(np.array(states), dtype=torch.float32),
-            torch.as_tensor(actions), np.array(rewards, dtype=np.float32))
-
-def rewards_to_go(rewards, gamma):
-    """G_t = r_{t+1} + gamma r_{t+2} + ... for every step of one episode."""
-    G, out = 0.0, np.zeros_like(rewards)
-    for t in reversed(range(len(rewards))):
-        G = rewards[t] + gamma * G
-        out[t] = G
-    return torch.as_tensor(out)
-
-def policy_loss(policy, states, actions, weights):
-    """Surrogate whose gradient is the REINFORCE estimate: -sum_t log pi(a_t|s_t) w_t."""
-    logp = policy.dist(states).log_prob(actions)
-    return -(logp * weights).sum()
-
-def train_reinforce(use_baseline, n_episodes=1000, gamma=0.99, lr=1e-3,
-                    lr_value=1e-3, seed=0, variance_every=None, n_var=30):
-    torch.manual_seed(seed)
-    env = gym.make("CartPole-v1")
-    policy = Policy(4, 2)
-    value = mlp(4, 1)
-    opt_pi = torch.optim.Adam(policy.parameters(), lr=lr)
-    opt_v = torch.optim.Adam(value.parameters(), lr=lr_value)
-    returns, variances = [], []
-    for ep in range(n_episodes):
-        if variance_every and ep % variance_every == 0:
-            variances.append((ep, *gradient_variance(env, policy, value, gamma, n_var,
-                                                     seed=seed * 100_000 + ep)))
-        states, actions, rewards = rollout(env, policy, seed=seed * 100_000 + ep)
-        G = rewards_to_go(rewards, gamma)
-        v = value(states).squeeze(1)                 # critic: regress V(s_t) on G_t
-        v_loss = ((v - G) ** 2).mean()
-        opt_v.zero_grad()
-        v_loss.backward()
-        opt_v.step()
-        weights = G - v.detach() if use_baseline else G
-        loss = policy_loss(policy, states, actions, weights)
-        opt_pi.zero_grad()
-        loss.backward()
-        opt_pi.step()
-        returns.append(rewards.sum())
-    return np.array(returns), variances
-```
+Notebook: [10.6.2-reinforce-with-an-optional-baseline.ipynb](../../code/10-reinforcement-learning-basics/10.6.2-reinforce-with-an-optional-baseline.ipynb)
 
 ### Code 10.6.3: Measuring the variance of the gradient estimate
 
 For the current, frozen policy, samples `n` episodes, computes the flattened gradient of the surrogate loss for each episode with both weightings, and returns the total variance (the trace of the covariance matrix) of each set of estimates. It reuses the definitions of Code 10.6.2.
 
-```python
-def flat_grad(policy, states, actions, weights):
-    policy.zero_grad()
-    policy_loss(policy, states, actions, weights).backward()
-    return torch.cat([p.grad.flatten() for p in policy.parameters()]).clone()
+Notebook: [10.6.3-measuring-the-variance-of-the-gradient-estimate.ipynb](../../code/10-reinforcement-learning-basics/10.6.3-measuring-the-variance-of-the-gradient-estimate.ipynb)
 
-def gradient_variance(env, policy, value, gamma, n, seed):
-    """Total variance of single-episode gradient estimates, without and with
-    the value baseline, for the current, frozen policy."""
-    g_plain, g_base = [], []
-    for i in range(n):
-        states, actions, rewards = rollout(env, policy, seed=seed + 50_000 + i)
-        G = rewards_to_go(rewards, gamma)
-        with torch.no_grad():
-            b = value(states).squeeze(1)
-        g_plain.append(flat_grad(policy, states, actions, G))
-        g_base.append(flat_grad(policy, states, actions, G - b))
-    policy.zero_grad()
-    tv = lambda g: torch.stack(g).var(dim=0).sum().item()
-    return tv(g_plain), tv(g_base)
-```
-
-Running `train_reinforce` for 1,000 episodes with seeds 0 to 4 (`variance_every=100`), with and without the baseline, and printing summary statistics gives:
-
-```text
-no baseline  mean return eps 1-200:   98.0  eps 201-500:  205.6  last 100:  365.5 (per seed [321, 494, 500, 109, 404]); first episode with 20-ep average >= 475: [608, 630, 480, 511, 988]
-baseline     mean return eps 1-200:  134.7  eps 201-500:  345.6  last 100:  427.2 (per seed [500, 483, 484, 172, 496]); first episode with 20-ep average >= 475: [361, 248, 359, 277, 250]
-```

@@ -168,46 +168,14 @@ The listings below collect the code for this section in the order in which the t
 
 Runs 25 steps of gradient descent on $`L = \tfrac{1}{2}(4 w_1^2 + w_2^2)`$ from (2.5, 2.5) with the four learning rates of Figure 2.15 and prints the final position.
 
-```python
-import numpy as np
-
-def grad(w):                       # gradient of 0.5 * (4 w1^2 + w2^2)
-    return np.array([4.0 * w[0], 1.0 * w[1]])
-
-for lr in [0.05, 0.35, 0.48, 0.53]:
-    w = np.array([2.5, 2.5])
-    for step in range(25):
-        w = w - lr * grad(w)
-    print(f"lr={lr:4.2f}  w after 25 steps = ({w[0]: .3e}, {w[1]: .3e})")
-```
-
-Output:
-
-```text
-lr=0.05  w after 25 steps = ( 9.445e-03,  6.935e-01)
-lr=0.35  w after 25 steps = (-2.815e-10,  5.257e-05)
-lr=0.48  w after 25 steps = (-3.109e-01,  1.986e-07)
-lr=0.53  w after 25 steps = (-4.250e+01,  1.586e-08)
-```
+Notebook: [2.5.1-gradient-descent-on-an-elongated-quadratic-bowl.ipynb](../../code/02-neural-network-basics/2.5.1-gradient-descent-on-an-elongated-quadratic-bowl.ipynb)
 
 ### Code 2.5.2: A shuffled minibatch iterator
 
 A generator that shuffles the data and yields consecutive minibatches covering each example once, checked on 400 random examples with batch size 32. It reuses `np` from Code 2.5.1.
 
-```python
-def minibatches(X, y, batch_size, rng):
-    """Yield (X_batch, y_batch) pairs covering the data once, in a random order."""
-    order = rng.permutation(len(X))
-    for start in range(0, len(X), batch_size):
-        idx = order[start:start + batch_size]
-        yield X[idx], y[idx]
+Notebook: [2.5.2-a-shuffled-minibatch-iterator.ipynb](../../code/02-neural-network-basics/2.5.2-a-shuffled-minibatch-iterator.ipynb)
 
-rng = np.random.default_rng(0)
-X, y = rng.normal(size=(400, 2)), rng.integers(0, 2, size=400)
-sizes = [len(xb) for xb, _ in minibatches(X, y, 32, rng)]
-print(len(sizes), "iterations per epoch; batch sizes:", sizes)
-# 13 iterations per epoch; batch sizes: [32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 16]
-```
 ## Key takeaways
 
 - Training minimizes the average loss over the training set. The gradient points in the direction of steepest increase, so gradient descent steps against it: $`\theta \leftarrow \theta - \eta \nabla_\theta L`$.

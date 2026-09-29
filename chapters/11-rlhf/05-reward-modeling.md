@@ -152,102 +152,15 @@ These listings need `torch`, `transformers`, and `datasets`, and reuse `split_pr
 
 ### Code 11.5.1: A reward model and its losses
 
-`RewardModel` wraps a transformer backbone (`AutoModel`, which omits the language-modeling head) and reads a scalar at the last real token, assuming right padding. The head is initialized with standard deviation $`1/\sqrt{d+1}`$, following the reference implementation of Stiennon et al. (2020) as documented by Huang et al. (2024). `bt_loss` is the pairwise Bradley-Terry loss with an optional margin, and `ranking_loss` averages it over all pairs of a ranking.
+`RewardModel` wraps a transformer backbone (`AutoModel`, which omits the language-modeling head) and reads a scalar at the last real token, assuming right padding.
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from transformers import AutoModel
-
-class RewardModel(nn.Module):
-    """A transformer backbone with a scalar head read out at the last real token."""
-    def __init__(self, name):
-        super().__init__()
-        self.backbone = AutoModel.from_pretrained(name)      # e.g. the SFT model without its LM head
-        d = self.backbone.config.hidden_size
-        self.head = nn.Linear(d, 1)
-        nn.init.normal_(self.head.weight, std=1 / (d + 1) ** 0.5)
-        nn.init.zeros_(self.head.bias)
-
-    def forward(self, input_ids, attention_mask):
-        h = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
-        last = attention_mask.sum(dim=1) - 1                 # index of the last real token (right padding)
-        h_last = h[torch.arange(h.size(0)), last]
-        return self.head(h_last).squeeze(-1)                 # one scalar per sequence
-
-def bt_loss(r_chosen, r_rejected, margin=0.0):
-    """Bradley-Terry pairwise loss: -log sigmoid(r_c - r_r - m)."""
-    return -F.logsigmoid(r_chosen - r_rejected - margin).mean()
-
-def ranking_loss(rewards):
-    """InstructGPT-style loss for one prompt with K responses ranked best first:
-    the pairwise loss averaged over all K*(K-1)/2 pairs."""
-    K = rewards.shape[0]
-    i, j = torch.triu_indices(K, K, offset=1)                # response i is ranked above response j
-    return -F.logsigmoid(rewards[i] - rewards[j]).mean()
-
-print(ranking_loss(torch.tensor([2.0, 1.0, 0.5, -1.0])))     # tensor(0.2276)
-```
+Notebook: [11.5.1-a-reward-model-and-its-losses.ipynb](../../code/11-rlhf/11.5.1-a-reward-model-and-its-losses.ipynb)
 
 ### Code 11.5.2: Training and evaluating a reward model on HH-RLHF
 
 The second suggested code lab. Trains for one epoch on `N_TRAIN` pairs, then reports held-out accuracy and how often the model prefers the longer response, and saves the weights for Section 7.
 
-```python
-import torch
-from datasets import load_dataset
-from transformers import AutoTokenizer
-
-torch.manual_seed(0)
-name, N_TRAIN, N_TEST, BATCH = "distilgpt2", 400, 200, 8
-tok = AutoTokenizer.from_pretrained(name)
-tok.pad_token = tok.eos_token
-tok.padding_side, tok.truncation_side = "right", "left"      # keep the end of long inputs: the response
-rm = RewardModel(name)
-opt = torch.optim.AdamW(rm.parameters(), lr=1e-5)
-
-ds = load_dataset("Anthropic/hh-rlhf", data_dir="helpful-base")
-def to_pairs(split, n):
-    pairs = []
-    for ex in split.shuffle(seed=0).select(range(n)):
-        try:
-            pairs.append(split_prompt(ex["chosen"], ex["rejected"]))
-        except ValueError:
-            pass
-    return pairs
-train_pairs, test_pairs = to_pairs(ds["train"], N_TRAIN), to_pairs(ds["test"], N_TEST)
-
-def score(prompts, responses, max_len=384):
-    texts = [p + r + tok.eos_token for p, r in zip(prompts, responses)]
-    enc = tok(texts, return_tensors="pt", padding=True, truncation=True, max_length=max_len)
-    return rm(enc["input_ids"], enc["attention_mask"])
-
-rm.eval()                                                    # no dropout
-for step in range(0, len(train_pairs), BATCH):               # a single epoch
-    p, c, r = zip(*train_pairs[step:step + BATCH])
-    r_c, r_r = score(p, c), score(p, r)
-    loss = bt_loss(r_c, r_r)
-    opt.zero_grad(); loss.backward()
-    torch.nn.utils.clip_grad_norm_(rm.parameters(), 1.0)
-    opt.step()
-    if (step // BATCH) % 10 == 0:
-        print(f"step {step // BATCH:3d}  loss {loss.item():.3f}  batch acc {(r_c > r_r).float().mean():.2f}")
-
-correct = longer_pref = n_diff = 0
-with torch.no_grad():
-    for i in range(0, len(test_pairs), 16):
-        p, c, r = zip(*test_pairs[i:i + 16])
-        r_c, r_r = score(p, c), score(p, r)
-        correct += (r_c > r_r).sum().item()
-        for a, b, ra, rb in zip(c, r, r_c, r_r):             # does the RM prefer the longer response?
-            if len(a) != len(b):
-                n_diff += 1
-                longer_pref += int((ra > rb) == (len(a) > len(b)))
-print(f"held-out accuracy {correct / len(test_pairs):.3f}; "
-      f"prefers the longer response {longer_pref / n_diff:.3f}")
-torch.save(rm.state_dict(), "reward_model.pt")
-```
+Notebook: [11.5.2-training-and-evaluating-a-reward-model-on-hh-rlhf.ipynb](../../code/11-rlhf/11.5.2-training-and-evaluating-a-reward-model-on-hh-rlhf.ipynb)
 
 ## Key takeaways
 

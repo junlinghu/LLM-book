@@ -170,71 +170,13 @@ We now know what to optimize: reward minus a KL penalty, charged per token. How 
 
 Computes $`\pi^* \propto \pi_{\mathrm{ref}} \exp(r / \beta)`$ for six responses with made-up reference probabilities and rewards, and prints the expected reward and KL divergence for three values of $\beta$. The full plotting script is [`code/11-rlhf/make_figures.py`](../../code/11-rlhf/make_figures.py).
 
-```python
-import numpy as np
-
-pi_ref = np.array([0.35, 0.25, 0.18, 0.12, 0.07, 0.03])   # toy reference probabilities
-r = np.array([0.0, 0.5, 1.0, 1.5, 2.0, 3.0])              # toy rewards
-
-def optimal_policy(beta):
-    w = pi_ref * np.exp(r / beta)
-    return w / w.sum()
-
-def kl(p, q):
-    return float(np.sum(p * np.log(p / q)))
-
-print(f"reference: E[r]={pi_ref @ r:.2f}")
-for beta in [2.0, 0.5, 0.2]:
-    p = optimal_policy(beta)
-    objective = p @ r - beta * kl(p, pi_ref)
-    beta_log_z = beta * np.log(np.sum(pi_ref * np.exp(r / beta)))
-    print(f"beta={beta}: E[r]={p @ r:.2f}, KL={kl(p, pi_ref):.2f}, "
-          f"objective={objective:.3f} = beta*log Z={beta_log_z:.3f}, pi*={np.round(p, 3)}")
-```
-
-The printed values match the text:
-
-```text
-reference: E[r]=0.71
-beta=2.0: E[r]=1.05, KL=0.09, objective=0.872 = beta*log Z=0.872, pi*=[0.226 0.208 0.192 0.164 0.123 0.087]
-beta=0.5: E[r]=2.38, KL=1.73, objective=1.515 = beta*log Z=1.515, pi*=[0.017 0.033 0.064 0.116 0.185 0.585]
-beta=0.2: E[r]=2.98, KL=3.39, objective=2.302 = beta*log Z=2.302, pi*=[0.    0.    0.    0.002 0.015 0.982]
-```
+Notebook: [11.6.1-the-kl-regularized-optimum-on-a-toy-problem.ipynb](../../code/11-rlhf/11.6.1-the-kl-regularized-optimum-on-a-toy-problem.ipynb)
 
 ### Code 11.6.2: KL estimators and an adaptive KL controller
 
-The first part compares two sample-based estimators of the per-token KL divergence with the exact value, for a random next-token distribution over a 50-token vocabulary and a nearby reference. Both are unbiased. On this example the log-ratio estimator is negative on about half the samples and has a standard deviation about six times larger than the second estimator, which is never negative. (When the two distributions are far apart, the advantage of the second estimator shrinks and can reverse.) The second part implements the controller of Ziegler et al. (2019).
+The first part compares two sample-based estimators of the per-token KL divergence with the exact value, for a random next-token distribution over a 50-token vocabulary and a nearby reference.
 
-```python
-import torch
-
-torch.manual_seed(0)
-logits_pi = torch.randn(50)
-logits_ref = logits_pi + 0.3 * torch.randn(50)                # a nearby reference, as in RLHF
-p, q = logits_pi.softmax(-1), logits_ref.softmax(-1)
-exact = (p * (p.log() - q.log())).sum()
-
-y = torch.multinomial(p, 100_000, replacement=True)          # tokens sampled from the policy
-log_ratio = p.log()[y] - q.log()[y]                           # log pi(y) / pi_ref(y)
-k1 = log_ratio                                                # unbiased, can be negative
-k3 = (torch.exp(-log_ratio) - 1) + log_ratio                  # (rho - 1) - log rho, rho = pi_ref / pi
-print(f"exact {exact:.4f} | k1 mean {k1.mean():.4f} std {k1.std():.3f} "
-      f"| k3 mean {k3.mean():.4f} std {k3.std():.3f} | k1 < 0 on {(k1 < 0).float().mean():.0%} of samples")
-
-class AdaptiveKLController:
-    """Log-space proportional controller that steers the observed KL toward a target."""
-    def __init__(self, init_beta=0.1, target=6.0, k_beta=0.1):
-        self.beta, self.target, self.k_beta = init_beta, target, k_beta
-
-    def update(self, observed_kl):
-        error = max(-0.2, min(0.2, (observed_kl - self.target) / self.target))
-        self.beta *= 1 + self.k_beta * error
-        return self.beta
-
-ctl = AdaptiveKLController(init_beta=0.1, target=6.0)
-for kl_t in [2.0, 4.0, 8.0, 12.0, 6.0]:
-    print(f"observed KL {kl_t:5.1f} -> beta {ctl.update(kl_t):.4f}")
-```
+Notebook: [11.6.2-kl-estimators-and-an-adaptive-kl-controller.ipynb](../../code/11-rlhf/11.6.2-kl-estimators-and-an-adaptive-kl-controller.ipynb)
 
 ## Key takeaways
 

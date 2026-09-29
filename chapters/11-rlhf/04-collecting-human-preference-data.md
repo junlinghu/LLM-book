@@ -106,59 +106,15 @@ The listings below need the `datasets` library.
 
 ### Code 11.4.1: Loading HH-RLHF and checking a length bias
 
-Loads the helpful subset of HH-RLHF, splits each record into the shared prompt and the two final responses, and measures how often the chosen response is longer. The prompt ends at the last `"\n\nAssistant:"`, where the two transcripts diverge. A few dozen records do not share a prompt under this rule and are skipped. On the training split, this prints about 43,800 usable pairs, with the chosen response longer (in characters) in about 59% of them.
+Loads the helpful subset of HH-RLHF, splits each record into the shared prompt and the two final responses, and measures how often the chosen response is longer.
 
-```python
-from datasets import load_dataset
-
-ds = load_dataset("Anthropic/hh-rlhf", data_dir="helpful-base")
-
-def split_prompt(chosen, rejected):
-    """Both transcripts share the conversation so far; they differ only in the last assistant turn."""
-    marker = "\n\nAssistant:"
-    cut = chosen.rfind(marker) + len(marker)
-    prompt = chosen[:cut]
-    if not rejected.startswith(prompt):
-        raise ValueError("chosen and rejected do not share the prompt")
-    return prompt, chosen[cut:], rejected[cut:]
-
-ex = ds["train"][0]
-prompt, y_c, y_r = split_prompt(ex["chosen"], ex["rejected"])
-print(prompt[-200:], "\nCHOSEN:", y_c[:200], "\nREJECTED:", y_r[:200])
-
-n = longer = skipped = 0
-for ex in ds["train"]:
-    try:
-        _, y_c, y_r = split_prompt(ex["chosen"], ex["rejected"])
-    except ValueError:
-        skipped += 1
-        continue
-    n += 1
-    longer += len(y_c) > len(y_r)
-print(f"pairs: {n}, skipped: {skipped}, chosen is longer: {longer / n:.3f}")
-```
+Notebook: [11.4.1-loading-hh-rlhf-and-checking-a-length-bias.ipynb](../../code/11-rlhf/11.4.1-loading-hh-rlhf-and-checking-a-length-bias.ipynb)
 
 ### Code 11.4.2: Agreement and Cohen's kappa for pairwise labels
 
 Given two labelers' choices on the same comparisons (0 for the first response, 1 for the second), computes raw agreement and Cohen's kappa. With balanced labels, 72.6% agreement gives a kappa of about 0.45.
 
-```python
-import numpy as np
-
-def agreement_and_kappa(a, b):
-    a, b = np.asarray(a), np.asarray(b)
-    p_o = np.mean(a == b)                                    # observed agreement
-    p_a, p_b = a.mean(), b.mean()                            # how often each labeler picks response 2
-    p_e = p_a * p_b + (1 - p_a) * (1 - p_b)                  # agreement expected by chance
-    return p_o, (p_o - p_e) / (1 - p_e)
-
-rng = np.random.default_rng(0)
-truth = rng.integers(0, 2, 10_000)
-flip = lambda p: np.where(rng.random(truth.size) < p, 1 - truth, truth)
-a, b = flip(0.15), flip(0.15)                                # each labeler errs 15% of the time
-print(agreement_and_kappa(a, b))                             # about (0.745, 0.49)
-print((0.726 - 0.5) / 0.5)                                   # kappa for 72.6% agreement, balanced labels
-```
+Notebook: [11.4.2-agreement-and-cohens-kappa-for-pairwise-labels.ipynb](../../code/11-rlhf/11.4.2-agreement-and-cohens-kappa-for-pairwise-labels.ipynb)
 
 ## Key takeaways
 
