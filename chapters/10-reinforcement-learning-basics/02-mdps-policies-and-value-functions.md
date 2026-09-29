@@ -142,7 +142,7 @@ The Markov decision process and dynamic programming come from operations researc
 
 ## Code for this section
 
-The listings below collect the code for this section in the order in which the text refers to them. They are taken from [`figures/src/gridworld.py`](figures/src/gridworld.py); the script `fig_s2_mdp.py` in the same folder produces Figures 10.4 and 10.5 and the numbers quoted in the text.
+The listings below collect the code for this section in the order in which the text refers to them. They are taken from [`code/10-reinforcement-learning-basics/gridworld.py`](../../code/10-reinforcement-learning-basics/gridworld.py); the script `fig_s2_mdp.py` in the same folder produces Figures 10.4 and 10.5 and the numbers quoted in the text.
 
 ### Code 10.2.1: The gridworld MDP
 

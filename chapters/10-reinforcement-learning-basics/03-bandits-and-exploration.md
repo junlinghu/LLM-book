@@ -87,7 +87,7 @@ The bandit problem was first posed in the 1930s by William Thompson, who studied
 
 ## Code for this section
 
-The listing below is taken from [`figures/src/bandit.py`](figures/src/bandit.py); the script `fig_s3_bandits.py` in the same folder runs the five agents and draws Figures 10.6 and 10.7.
+The listing below is taken from [`code/10-reinforcement-learning-basics/bandit.py`](../../code/10-reinforcement-learning-basics/bandit.py); the script `fig_s3_bandits.py` in the same folder runs the five agents and draws Figures 10.6 and 10.7.
 
 ### Code 10.3.1: A vectorized 10-armed testbed
 

@@ -2,6 +2,8 @@
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 import torch
 from multiprocessing import Pool
 from ppo import train_ppo
@@ -26,4 +28,4 @@ if __name__ == "__main__":
     jobs = [(n, o, s) for n, o, seeds in CONFIGS for s in seeds]
     with Pool(3) as p:
         out = p.map(job, jobs, chunksize=1)
-    np.save("ppo_results.npy", np.array(out, dtype=object), allow_pickle=True)
+    np.save(os.path.join(HERE, "ppo_results.npy"), np.array(out, dtype=object), allow_pickle=True)

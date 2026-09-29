@@ -104,7 +104,7 @@ More sophisticated regularizers, which let us keep large models while controllin
 
 ## A complete training loop
 
-[Code 2.8.1](#code-281-a-complete-training-loop-with-early-stopping) puts everything together using the vectorized network from Section 2.7 (`init_params`, `forward`, `softmax_cross_entropy`, and `backward`, also available in `figures/src/numpy_mlp.py`) and a two-moons data generator (`make_moons` in `figures/src/style.py`). It splits the data, trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, stops early, and finally evaluates the best model on the test set exactly once.
+[Code 2.8.1](#code-281-a-complete-training-loop-with-early-stopping) puts everything together using the vectorized network from Section 2.7 (`init_params`, `forward`, `softmax_cross_entropy`, and `backward`, also available in [`code/02-neural-network-basics/numpy_mlp.py`](../../code/02-neural-network-basics/numpy_mlp.py)) and a two-moons data generator (`make_moons` in [`code/02-neural-network-basics/style.py`](../../code/02-neural-network-basics/style.py)). It splits the data, trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, stops early, and finally evaluates the best model on the test set exactly once.
 
 We run it on 300 noisy two-moons points, split 70/15/15, with 128 hidden units, learning rate 0.1, batch size 16, and a patience of 50 epochs. The validation loss reached its minimum of 0.226 at epoch 231 and stopped improving after that, so training ended 50 epochs later, at epoch 281, by which point the training loss was 0.240 and the validation loss had risen to 0.343. The checkpoint from epoch 231 was used for the single test evaluation: a test loss of 0.229 and 91% accuracy on 45 unseen points. With datasets this small, validation and test estimates are noisy (one test point is about 2 percentage points), which is another reason to report exactly how an experiment was run.
 
@@ -136,7 +136,7 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 2.8.1: A complete training loop with early stopping
 
-Data splitting, evaluation, and a `fit` function that trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, and stops early, followed by a single evaluation on the test set. It relies on `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2, also in `figures/src/numpy_mlp.py`) and on `make_moons` from `figures/src/style.py`.
+Data splitting, evaluation, and a `fit` function that trains with minibatch SGD, evaluates on the validation set after every epoch, keeps the best checkpoint, and stops early, followed by a single evaluation on the test set. It relies on `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2, also in [`code/02-neural-network-basics/numpy_mlp.py`](../../code/02-neural-network-basics/numpy_mlp.py)) and on `make_moons` from [`code/02-neural-network-basics/style.py`](../../code/02-neural-network-basics/style.py).
 
 ```python
 import copy

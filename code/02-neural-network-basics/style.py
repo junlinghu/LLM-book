@@ -11,7 +11,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-FIG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Rendered PNGs stay with the chapter prose, not next to these scripts.
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+FIG_DIR = os.path.join(_REPO_ROOT, "chapters", "02-neural-network-basics", "figures")
 
 BLUE = "#3b75af"
 ORANGE = "#e1812c"

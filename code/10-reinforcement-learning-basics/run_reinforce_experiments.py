@@ -2,6 +2,8 @@
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 import torch
 from multiprocessing import Pool
 from reinforce import train_reinforce
@@ -27,4 +29,4 @@ if __name__ == "__main__":
     jobs = [(n, b, lr, s, v) for n, b, lr, seeds, v in CONFIGS for s in seeds]
     with Pool(4) as p:
         out = p.map(job, jobs, chunksize=1)
-    np.save("reinforce_results.npy", np.array(out, dtype=object), allow_pickle=True)
+    np.save(os.path.join(HERE, "reinforce_results.npy"), np.array(out, dtype=object), allow_pickle=True)

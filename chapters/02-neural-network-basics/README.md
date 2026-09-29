@@ -40,7 +40,7 @@ Every large language model is, at its core, a neural network trained by gradient
 
    Tensors with `requires_grad`, the dynamic graph and `backward()`, how each from-scratch piece maps to PyTorch, rebuilding the MLP with `torch.nn`, and confirming that our gradients and loss curve match PyTorch's to round-off error.
 
-Figures are in [`figures/`](figures/). Every plot is produced by a Python script in [`figures/src/`](figures/src/), which also holds the chapter's from-scratch code (the scalar autograd engine and the NumPy MLP). To regenerate all figures, run `for f in fig_*.py; do python "$f"; done` from inside `figures/src/` (requires NumPy, Matplotlib, and PyTorch).
+Figures are in [`figures/`](figures/). Every plot is produced by a Python script in [`code/02-neural-network-basics/`](../../code/02-neural-network-basics/), which also holds the chapter's from-scratch code (the scalar autograd engine and the NumPy MLP). To regenerate all figures, run `for f in fig_*.py; do python "$f"; done` from inside [`code/02-neural-network-basics/`](../../code/02-neural-network-basics/) (requires NumPy, Matplotlib, and PyTorch). The scripts write PNGs into `figures/`.
 
 ## Suggested code labs
 

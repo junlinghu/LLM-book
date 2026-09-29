@@ -4,9 +4,13 @@ Figure 10.18 is analytic. Figures 10.20 and 10.21 load ppo_results.npy (from
 run_ppo_experiments.py) and reinforce_results.npy (from
 run_reinforce_experiments.py); run those scripts first.
 """
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, save, smooth
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ------------------------------------------------ Figure 10.18: the clipped objective
 eps = 0.2
@@ -36,7 +40,7 @@ for ax, A, title in [(axes[0], 1.0, "positive advantage ($\\hat{A} = +1$)"),
 save(fig, "fig9-18-clipped-objective.png")
 
 # ------------------------------------------------ load training results
-res = np.load("ppo_results.npy", allow_pickle=True)
+res = np.load(os.path.join(HERE, "ppo_results.npy"), allow_pickle=True)
 logs = {}
 for name, seed, log in res:
     logs.setdefault(name, []).append((seed, log))
@@ -61,7 +65,7 @@ for name, runs in logs.items():
           f"mean clip fraction {np.nanmean(L[:, :, 3]):.3f}")
 
 # REINFORCE with baseline, re-indexed by environment steps (reward is 1 per step)
-rf = np.load("reinforce_results.npy", allow_pickle=True)
+rf = np.load(os.path.join(HERE, "reinforce_results.npy"), allow_pickle=True)
 rf_runs = [rets for name, seed, rets, var in rf if name == "baseline"]
 grid = np.arange(512, 100_001, 512)
 rf_curves = []
