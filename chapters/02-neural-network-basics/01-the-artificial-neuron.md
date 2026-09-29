@@ -41,12 +41,6 @@ A single neuron is not a new kind of model. With no activation, it outputs $`\ma
 
 In 1943 Warren McCulloch and Walter Pitts modeled a nerve cell as a threshold unit with fixed connections; in 1958 Frank Rosenblatt's perceptron added weights learned from examples. Marvin Minsky and Seymour Papert's 1969 book *Perceptrons* showed that single-layer perceptrons cannot compute functions such as XOR, and research slowed until David Rumelhart, Geoffrey Hinton, and Ronald Williams popularized backpropagation for training hidden layers in 1986. Real neurons are far more complex than these units; from here on we treat neural networks simply as mathematics.
 
-## Key takeaways
-
-- An artificial neuron computes a weighted sum of its inputs plus a bias, $`z = \mathbf{w}^\top \mathbf{x} + b`$, and passes it through an activation function $g$.
-- The perceptron learns with a simple mistake-driven rule that converges only when the data are linearly separable.
-- A neuron's decision boundary is a hyperplane, so a single neuron cannot solve XOR; hidden layers and nonlinear activations fix this.
-- A neuron with no activation is linear regression; with a sigmoid activation it is logistic regression.
 
 ## Further reading
 
