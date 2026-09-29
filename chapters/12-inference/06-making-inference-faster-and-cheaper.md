@@ -1,4 +1,4 @@
-# 13.6 Making Inference Faster and Cheaper
+# 12.6 Making Inference Faster and Cheaper
 
 The previous sections built a cost model for inference. Prefill is compute-bound; decode is memory-bandwidth-bound; the KV cache competes with the weights for memory and bandwidth; and larger batches amortize the cost of reading weights. This section uses that model to explain the main techniques practitioners use to make inference faster and cheaper. Each technique attacks one term of the cost model:
 

@@ -1,4 +1,4 @@
-# 13.2 The Compute of a Forward Pass
+# 12.2 The Compute of a Forward Pass
 
 Section 1 showed that generating text means running the model once per new token. Before we can reason about speed, memory, or cost, we need to know how much arithmetic one of those runs takes. This section derives the most useful rule of thumb in LLM inference: a forward pass costs roughly **two floating-point operations per parameter per token**. We then look at where those operations go inside a transformer layer, and at the one part of the computation that does not scale with the parameter count at all: attention over the context, whose cost grows with the length of the sequence.
 

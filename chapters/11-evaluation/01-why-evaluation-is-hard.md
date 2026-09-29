@@ -1,4 +1,4 @@
-# 12.1 Why Evaluation Is Hard
+# 11.1 Why Evaluation Is Hard
 
 By this point in the book you know how to build a large language model: tokenize text, train a transformer to predict the next token, fine-tune it on demonstrations, and then shape its behavior with reinforcement learning from human feedback, DPO, or GRPO. Every one of those steps had a number attached to it. Pretraining minimized cross-entropy loss. SFT minimized loss on demonstrations. RLHF maximized a learned reward. It is tempting to think that evaluating the finished model is just a matter of reading off one more number.
 

@@ -1,4 +1,4 @@
-# 13.3 Prefill and Decode
+# 12.3 Prefill and Decode
 
 When you send a prompt to a chat model, two very different computations happen. First the model reads your whole prompt. Then it writes its answer one token at a time. These two phases, called **prefill** and **decode**, stress the hardware in opposite ways. Prefill is a large, parallel computation that keeps the arithmetic units busy. Decode is a long chain of small computations that spend most of their time waiting for data to arrive from memory. Understanding this split explains why the first token of a response takes a different amount of time than the rest, why output tokens cost more than input tokens (Section 8), and why almost every optimization in this chapter targets one phase or the other.
 

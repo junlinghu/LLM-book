@@ -1,4 +1,4 @@
-# 11.2 RL without a Value Model
+# 13.2 RL without a Value Model
 
 Section 1 spent most of PPO's memory on a model that never speaks to the user. The value model exists to guess, at each token, how the response will eventually be scored, so the policy gradient can use that guess as a baseline. For a language model the guess is expensive and, on long answers with a single score at the end, often not very good. This section drops it. REINFORCE with a baseline, RLOO, and GRPO estimate the advantage by comparing the rewards of responses that were actually sampled. They keep the policy-gradient idea of Chapter 9 and the KL-regularized objective of Chapter 10, and they delete the critic.
 

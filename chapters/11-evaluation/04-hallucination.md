@@ -1,4 +1,4 @@
-# 12.4 Hallucination
+# 11.4 Hallucination
 
 Ask a language model for three peer-reviewed papers on a niche topic, and it may give you three perfectly formatted citations with plausible authors, plausible titles, plausible journals, and plausible page numbers, none of which exist. Ask it to summarize a contract, and it may state a termination fee that appears nowhere in the document. Ask it who won a minor award in 2011, and it may name, with complete confidence, someone who was never nominated.
 

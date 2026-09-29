@@ -1,4 +1,4 @@
-# Chapter 12: Evaluation
+# Chapter 11: Evaluation
 
 This chapter covers how to measure whether an LLM is good, and how to detect and reduce one of its most important failures: hallucination.
 

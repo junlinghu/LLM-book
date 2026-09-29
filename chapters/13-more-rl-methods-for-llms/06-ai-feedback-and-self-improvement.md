@@ -1,4 +1,4 @@
-# 11.6 AI Feedback and Self-Improvement
+# 13.6 AI Feedback and Self-Improvement
 
 Every method in this chapter consumes labels. PPO consumes them through a reward model, DPO consumes them as pairs, and RLVR consumes them as checked answers. Human labels are the scarce input. They are slow, they are unpleasant to collect when the subject is harmful behavior, and they do not get cheaper as the model gets larger. AI feedback replaces the human labeler with a language model that writes the comparison, the critique, or the score. The policy-optimization algorithm does not change. The source of $`r`$, or of the pair $`(y_w, y_l)`$, does.
 

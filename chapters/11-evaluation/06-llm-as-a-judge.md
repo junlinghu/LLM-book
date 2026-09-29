@@ -1,4 +1,4 @@
-# 12.6 LLM-as-a-Judge
+# 11.6 LLM-as-a-Judge
 
 Human evaluation (Section 5) is the reference for open-ended quality, but it is slow and expensive. You cannot hire annotators to rate every checkpoint of a training run, every prompt variant, or every one of the thousands of responses in a nightly regression suite. Around 2023, researchers began to use strong LLMs themselves as evaluators, and the practice spread quickly. Today *LLM-as-a-judge* is the workhorse of open-ended evaluation: it powers benchmarks such as MT-Bench, AlpacaEval, and Arena-Hard, it grades free-form answers in factuality benchmarks, it scores faithfulness in RAG systems, and it serves as the reward signal in RL from AI feedback (Chapter 11).
 

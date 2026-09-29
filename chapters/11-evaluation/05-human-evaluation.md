@@ -1,4 +1,4 @@
-# 12.5 Human Evaluation
+# 11.5 Human Evaluation
 
 For open-ended tasks, such as writing, advice, explanation, and conversation, there is often no reference answer and no automatic check. The final judge of whether a response is good is a person. Human evaluation is therefore often described as the "gold standard" for LLM evaluation, and human preferences are also the raw material of RLHF (Chapter 10).
 

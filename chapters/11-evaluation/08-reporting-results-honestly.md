@@ -1,4 +1,4 @@
-# 12.8 Reporting Results Honestly
+# 11.8 Reporting Results Honestly
 
 Every section of this chapter has ended with a warning about some way evaluation results can mislead: contamination, saturated benchmarks, prompt sensitivity, judge biases, annotator disagreement, selective disclosure. This final section is about the discipline that ties those warnings together. It covers how to quantify the uncertainty in an evaluation result, how to avoid fooling yourself and your readers with selected examples and selected numbers, and a checklist for evaluating a new model or fine-tune.
 

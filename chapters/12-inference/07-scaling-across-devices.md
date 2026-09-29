@@ -1,4 +1,4 @@
-# 13.7 Scaling Across Devices
+# 12.7 Scaling Across Devices
 
 So far we have mostly imagined a model running on a single accelerator. Many models do not fit. A 70-billion-parameter model needs about 140 GB for its BF16 weights alone, before any KV cache, and frontier models, especially large mixture-of-experts models, are far bigger. Even when a model fits, splitting it across devices can make each token faster, because the devices read their shares of the weights in parallel and their memory bandwidths add up.
 

@@ -1,4 +1,4 @@
-# 11.4 DPO Variants and Other Preference Methods
+# 13.4 DPO Variants and Other Preference Methods
 
 DPO turns a preference pair into a classification loss. The variants in this section change one assumption at a time: what happens when the labels are deterministic, what happens when the data are single thumbs rather than pairs, whether a reference model is required, whether length is normalized, and whether the pairs stay frozen while the policy moves. Rejection sampling fine-tuning sits at the end as the baseline that does none of this machinery and is still hard to beat.
 

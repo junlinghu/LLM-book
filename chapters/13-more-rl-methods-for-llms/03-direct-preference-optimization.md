@@ -1,4 +1,4 @@
-# 11.3 Direct Preference Optimization (DPO)
+# 13.3 Direct Preference Optimization (DPO)
 
 PPO spends a sampling loop and four models on an optimization problem that has a closed form. Section 10.6 already wrote the solution down: under the KL-regularized objective, the best policy is the reference model reweighted by the exponentiated reward. Direct Preference Optimization (DPO) inverts that solution (Rafailov et al. 2023). Instead of learning a reward model and then chasing it with RL, it writes the reward in terms of the policy and fits the policy to the preference pairs directly. The result is a classification loss. There is no reward model, no value model, and no sampling during training.
 

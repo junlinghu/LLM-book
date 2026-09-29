@@ -1,4 +1,4 @@
-# 11.8 What's Used in Practice
+# 13.8 What's Used in Practice
 
 Sections 11.2 through 11.6 described the methods. This section records which of them public reports actually used, as of September 2026. The picture is more specific than "PPO was replaced by DPO." PPO is no longer the default optimizer in open post-training reports. DPO did not take its place as the final stage. The usual final stage, when a report names one, is critic-free group-relative RL, most often GRPO or a close variant, with a checker where the task allows one and a judge where it does not. DPO remains a cheap stage before or after that RL, not a substitute for it.
 

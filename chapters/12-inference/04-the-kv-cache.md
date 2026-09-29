@@ -1,4 +1,4 @@
-# 13.4 The KV Cache
+# 12.4 The KV Cache
 
 Section 1 noted that the decoding loop only needs the logits for the last position, yet a naive implementation recomputes the whole sequence at every step. The **key-value (KV) cache** removes that waste. It is the single most important data structure in LLM inference: it turns generation from quadratic to linear work per token, it is the reason decode can process one token at a time (Section 3), and it is very often the thing that limits how many users a server can handle and how long their contexts can be. This section explains what the cache stores, how to compute its size, why it creates memory pressure, and the architectural and systems techniques used to shrink and manage it.
 

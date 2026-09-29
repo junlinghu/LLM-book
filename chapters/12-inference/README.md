@@ -1,4 +1,4 @@
-# Chapter 13: Inference
+# Chapter 12: Inference
 
 Inference is what happens every time someone uses a language model: a trained model reads a prompt and generates a response, one token at a time. Pretraining (Chapter 7) and fine-tuning (Chapters 8 through 11) change the model's weights; inference keeps the weights fixed and only runs the model forward. Training happens a few times, in large offline jobs where total throughput is what matters. Inference happens on every request, for every user, for as long as the model is deployed, and usually someone is waiting for the answer.
 

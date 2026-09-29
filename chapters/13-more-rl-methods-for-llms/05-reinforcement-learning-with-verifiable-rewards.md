@@ -1,4 +1,4 @@
-# 11.5 Reinforcement Learning with Verifiable Rewards (RLVR)
+# 13.5 Reinforcement Learning with Verifiable Rewards (RLVR)
 
 A learned reward model is a proxy, and Section 1 described how a policy exploits it. Some tasks do not need a proxy. A math answer is equal to a known number or it is not. A program passes its tests or it does not. A response contains the required boxed expression or it does not. Reinforcement learning with verifiable rewards (RLVR) replaces $`r_{\phi}`$ with a program that checks the response. The name and the open recipe were set out for general post-training by Lambert et al. (2024). The same idea, a checker instead of a preference model, is what the reasoning models of 2025 optimize with the critic-free updates of Section 2.
 

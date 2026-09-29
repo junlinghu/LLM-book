@@ -1,4 +1,4 @@
-# 11.7 Choosing a Method
+# 13.7 Choosing a Method
 
 The previous sections introduced more algorithms than a project should run. This section is the selection rule. It has three parts: a table of what each method consumes and what it costs, two recipes that cover most of the goals in this book, and the curves that tell you the run you picked is learning the wrong thing.
 

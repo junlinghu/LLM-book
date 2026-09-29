@@ -1,4 +1,4 @@
-# 11.1 Where Chapter 10 Left Off: The Limits of PPO-Based RLHF
+# 13.1 Where Chapter 10 Left Off: The Limits of PPO-Based RLHF
 
 Chapter 10 built the classic RLHF pipeline and showed what it achieved: a supervised fine-tuned policy, a reward model trained on human comparisons, and PPO maximizing that reward while a KL penalty keeps the policy near the reference model. InstructGPT, ChatGPT, GPT-4, and Llama 2-Chat were trained this way (Section 10.8). The recipe works. It is also expensive, sensitive to its hyperparameters, and able to improve the number it optimizes while the behavior people wanted gets worse. This section names those limits. Each one points at a method later in the chapter: critic-free policy gradients, direct preference optimization, verifiable rewards, and AI feedback.
 

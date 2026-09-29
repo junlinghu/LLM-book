@@ -1,4 +1,4 @@
-# 13.9 Test-Time Compute
+# 12.9 Test-Time Compute
 
 Most of this chapter has been about spending *less* computation per token. This final section turns the question around. A model's quality is usually thought of as fixed once training ends: a bigger model, trained on more data, gives better answers. But the same trained model can often give much better answers if it is allowed to spend more computation at inference time, by writing out its reasoning, by trying several answers and picking the best, or by searching over possible solutions. This idea, called **test-time compute** (or *inference-time scaling*), has become a second axis for improving LLMs alongside scaling training, and it changes the economics of inference that the previous sections described.
 
