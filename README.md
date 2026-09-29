@@ -1,6 +1,6 @@
-# LLM
+# Introduction to LLM
 
-Code for topics in understanding and using LLMs.
+This is the repo for the book Introduction to LLM by Junling Hu. All book content are in Chapter folder, and code are in code folder. 
 
 ## Chapter outline
 
