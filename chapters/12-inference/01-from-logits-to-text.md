@@ -1,4 +1,4 @@
-# 13.1 From Logits to Text
+# 12.1 From Logits to Text
 
 A trained language model does not produce text. It produces a probability distribution over the next token. Everything between that distribution and the words a user reads is the job of the *decoding* procedure: a loop that repeatedly runs the model, turns its output into a choice of token, appends the token to the input, and runs the model again. The decoding procedure has a surprisingly large effect on quality. The same model can sound creative or robotic, stay on topic or ramble, produce valid JSON or broken JSON, depending only on how its logits are turned into tokens.
 

@@ -1,4 +1,4 @@
-# 12.2 Intrinsic Metrics
+# 11.2 Intrinsic Metrics
 
 An *intrinsic* metric measures the language model as a language model: how well it predicts text, independent of any particular downstream task. An *extrinsic* metric measures how well the model performs a task that people care about, such as answering questions or writing code. This section covers the most important intrinsic metric, perplexity, and then the problem that undermines intrinsic and extrinsic metrics alike: making sure the test data really is held out.
 

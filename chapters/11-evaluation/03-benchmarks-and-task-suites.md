@@ -1,4 +1,4 @@
-# 12.3 Benchmarks and Task Suites
+# 11.3 Benchmarks and Task Suites
 
 A *benchmark* is a fixed collection of tasks with an agreed way of scoring them. Benchmarks are the common currency of LLM evaluation: they appear in every model release, drive research agendas, and fill leaderboards. They are also frequently misread. This section surveys the benchmark families you will see most often, explains how each is scored, describes how the field's favorite benchmarks have changed as models improved, and ends with a guide to reading a leaderboard critically.
 

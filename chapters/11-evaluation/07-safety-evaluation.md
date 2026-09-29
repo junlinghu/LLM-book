@@ -1,4 +1,4 @@
-# 12.7 Safety Evaluation
+# 11.7 Safety Evaluation
 
 The evaluations in the previous sections ask whether a model is *capable* and *helpful*. Safety evaluation asks a different question: can the model be made to cause harm, and does it refuse the right things without refusing too much? This matters for every deployed model, from a customer-service bot that should not insult customers to a frontier model that should not give meaningful help to someone trying to build a weapon.
 

@@ -1,4 +1,4 @@
-# 13.8 Serving Systems
+# 12.8 Serving Systems
 
 The previous sections described individual techniques: sampling, KV caching, batching, quantization, speculative decoding, fast kernels, and parallelism. A **serving system** (or *inference engine*) combines them into software that accepts requests from many users, schedules them onto hardware, and streams back tokens. This section describes what such a system does, surveys widely used engines, defines the metrics used to judge them, explains how responses are streamed, and works out where the cost per million tokens comes from.
 

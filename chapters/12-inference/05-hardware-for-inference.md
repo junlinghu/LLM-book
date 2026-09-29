@@ -1,4 +1,4 @@
-# 13.5 Hardware for Inference
+# 12.5 Hardware for Inference
 
 The previous sections kept arriving at the same conclusion: whether an inference workload is fast depends less on how many FLOPs it needs than on how those FLOPs relate to the bytes it must move. This section makes that idea precise. We look at the three hardware numbers that matter for LLM inference, introduce *arithmetic intensity* and the *roofline model* as tools for deciding which one limits a given computation, and use them to explain why batching many requests together is the central trick of efficient serving.
 
