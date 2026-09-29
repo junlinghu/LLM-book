@@ -1,4 +1,4 @@
-# 2.1 From Biological Inspiration to the Artificial Neuron
+# 2.1 The Artificial Neuron
 
 A large language model with hundreds of billions of parameters is, at bottom, one simple computation repeated at enormous scale: take a set of input numbers, multiply each by a learned weight, add a bias, and pass the sum through a nonlinear function. This unit is called an *artificial neuron*, and it is the basic building block of every network in this book. In this section we define the neuron, introduce the perceptron learning rule (the oldest algorithm for training one from labeled examples), and see why a single neuron can only draw a straight-line decision boundary. That limitation means a single neuron cannot solve even a problem as simple as XOR, and it is what motivated networks with hidden layers, the subject of the rest of this chapter.
 
