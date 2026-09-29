@@ -37,51 +37,7 @@ With the cache, a decode step does $O(1)$ weight work per token plus $O(t)$ atte
 
 The following NumPy code implements a single attention head with and without a cache, checks that the outputs are identical, and times both. (This is the second suggested code lab.)
 
-```python
-import time
-import numpy as np
-
-rng = np.random.default_rng(0)
-d, n_steps = 256, 512
-Wq, Wk, Wv = (rng.standard_normal((d, d)) / np.sqrt(d) for _ in range(3))
-
-def attend(q, K, V):
-    s = K @ q / np.sqrt(d)
-    a = np.exp(s - s.max()); a /= a.sum()
-    return V.T @ a
-
-def step_no_cache(xs):
-    """Recompute keys and values for every past token at every step."""
-    X = np.stack(xs)
-    K, V = X @ Wk, X @ Wv
-    return attend(xs[-1] @ Wq, K, V)
-
-class KVCache:
-    def __init__(self, max_len, d):
-        self.K = np.empty((max_len, d)); self.V = np.empty((max_len, d)); self.n = 0
-    def append(self, k, v):
-        self.K[self.n], self.V[self.n] = k, v; self.n += 1
-    def view(self):
-        return self.K[:self.n], self.V[:self.n]
-
-def step_with_cache(x, cache):
-    """Compute k, v only for the new token; reuse everything else."""
-    cache.append(x @ Wk, x @ Wv)
-    K, V = cache.view()
-    return attend(x @ Wq, K, V)
-
-xs = [rng.standard_normal(d) for _ in range(n_steps)]
-
-t0 = time.perf_counter()
-out_a = [step_no_cache(xs[:t + 1]) for t in range(n_steps)]
-t1 = time.perf_counter()
-cache = KVCache(n_steps, d)
-out_b = [step_with_cache(x, cache) for x in xs]
-t2 = time.perf_counter()
-
-assert np.allclose(out_a, out_b)          # identical outputs
-print(f"no cache: {t1 - t0:.3f} s, with cache: {t2 - t1:.3f} s")
-```
+Notebook: [13.4-a-tiny-kv-cache.ipynb](../../code/13-inference/13.4-a-tiny-kv-cache.ipynb)
 
 On an ordinary laptop the cached version is faster by well over an order of magnitude at this length, and the gap widens as `n_steps` grows, because the uncached version's total work grows quadratically. Note that the cache is preallocated to a maximum length. Real systems must decide how much memory to reserve for sequences whose final length is unknown, which is the problem PagedAttention solves later in this section.
 
@@ -111,15 +67,7 @@ Some examples, all with 16-bit entries ($s = 2$):
 
 For Llama 2 7B, the calculation is $2 \times 32 \times 32 \times 128 \times 2 = 524{,}288$ bytes, exactly half a mebibyte per token. A single 4,096-token conversation needs 2 GiB of cache, and a batch of 16 such conversations needs 32 GiB, more than twice the roughly 13.5 GB of the model's own BF16 weights.
 
-```python
-def kv_cache_bytes(L, n_kv_heads, d_head, seq_len, batch=1, bytes_per_elem=2):
-    return 2 * L * n_kv_heads * d_head * seq_len * batch * bytes_per_elem
-
-GiB = 2 ** 30
-print(kv_cache_bytes(32, 32, 128, 4096) / GiB)             # Llama 2 7B:  2.0
-print(kv_cache_bytes(32, 8, 128, 4096) / GiB)              # Llama 3 8B:  0.5
-print(kv_cache_bytes(32, 8, 128, 128 * 1024) / GiB)        # Llama 3 8B at 128K context: 16.0
-```
+Notebook: [13.4-computing-its-size.ipynb](../../code/13-inference/13.4-computing-its-size.ipynb)
 
 ## Memory pressure at long context and large batch
 

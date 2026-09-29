@@ -125,129 +125,17 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Render a two-turn conversation with SmolLM2's chat template and mark which tokens are trained.
 
-```python
-import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-torch.set_num_threads(4)
-tok = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M-Instruct")
-IGNORE = -100
-
-def build_example(messages, tok):
-    """Token IDs and labels for a conversation; only assistant turns (and their
-    end-of-turn token) are trained, everything else gets the label IGNORE."""
-    ids, labels = [], []
-    for k in range(len(messages)):
-        # Render the conversation up to and including turn k, and keep the new tokens.
-        text = tok.apply_chat_template(messages[:k + 1], tokenize=False)
-        new = tok(text, add_special_tokens=False).input_ids[len(ids):]
-        if messages[k]["role"] == "assistant":
-            header = tok.apply_chat_template(messages[:k], tokenize=False,
-                                             add_generation_prompt=True)
-            n_header = len(tok(header, add_special_tokens=False).input_ids) - len(ids)
-            # The assistant header ("<|im_start|>assistant\n") is prompt, the rest is trained,
-            # except the final newline after <|im_end|>, which the template adds between turns.
-            body = new[n_header:]
-            lab = [IGNORE] * n_header + body[:-1] + [IGNORE]
-        else:
-            lab = [IGNORE] * len(new)
-        ids += new
-        labels += lab
-    return ids, labels
-
-conversation = [
-    {"role": "system", "content": "You are a concise assistant."},
-    {"role": "user", "content": "What is the capital of France?"},
-    {"role": "assistant", "content": "Paris."},
-    {"role": "user", "content": "And of Japan?"},
-    {"role": "assistant", "content": "Tokyo."},
-]
-ids, labels = build_example(conversation, tok)
-assert tok.decode(ids) == tok.apply_chat_template(conversation, tokenize=False)
-trained = [i for i, l in zip(ids, labels) if l != IGNORE]
-print("tokens:", len(ids), "| trained:", len(trained))
-print("trained tokens:", [tok.decode([i]) for i in trained])
-```
-
-Output:
-
-```
-tokens: 49 | trained: 7
-trained tokens: ['Paris', '.', '<|im_end|>', 'To', 'kyo', '.', '<|im_end|>']
-```
+Notebook: [9.2-A.1-building-labels-with-a-loss-mask.ipynb](../../code/09-supervised-fine-tuning-sft/9.2-A.1-building-labels-with-a-loss-mask.ipynb)
 
 ### A.2 Masked and unmasked loss
 
 Compute the loss on response tokens only and on all tokens, for the base and the instruction-tuned model.
 
-```python
-def token_losses(model, ids):
-    """Cross-entropy of each token given the ones before it (position t predicts t+1)."""
-    x = torch.tensor([ids])
-    with torch.no_grad():
-        logits = model(x).logits[0, :-1]
-    return F.cross_entropy(logits, x[0, 1:], reduction="none")
-
-mask = torch.tensor([l != IGNORE for l in labels[1:]])
-for name in ["HuggingFaceTB/SmolLM2-135M", "HuggingFaceTB/SmolLM2-135M-Instruct"]:
-    model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float32).eval()
-    losses = token_losses(model, ids)
-    print(f"{name.split('/')[1]:24s} response-only {losses[mask].mean():.3f}"
-          f"  all tokens {losses.mean():.3f}  prompt-only {losses[~mask].mean():.3f}")
-```
-
-Output:
-
-```
-SmolLM2-135M             response-only 5.764  all tokens 5.784  prompt-only 5.787
-SmolLM2-135M-Instruct    response-only 1.591  all tokens 1.694  prompt-only 1.711
-```
-
-```python
-x, y = torch.tensor([ids]), torch.tensor([labels])
-with torch.no_grad():
-    hf_loss = model(input_ids=x, labels=y).loss
-print(f"Hugging Face loss with IGNORE labels: {hf_loss:.3f}")
-```
-
-Output:
-
-```
-Hugging Face loss with IGNORE labels: 1.591
-```
+Notebook: [9.2-A.2-masked-and-unmasked-loss.ipynb](../../code/09-supervised-fine-tuning-sft/9.2-A.2-masked-and-unmasked-loss.ipynb)
 
 ### A.3 Averaging over tokens or over examples
 
 Two examples with a short and a long response give different batch losses under the two averaging rules.
 
-```python
-short = [{"role": "user", "content": "Is 7 a prime number?"},
-         {"role": "assistant", "content": "Yes."}]
-long = [{"role": "user", "content": "Is 7 a prime number?"},
-        {"role": "assistant", "content": "Yes. Seven is prime because its only divisors are 1 and "
-                                         "itself; it is not divisible by 2, 3, 4, 5, or 6."}]
-per_example = []
-for conv in [short, long]:
-    ids_c, lab_c = build_example(conv, tok)
-    m = torch.tensor([l != IGNORE for l in lab_c[1:]])
-    per_example.append(token_losses(model, ids_c)[m])
-for name, l in zip(["short", "long"], per_example):
-    print(f"{name}: {len(l)} trained tokens, mean loss {l.mean():.3f}")
-all_tokens = torch.cat(per_example)
-print(f"token average:   {all_tokens.mean():.3f}")
-print(f"example average: {torch.stack([l.mean() for l in per_example]).mean():.3f}")
-n_short, n_long = len(per_example[0]), len(per_example[1])
-print(f"weight of one short-response token: token average 1/{n_short + n_long}, "
-      f"example average 1/{2 * n_short}")
-```
+Notebook: [9.2-A.3-averaging-over-tokens-or-over-examples.ipynb](../../code/09-supervised-fine-tuning-sft/9.2-A.3-averaging-over-tokens-or-over-examples.ipynb)
 
-Output:
-
-```
-short: 3 trained tokens, mean loss 3.753
-long: 38 trained tokens, mean loss 1.374
-token average:   1.548
-example average: 2.563
-weight of one short-response token: token average 1/41, example average 1/6
-```

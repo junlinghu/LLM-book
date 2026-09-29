@@ -110,53 +110,7 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Building masks and testing them for leaks
 
-```python
-import math
-import torch
-
-def attention(Q, K, V, allowed=None):
-    scores = Q @ K.transpose(-2, -1) / math.sqrt(Q.size(-1))
-    if allowed is not None:
-        scores = scores.masked_fill(~allowed, float("-inf"))
-    return scores.softmax(-1) @ V
-
-def causal_mask(n):
-    return torch.tril(torch.ones(n, n, dtype=torch.bool))          # (n, n)
-
-def key_padding_mask(tokens, pad_id=0):
-    return (tokens != pad_id)[:, None, :]                           # (B, 1, n_k)
-
-torch.manual_seed(0)
-PAD = 0
-src = torch.tensor([[5, 6, 7, 8, PAD, PAD],
-                    [3, 4, 5, 6, 7, 8]])                            # (B=2, m=6)
-tgt = torch.tensor([[1, 9, 10, 11, PAD],
-                    [1, 12, 13, 14, 15]])                           # (B=2, n=5)
-emb = torch.nn.Embedding(20, 8)
-
-# Decoder self-attention: causal AND target padding
-n = tgt.size(1)
-dec_allowed = causal_mask(n)[None] & key_padding_mask(tgt)          # (B, n, n)
-Yd = emb(tgt)
-out = attention(Yd, Yd, Yd, dec_allowed)
-
-# Leak test 1: changing a future target token must not change earlier outputs
-t = 2
-tgt2 = tgt.clone(); tgt2[:, t + 1:] = 19
-Yd2 = emb(tgt2)
-out2 = attention(Yd2, Yd2, Yd2, causal_mask(n)[None] & key_padding_mask(tgt2))
-print(torch.allclose(out[:, : t + 1], out2[:, : t + 1]))           # True
-
-# Cross-attention: queries from the decoder, keys/values from the source
-Xs = emb(src)
-cross = attention(Yd, Xs, Xs, key_padding_mask(src))                # (B, n, m)
-
-# Leak test 2: changing a padded source position must not change any output
-src2 = src.clone(); src2[0, 4:] = 17                                # overwrite the padding tokens
-Xs2 = emb(src2)
-cross2 = attention(Yd, Xs2, Xs2, key_padding_mask(src))             # same mask as before
-print(torch.allclose(cross, cross2))                                # True
-```
+Notebook: [6.4-building-masks-and-testing-them-for-leaks.ipynb](../../code/06-transformer-basic-architecture/6.4-building-masks-and-testing-them-for-leaks.ipynb)
 
 ## Further reading
 

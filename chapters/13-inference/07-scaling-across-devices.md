@@ -117,29 +117,7 @@ This hierarchy is why the parallelism strategy follows the topology: the most co
 
 How much does tensor-parallel communication cost relative to the useful work? Consider a 70B model with $L = 80$ and $d = 8192$ (the shape of Llama 2 70B) split across $p = 4$ of our hypothetical accelerators (1,000 TFLOP/s, 3 TB/s), with illustrative link parameters of $\beta = 400$ GB/s and $\alpha = 2\ \mu\text{s}$ per ring step. Each all-reduce moves the activations for all tokens in the step, $M = b \cdot d \cdot 2$ bytes in 16-bit:
 
-```python
-def tp_step_estimate(tokens, n_params=70e9, L=80, d=8192, p=4, bytes_per=2,
-                     peak_flops=1e15, hbm_bw=3e12, link_bw=400e9, link_latency=2e-6):
-    """Very rough per-step time for tensor parallelism over p devices (one forward pass)."""
-    compute = 2 * n_params * tokens / (p * peak_flops)
-    weights = n_params * bytes_per / (p * hbm_bw)              # each device reads its shard
-    msg = tokens * d * bytes_per                               # activations per all-reduce
-    per_allreduce = 2 * (p - 1) * link_latency + 2 * (p - 1) / p * msg / link_bw
-    comm = 2 * L * per_allreduce                               # two all-reduces per layer
-    return max(compute, weights), comm
-
-for tokens, label in [(1, "decode, batch 1"), (64, "decode, batch 64"), (2000, "prefill 2,000")]:
-    local, comm = tp_step_estimate(tokens)
-    print(f"{label:>17}: compute/memory {local*1e3:6.2f} ms, all-reduce {comm*1e3:6.2f} ms")
-```
-
-The output:
-
-```
-  decode, batch 1: compute/memory  11.67 ms, all-reduce   1.93 ms
- decode, batch 64: compute/memory  11.67 ms, all-reduce   2.55 ms
-    prefill 2,000: compute/memory  70.00 ms, all-reduce  21.58 ms
-```
+Notebook: [13.7-a-worked-estimate.ipynb](../../code/13-inference/13.7-a-worked-estimate.ipynb)
 
 Several lessons follow, even from such a rough model:
 

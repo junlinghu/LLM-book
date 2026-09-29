@@ -47,35 +47,7 @@ The average negative log-likelihood is $(1.609 + 2.996 + 1.204 + 0.916)/4 = 6.72
 
 With the Hugging Face `transformers` library, computing perplexity takes a few lines. The model returns the mean cross-entropy loss when you pass the input IDs as labels; the library shifts the labels internally so that each position predicts the next token.
 
-```python
-import math
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-def perplexity(text: str, model_name: str = "gpt2", window: int = 512, stride: int = 256) -> float:
-    """Perplexity of `text` using a sliding window so long texts fit in context."""
-    tok = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name).eval()
-    ids = tok(text, return_tensors="pt").input_ids[0]
-
-    total_nll, total_tokens, prev_end = 0.0, 0, 0
-    for start in range(0, len(ids), stride):
-        end = min(start + window, len(ids))
-        chunk = ids[start:end].unsqueeze(0)
-        labels = chunk.clone()
-        # Only score tokens not already scored by the previous window.
-        n_new = end - prev_end
-        labels[:, :-n_new] = -100          # -100 = ignore in the loss
-        with torch.no_grad():
-            loss = model(chunk, labels=labels).loss
-        scored = (labels[:, 1:] != -100).sum().item()   # first position is never scored
-        total_nll += loss.item() * scored
-        total_tokens += scored
-        prev_end = end
-        if end == len(ids):
-            break
-    return math.exp(total_nll / total_tokens)
-```
+Notebook: [12.2-computing-perplexity-in-practice.ipynb](../../code/12-evaluation/12.2-computing-perplexity-in-practice.ipynb)
 
 Two details matter. First, models have a finite context window, so long documents must be split. Splitting into disjoint chunks makes the first tokens of each chunk artificially hard (they have no context), which inflates perplexity. A sliding window with overlap, where each window only scores the tokens not already scored, gives every token some left context. Second, you should report exactly which tokens were scored and how, because these choices change the number.
 
@@ -148,30 +120,7 @@ An example is flagged as contaminated if the overlap exceeds a threshold (for in
 
 Here is a minimal implementation. Real systems use hashing, Bloom filters, or suffix arrays to handle trillion-token corpora, but the logic is the same.
 
-```python
-import re
-
-def ngrams(text: str, n: int) -> set[tuple[str, ...]]:
-    words = re.findall(r"\w+", text.lower())
-    return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
-
-def build_index(corpus_docs, n: int) -> set[tuple[str, ...]]:
-    index = set()
-    for doc in corpus_docs:
-        index |= ngrams(doc, n)
-    return index
-
-def overlap_score(example: str, index: set, n: int) -> float:
-    grams = ngrams(example, n)
-    if not grams:
-        return 0.0
-    return len(grams & index) / len(grams)
-
-corpus = ["Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May."]
-index = build_index(corpus, n=8)
-test_item = "Natalia sold clips to 48 of her friends in April, and then she sold half as many in May. How many clips did she sell?"
-print(round(overlap_score(test_item, index, n=8), 2))   # a high score flags likely contamination
-```
+Notebook: [12.2-detecting-contamination-n-gram-overlap.ipynb](../../code/12-evaluation/12.2-detecting-contamination-n-gram-overlap.ipynb)
 
 The normalization (lowercasing, stripping punctuation) matters as much as $n$: without it, a trivial change in capitalization or whitespace defeats the check.
 

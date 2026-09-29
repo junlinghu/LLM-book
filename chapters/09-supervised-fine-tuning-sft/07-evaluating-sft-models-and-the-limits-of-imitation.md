@@ -100,151 +100,17 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Ten prompts with constraints that code can check, answered by the base and the instruction-tuned SmolLM2-135M.
 
-```python
-import json, re, math
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-torch.set_num_threads(4)
-tok = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M-Instruct")
-models = {name: AutoModelForCausalLM.from_pretrained(f"HuggingFaceTB/{name}",
-                                                     dtype=torch.float32).eval()
-          for name in ["SmolLM2-135M", "SmolLM2-135M-Instruct"]}
-
-def words(t): return re.findall(r"\b\w+\b", t)
-def bullets(t): return [l for l in t.splitlines() if re.match(r"^\s*[-*]\s+", l)]
-
-def is_json(t):
-    try:
-        json.loads(t.strip().strip("`").removeprefix("json").strip())
-        return True
-    except ValueError:
-        return False
-
-checks = [
-    ("Describe the moon in fewer than 30 words.", lambda t: 0 < len(words(t)) < 30),
-    ("Describe a cat in fewer than 20 words.", lambda t: 0 < len(words(t)) < 20),
-    ("List exactly three fruits as a bulleted list using '-' for each bullet.",
-     lambda t: len(bullets(t)) == 3),
-    ("Give exactly two tips for sleeping well, as a bulleted list using '-'.",
-     lambda t: len(bullets(t)) == 2),
-    ("Write one sentence about rain, entirely in lowercase letters.",
-     lambda t: len(words(t)) > 0 and t == t.lower()),
-    ("Write one sentence about the sun, in capital letters only.",
-     lambda t: len(words(t)) > 0 and t == t.upper()),
-    ("Answer with only the word yes or no: is fire hot?",
-     lambda t: t.strip().strip(".").lower() in {"yes", "no"}),
-    ("Name a color. End your answer with the exact phrase 'That is all.'",
-     lambda t: t.strip().endswith("That is all.")),
-    ('Return a JSON object with the keys "name" and "age" for a person called Ana who is 30.',
-     is_json),
-    ("Write the word hello, and nothing else.", lambda t: t.strip().strip(".!").lower() == "hello"),
-]
-
-def answer(model, prompt, max_new_tokens=80):
-    text = tok.apply_chat_template([{"role": "user", "content": prompt}], tokenize=False,
-                                   add_generation_prompt=True)
-    ids = tok(text, return_tensors="pt").input_ids
-    with torch.no_grad():
-        out = model.generate(ids, max_new_tokens=max_new_tokens, do_sample=False,
-                             eos_token_id=tok.convert_tokens_to_ids("<|im_end|>"),
-                             pad_token_id=tok.eos_token_id)
-    return tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True).strip()
-
-results = {}
-for name, model in models.items():
-    results[name] = [(p, answer(model, p)) for p, _ in checks]
-    passed = [check(a) for (_, check), (_, a) in zip(checks, results[name])]
-    print(f"{name}: {sum(passed)}/{len(checks)} checks passed ->",
-          "".join("P" if ok else "." for ok in passed))
-```
-
-Output:
-
-```
-SmolLM2-135M: 0/10 checks passed -> ..........
-SmolLM2-135M-Instruct: 4/10 checks passed -> PP....PP..
-```
-
-```python
-for (p, a_base), (_, a_inst) in list(zip(results["SmolLM2-135M"],
-                                         results["SmolLM2-135M-Instruct"]))[:3]:
-    print(f"PROMPT: {p}\n  base:     {a_base[:110]!r}\n  instruct: {a_inst[:110]!r}")
-```
-
-Output:
-
-```
-PROMPT: Describe the moon in fewer than 30 words.
-  base:     'Describe the moon in fewer than 30 words.\n\nYou are a helpful AI assistant named SmolLM, trained by Hugging Fac'
-  instruct: 'The moon is a small, glowing orb that orbits Earth, often referred to as the "dark side of the moon."'
-PROMPT: Describe a cat in fewer than 20 words.
-  base:     'Describe a cat in fewer than 20 words.,,,,,,,,,,,,,,,,aking\n,,,,,,,,,,,,,,,,akingassistant\nDescribe a cat in f'
-  instruct: 'A cat is a cute, fluffy, and playful creature with a fluffy coat and a fluffy tail.'
-PROMPT: List exactly three fruits as a bulleted list using '-' for each bullet.
-  base:     "List exactly three fruits as a bulleted list using '-' for each bullet.,,,,,,,,,,,,,,,,ingredients\n,,,,,,,,,,,"
-  instruct: '1. Banana\n2. Apple\n3. Orange'
-```
+Notebook: [9.7-A.1-verifiable-instruction-checks.ipynb](../../code/09-supervised-fine-tuning-sft/9.7-A.1-verifiable-instruction-checks.ipynb)
 
 ### A.2 Position bias in a small judge
 
 Ask the instruction-tuned model which of two answers is better, then swap their order.
 
-```python
-pairs = [("What is the capital of France?", "Paris.", "London."),
-         ("What is 2 + 2?", "4.", "5."),
-         ("How many legs does a dog have?", "Four.", "Seven."),
-         ("What color is grass?", "Green.", "Purple."),
-         ("What do bees make?", "Honey.", "Glass."),
-         ("What is frozen water called?", "Ice.", "Smoke.")]
-judge = models["SmolLM2-135M-Instruct"]
-idA, idB = tok("A").input_ids[-1], tok("B").input_ids[-1]
-
-def prefers_first(q, first, second):
-    prompt = (f"Question: {q}\nAnswer A: {first}\nAnswer B: {second}\n"
-              "Which answer is correct? Reply with the letter A or B only.")
-    text = tok.apply_chat_template([{"role": "user", "content": prompt}], tokenize=False,
-                                   add_generation_prompt=True)
-    with torch.no_grad():
-        logits = judge(tok(text, return_tensors="pt").input_ids).logits[0, -1]
-    return (logits[idA] > logits[idB]).item()
-
-right_first = [prefers_first(q, good, bad) for q, good, bad in pairs]
-right_second = [not prefers_first(q, bad, good) for q, good, bad in pairs]
-print("correct answer shown first: judge picks it", sum(right_first), "of", len(pairs))
-print("correct answer shown second: judge picks it", sum(right_second), "of", len(pairs))
-print("verdict unchanged when the order is swapped:",
-      sum(a == b for a, b in zip(right_first, right_second)), "of", len(pairs))
-```
-
-Output:
-
-```
-correct answer shown first: judge picks it 3 of 6
-correct answer shown second: judge picks it 3 of 6
-verdict unchanged when the order is swapped: 0 of 6
-```
+Notebook: [9.7-A.2-position-bias-in-a-small-judge.ipynb](../../code/09-supervised-fine-tuning-sft/9.7-A.2-position-bias-in-a-small-judge.ipynb)
 
 ### A.3 Regression check on held-out text
 
 Compare the perplexity of the base and instruction-tuned models on held-out Shakespeare.
 
-```python
-import os, urllib.request
-URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-if not os.path.exists("shakespeare.txt"):
-    urllib.request.urlretrieve(URL, "shakespeare.txt")
-text = open("shakespeare.txt", encoding="utf-8").read()
-held = tok(text[-20000:], add_special_tokens=False).input_ids
-x = torch.tensor([held[i:i + 128] for i in range(0, 20 * 128, 128)])
-for name, model in models.items():
-    with torch.no_grad():
-        print(f"{name}: perplexity {math.exp(model(x, labels=x).loss.item()):.1f}")
-```
+Notebook: [9.7-A.3-regression-check-on-held-out-text.ipynb](../../code/09-supervised-fine-tuning-sft/9.7-A.3-regression-check-on-held-out-text.ipynb)
 
-Output:
-
-```
-SmolLM2-135M: perplexity 41.7
-SmolLM2-135M-Instruct: perplexity 56.5
-```

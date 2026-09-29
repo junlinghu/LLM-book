@@ -32,33 +32,7 @@ So for unit vectors, "highest cosine," "highest dot product," and "smallest dist
 
 Real embeddings have hundreds of dimensions, which makes them hard to reason about by eye. To see the mechanics, we use a hand-made table of 4-dimensional vectors. Think of the axes loosely as "royalty," "maleness," "fruitness," and "personhood." Learned embeddings never have axes this clean, but the computations are exactly the same.
 
-```python
-import torch
-import torch.nn.functional as F
-
-words = ["king", "queen", "man", "woman", "prince", "apple", "banana"]
-E = torch.tensor([
-    [0.90,  0.75, 0.02, 0.70],   # king
-    [0.88, -0.70, 0.05, 0.72],   # queen
-    [0.08,  0.80, 0.01, 0.90],   # man
-    [0.10, -0.78, 0.03, 0.88],   # woman
-    [0.70,  0.70, 0.00, 0.55],   # prince
-    [0.00,  0.02, 0.95, 0.05],   # apple
-    [0.03, -0.01, 0.90, 0.02],   # banana
-])
-idx = {w: i for i, w in enumerate(words)}
-
-def cosine(a, b):
-    return (a @ b) / (a.norm() * b.norm())
-
-print(f"cos(king, queen) = {cosine(E[idx['king']], E[idx['queen']]):.3f}")
-print(f"cos(king, apple) = {cosine(E[idx['king']], E[idx['apple']]):.3f}")
-```
-
-```text
-cos(king, queen) = 0.423
-cos(king, apple) = 0.053
-```
+Notebook: [4.3-a-toy-embedding-space.ipynb](../../code/04-embeddings/4.3-a-toy-embedding-space.ipynb)
 
 "king" and "queen" share royalty and personhood but differ in gender, so their cosine is moderate; "king" and "apple" have almost nothing in common. PyTorch also provides `F.cosine_similarity`, which does the same computation along a chosen dimension.
 
@@ -66,20 +40,7 @@ cos(king, apple) = 0.053
 
 The simplest question to ask an embedding space is "which words are closest to this one?" To answer it for every word at once, normalize the rows of the embedding matrix, then multiply by the normalized query vector. The result is a vector of $`V`$ cosine similarities, one per word, and the top entries are the **nearest neighbors**:
 
-```python
-def nearest(query, E, k=3, exclude=()):
-    sims = F.normalize(E, dim=1) @ F.normalize(query, dim=0)   # cosine with every row
-    for i in exclude:
-        sims[i] = -float("inf")                                  # never return these
-    top = sims.topk(k)
-    return [(words[i], round(s.item(), 3)) for s, i in zip(top.values, top.indices)]
-
-print(nearest(E[idx["banana"]], E, exclude=[idx["banana"]]))
-```
-
-```text
-[('apple', 0.998), ('queen', 0.077), ('woman', 0.052)]
-```
+Notebook: [4.3-nearest-neighbors.ipynb](../../code/04-embeddings/4.3-nearest-neighbors.ipynb)
 
 We exclude the query word itself, which would otherwise always be its own nearest neighbor with cosine 1. For a real vocabulary of $`V`$ words, this is one matrix-vector product with $`V \times d`$ multiply-adds, which takes well under a second even for millions of words. For billions of vectors, Section 7.7 introduces approximate search.
 
@@ -110,21 +71,7 @@ The idea is that the offset $`\mathbf{v}_b - \mathbf{v}_a`$ captures a *relation
 
 In our toy space:
 
-```python
-def analogy(a, b, c, E, k=1, exclude_inputs=True):
-    """a is to b as c is to ?  Searches for the word nearest to b - a + c."""
-    q = E[idx[b]] - E[idx[a]] + E[idx[c]]
-    ex = [idx[a], idx[b], idx[c]] if exclude_inputs else []
-    return nearest(q, E, k=k, exclude=ex)
-
-print(analogy("man", "king", "woman", E))
-print(analogy("man", "king", "woman", E, k=3, exclude_inputs=False))
-```
-
-```text
-[('queen', 0.996)]
-[('queen', 0.996), ('woman', 0.802), ('king', 0.354)]
-```
+Notebook: [4.3-analogies-directions-carry-meaning.ipynb](../../code/04-embeddings/4.3-analogies-directions-carry-meaning.ipynb)
 
 Why would a model trained only to predict context words produce parallel offsets? Consider what distinguishes "king" from "queen" in text: the contexts of "king" include more "he," "his," and "father," and the contexts of "queen" include more "she," "her," and "mother." The contexts of "man" and "woman" differ in much the same way. Since each word's vector is shaped by its contexts, the same context difference produces roughly the same vector difference. The analogy works to the extent that the relation shows up as a *consistent* shift in contexts across many word pairs.
 
@@ -144,12 +91,7 @@ Analogies make a memorable demonstration, and they are easy to over-interpret. S
 
 Plots of embedding spaces, with countries in one cluster and fruits in another, are a staple of talks and textbooks. They are made by projecting the $`d`$-dimensional vectors down to two dimensions. The simplest projection is **principal component analysis (PCA)**, which keeps the two directions along which the vectors vary most:
 
-```python
-def pca_2d(X):
-    Xc = X - X.mean(dim=0)                    # center the cloud of points
-    U, S, Vh = torch.linalg.svd(Xc, full_matrices=False)
-    return Xc @ Vh[:2].T                      # coordinates along the top 2 directions
-```
+Notebook: [4.3-seeing-the-space-in-two-dimensions.ipynb](../../code/04-embeddings/4.3-seeing-the-space-in-two-dimensions.ipynb)
 
 PCA is a linear projection, so it preserves offsets: if "king − queen" and "man − woman" are parallel in the full space, their projections are parallel too, which makes PCA the right tool for plotting analogy offsets. Nonlinear methods such as t-SNE and UMAP are better at revealing clusters, but they distort distances and directions freely, so do not read analogies or global distances off a t-SNE plot.
 
@@ -159,14 +101,7 @@ Either way, remember that a 2-D plot shows a sliver of a space with hundreds of 
 
 In the lab, loading pretrained vectors takes one call with the gensim library:
 
-```python
-import gensim.downloader as api
-
-wv = api.load("word2vec-google-news-300")      # 300-d skip-gram vectors; a large download
-wv.most_similar("coffee", topn=5)              # nearest neighbors by cosine
-wv.most_similar(positive=["king", "woman"], negative=["man"], topn=5)   # analogy
-wv.similarity("hot", "cold")                   # cosine similarity of two words
-```
+Notebook: [4.3-seeing-the-space-in-two-dimensions-2.ipynb](../../code/04-embeddings/4.3-seeing-the-space-in-two-dimensions-2.ipynb)
 
 ## Bias carried in embeddings
 

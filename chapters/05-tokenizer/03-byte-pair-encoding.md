@@ -144,139 +144,29 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Train BPE on a table of word frequencies and run it on the toy corpus from the worked example.
 
-```python
-from collections import Counter
-
-def merge_word(word, pair):
-    """Replace each occurrence of `pair` in the tuple `word` with the merged symbol."""
-    out, i = [], 0
-    while i < len(word):
-        if i + 1 < len(word) and (word[i], word[i + 1]) == pair:
-            out.append(word[i] + word[i + 1])
-            i += 2
-        else:
-            out.append(word[i])
-            i += 1
-    return tuple(out)
-
-def train_bpe(word_freqs, num_merges):
-    words = {tuple(w): n for w, n in word_freqs.items()}
-    merges = []
-    for step in range(num_merges):
-        stats = Counter()
-        for w, n in words.items():
-            for pair in zip(w, w[1:]):
-                stats[pair] += n
-        pair = max(stats, key=stats.get)          # ties: the pair seen first
-        merges.append(pair)
-        words = {merge_word(w, pair): n for w, n in words.items()}
-        print(step + 1, pair, stats[pair], list(words))
-    return merges
-```
-
-```python
-corpus = {"low": 5, "lower": 2, "newest": 6, "widest": 3}
-merges = train_bpe(corpus, 6)
-```
-
-Output:
-
-```
-1 ('e', 's') 9 [('l', 'o', 'w'), ('l', 'o', 'w', 'e', 'r'), ('n', 'e', 'w', 'es', 't'), ('w', 'i', 'd', 'es', 't')]
-2 ('es', 't') 9 [('l', 'o', 'w'), ('l', 'o', 'w', 'e', 'r'), ('n', 'e', 'w', 'est'), ('w', 'i', 'd', 'est')]
-3 ('l', 'o') 7 [('lo', 'w'), ('lo', 'w', 'e', 'r'), ('n', 'e', 'w', 'est'), ('w', 'i', 'd', 'est')]
-4 ('lo', 'w') 7 [('low',), ('low', 'e', 'r'), ('n', 'e', 'w', 'est'), ('w', 'i', 'd', 'est')]
-5 ('n', 'e') 6 [('low',), ('low', 'e', 'r'), ('ne', 'w', 'est'), ('w', 'i', 'd', 'est')]
-6 ('ne', 'w') 6 [('low',), ('low', 'e', 'r'), ('new', 'est'), ('w', 'i', 'd', 'est')]
-```
+Notebook: [5.3-A.1-character-level-bpe-training.ipynb](../../code/05-tokenizer/5.3-A.1-character-level-bpe-training.ipynb)
 
 ### A.2 Encoding by replaying merges
 
 Encode new words by applying the learned merges in rank order.
 
-```python
-def encode_word(word, merges):
-    symbols = tuple(word)
-    for pair in merges:                 # apply merges in learned order
-        symbols = merge_word(symbols, pair)
-    return list(symbols)
-
-for w in ["lowest", "newer", "wider", "slow"]:
-    print(w, encode_word(w, merges))
-```
-
-Output:
-
-```
-lowest ['low', 'est']
-newer ['new', 'e', 'r']
-wider ['w', 'i', 'd', 'e', 'r']
-slow ['s', 'low']
-```
+Notebook: [5.3-A.2-encoding-by-replaying-merges.ipynb](../../code/05-tokenizer/5.3-A.2-encoding-by-replaying-merges.ipynb)
 
 ### A.3 GPT-2's pre-tokenization pattern
 
 Split text into chunks with GPT-2's regular expression. The third-party `regex` module is needed because Python's built-in `re` does not support `\p{L}` and `\p{N}`.
 
-```python
-import regex as re    # the third-party `regex` module supports \p{L} and \p{N}
-
-GPT2_PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-print(re.findall(GPT2_PATTERN, "Hello world! It's 2024, isn't it?   Yes.\n\n  dog. dog!"))
-```
-
-Output:
-
-```
-['Hello', ' world', '!', ' It', "'s", ' 2024', ',', ' isn', "'t", ' it', '?', '  ', ' Yes', '.', '\n\n ', ' dog', '.', ' dog', '!']
-```
+Notebook: [5.3-A.3-gpt-2-pre-tokenization-pattern.ipynb](../../code/05-tokenizer/5.3-A.3-gpt-2-pre-tokenization-pattern.ipynb)
 
 ### A.4 Punctuation after the same word
 
 Show that " dog" is the same token before different punctuation marks.
 
-```python
-import tiktoken
-
-enc = tiktoken.get_encoding("gpt2")
-for s in [" dog.", " dog!", " dog?"]:
-    ids = enc.encode(s)
-    print(repr(s), ids, [enc.decode([i]) for i in ids])
-```
-
-Output:
-
-```
-' dog.' [3290, 13] [' dog', '.']
-' dog!' [3290, 0] [' dog', '!']
-' dog?' [3290, 30] [' dog', '?']
-```
+Notebook: [5.3-A.4-punctuation-after-the-same-word.ipynb](../../code/05-tokenizer/5.3-A.4-punctuation-after-the-same-word.ipynb)
 
 ### A.5 BPE-dropout
 
 Encode a word several times while skipping each candidate merge with probability `p`.
 
-```python
-import random
+Notebook: [5.3-A.5-bpe-dropout.ipynb](../../code/05-tokenizer/5.3-A.5-bpe-dropout.ipynb)
 
-def encode_word_dropout(word, merges, p, rng):
-    ranks = {pair: r for r, pair in enumerate(merges)}
-    symbols = tuple(word)
-    while len(symbols) >= 2:
-        candidates = [pr for pr in zip(symbols, symbols[1:])
-                      if pr in ranks and rng.random() >= p]
-        if not candidates:
-            break
-        best = min(candidates, key=ranks.get)
-        symbols = merge_word(symbols, best)
-    return list(symbols)
-
-rng = random.Random(0)
-print([encode_word_dropout("lowest", merges, 0.5, rng) for _ in range(4)])
-```
-
-Output:
-
-```
-[['l', 'o', 'w', 'es', 't'], ['low', 'e', 's', 't'], ['lo', 'w', 'est'], ['l', 'o', 'w', 'est']]
-```

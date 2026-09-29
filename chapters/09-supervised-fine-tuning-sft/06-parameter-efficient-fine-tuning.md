@@ -151,134 +151,17 @@ These listings continue the Python session of the appendix to Section 9.5: run A
 
 Wrap a frozen linear layer with a trainable low-rank update whose B matrix starts at zero.
 
-```python
-import torch.nn as nn
-
-class LoRALinear(nn.Module):
-    def __init__(self, base: nn.Linear, r=8, alpha=16):
-        super().__init__()
-        self.base = base
-        for p in self.base.parameters():
-            p.requires_grad_(False)
-        self.scale = alpha / r
-        self.A = nn.Parameter(torch.randn(r, base.in_features) / math.sqrt(base.in_features))
-        self.B = nn.Parameter(torch.zeros(base.out_features, r))
-
-    def forward(self, x):
-        return self.base(x) + self.scale * (x @ self.A.T @ self.B.T)
-
-    def merged(self):
-        """A plain nn.Linear with the update folded into the weight."""
-        out = nn.Linear(self.base.in_features, self.base.out_features,
-                        bias=self.base.bias is not None)
-        with torch.no_grad():
-            out.weight.copy_(self.base.weight + self.scale * self.B @ self.A)
-            if self.base.bias is not None:
-                out.bias.copy_(self.base.bias)
-        return out
-
-def add_lora(model, targets=("q_proj", "k_proj", "v_proj", "o_proj"), r=8, alpha=16):
-    for p in model.parameters():
-        p.requires_grad_(False)
-    for layer in model.model.layers:
-        attn = layer.self_attn
-        for name in targets:
-            setattr(attn, name, LoRALinear(getattr(attn, name), r, alpha))
-    return model
-
-def merge_lora(model):
-    for layer in model.model.layers:
-        attn = layer.self_attn
-        for name, child in list(attn.named_children()):
-            if isinstance(child, LoRALinear):
-                setattr(attn, name, child.merged())
-    return model
-```
-
-```python
-torch.manual_seed(0)
-lora_model = add_lora(AutoModelForCausalLM.from_pretrained(
-    "HuggingFaceTB/SmolLM2-135M", dtype=torch.float32))
-x = torch.tensor([encode(*test_seen[0])[0]])
-with torch.no_grad():
-    diff = (lora_model(x).logits - model(x).logits).abs().max().item()
-trainable = sum(p.numel() for p in lora_model.parameters() if p.requires_grad)
-total = sum(p.numel() for p in lora_model.parameters())
-print(f"max logit difference before training: {diff}")
-print(f"trainable {trainable:,} of {total:,} parameters ({100 * trainable / total:.2f}%)")
-cfg = lora_model.config
-print("width", cfg.hidden_size, "| layers", cfg.num_hidden_layers, "| heads", cfg.num_attention_heads,
-      "| key-value heads", cfg.num_key_value_heads)
-```
-
-Output:
-
-```
-max logit difference before training: 0.0
-trainable 921,600 of 135,436,608 parameters (0.68%)
-width 576 | layers 30 | heads 9 | key-value heads 3
-```
+Notebook: [9.6-A.1-a-lora-layer-from-scratch.ipynb](../../code/09-supervised-fine-tuning-sft/9.6-A.1-a-lora-layer-from-scratch.ipynb)
 
 ### A.2 Training with LoRA
 
 Train only the adapters on the synthetic tasks, with the same data and steps as full fine-tuning, for several ranks.
 
-```python
-def finetune_lora(r, steps=120, batch_size=8, lr=1e-3, warmup=10, seed=0):
-    torch.manual_seed(seed)
-    m = add_lora(AutoModelForCausalLM.from_pretrained(
-        "HuggingFaceTB/SmolLM2-135M", dtype=torch.float32), r=r, alpha=2 * r)
-    data = [encode(q, a) for q, a in train]
-    params = [p for p in m.parameters() if p.requires_grad]
-    opt = torch.optim.AdamW(params, lr=lr, weight_decay=0.0)
-    sched = torch.optim.lr_scheduler.LambdaLR(
-        opt, lambda s: min((s + 1) / warmup, (steps - s) / (steps - warmup)))
-    order = random.Random(seed)
-    m.train()
-    for step in range(steps):
-        ids, labels, attn = collate(order.sample(data, batch_size))
-        loss = m(input_ids=ids, attention_mask=attn, labels=labels).loss
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(params, 1.0)
-        opt.step(); sched.step(); opt.zero_grad()
-    return m, sum(p.numel() for p in params)
-
-start = time.time()
-adapters = {}
-for r in [2, 8, 32]:
-    m, n = finetune_lora(r)
-    adapters[r] = m
-    report(f"LoRA r={r} ({n:,} trainable)", m)
-print(f"(three runs: {(time.time() - start) / 60:.0f} minutes on 4 CPU threads)")
-```
-
-Output:
-
-```
-LoRA r=2 (230,400 trainable)       seen 0.00  held-out phrasing 0.00  Shakespeare ppl 56.4
-LoRA r=8 (921,600 trainable)       seen 0.57  held-out phrasing 0.43  Shakespeare ppl 74.1
-LoRA r=32 (3,686,400 trainable)    seen 0.73  held-out phrasing 0.50  Shakespeare ppl 322.8
-(three runs: 6 minutes on 4 CPU threads)
-```
+Notebook: [9.6-A.2-training-with-lora.ipynb](../../code/09-supervised-fine-tuning-sft/9.6-A.2-training-with-lora.ipynb)
 
 ### A.3 Merging the adapter
 
 Fold the trained update into the weights and check that the merged model computes the same function.
 
-```python
-m = adapters[8]
-x = torch.tensor([encode(*test_new[0])[0]])
-with torch.no_grad():
-    before = m(x).logits
-    merged = merge_lora(m)
-    after = merged(x).logits
-print("max logit difference after merging:", f"{(before - after).abs().max().item():.1e}")
-print("LoRA modules left:", sum(isinstance(c, LoRALinear) for c in merged.modules()))
-```
+Notebook: [9.6-A.3-merging-the-adapter.ipynb](../../code/09-supervised-fine-tuning-sft/9.6-A.3-merging-the-adapter.ipynb)
 
-Output:
-
-```
-max logit difference after merging: 1.7e-04
-LoRA modules left: 0
-```

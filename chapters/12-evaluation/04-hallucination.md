@@ -121,24 +121,7 @@ For a specific application, a small custom test is usually more informative than
 2. Run the model and grade each answer as correct, incorrect, or abstained. Use exact or normalized matching where possible, and an LLM grader with a reference answer otherwise (Section 6), spot-checking the grader by hand.
 3. Report accuracy, the *hallucination rate* (incorrect answers as a fraction of all questions), and the *precision among attempts*.
 
-```python
-from collections import Counter
-
-def hallucination_report(grades: list[str]) -> dict:
-    """grades: one of 'correct', 'incorrect', 'abstain' per question."""
-    c = Counter(grades)
-    n = len(grades)
-    attempted = c["correct"] + c["incorrect"]
-    return {
-        "accuracy": c["correct"] / n,
-        "hallucination_rate": c["incorrect"] / n,
-        "abstention_rate": c["abstain"] / n,
-        "precision_when_attempted": c["correct"] / attempted if attempted else float("nan"),
-    }
-
-print(hallucination_report(["correct"] * 62 + ["incorrect"] * 18 + ["abstain"] * 20))
-# accuracy 0.62, hallucination_rate 0.18, abstention_rate 0.20, precision ~0.775
-```
+Notebook: [12.4-building-your-own-hallucination-test.ipynb](../../code/12-evaluation/12.4-building-your-own-hallucination-test.ipynb)
 
 Reporting all four numbers prevents a common trap: a change that reduces hallucinations simply by making the model refuse everything will show a falling hallucination rate but also falling accuracy and rising abstention.
 
@@ -178,26 +161,7 @@ Agreement should be measured on *meaning*, not surface strings: "1648" and "in t
 
 A simple version for short answers (Suggested Code Lab 3):
 
-```python
-import math
-from collections import Counter
-
-def normalize(ans: str) -> str:
-    return " ".join(ans.lower().strip().rstrip(".").split())
-
-def consistency_check(samples: list[str], threshold: float = 0.6):
-    """Flag an answer as a likely hallucination when samples disagree."""
-    counts = Counter(normalize(s) for s in samples)
-    top_answer, top_count = counts.most_common(1)[0]
-    agreement = top_count / len(samples)
-    probs = [c / len(samples) for c in counts.values()]
-    entropy = -sum(p * math.log(p) for p in probs)
-    return {"answer": top_answer, "agreement": agreement,
-            "entropy": abs(round(entropy, 3)), "flag": agreement < threshold}
-
-print(consistency_check(["1648", "1648", "1648.", "1648", "1648"]))   # agreement 1.0, not flagged
-print(consistency_check(["1648", "1618", "1658", "1648", "1635"]))    # agreement 0.4, flagged
-```
+Notebook: [12.4-self-consistency-sample-several-answers-and-check-agreement.ipynb](../../code/12-evaluation/12.4-self-consistency-sample-several-answers-and-check-agreement.ipynb)
 
 For real use, replace `normalize` with a semantic equivalence check (an NLI model or an LLM asked "Do these two answers mean the same thing?").
 
@@ -226,19 +190,7 @@ A worked example. Suppose a model answers 10 questions, and we put them in two b
 
 $\text{ECE} = 0.4 \times |0.50 - 0.65| + 0.6 \times |0.833 - 0.933| = 0.06 + 0.06 = 0.12$. The model is overconfident in both bins.
 
-```python
-import numpy as np
-
-def expected_calibration_error(conf, correct, n_bins: int = 10) -> float:
-    conf, correct = np.asarray(conf, float), np.asarray(correct, float)
-    edges = np.linspace(0.0, 1.0, n_bins + 1)
-    ece = 0.0
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        in_bin = (conf > lo) & (conf <= hi)
-        if in_bin.any():
-            ece += in_bin.mean() * abs(correct[in_bin].mean() - conf[in_bin].mean())
-    return ece
-```
+Notebook: [12.4-calibration-does-stated-confidence-match-accuracy.ipynb](../../code/12-evaluation/12.4-calibration-does-stated-confidence-match-accuracy.ipynb)
 
 ECE has known weaknesses: it depends on the number of bins, and it can be small for a useless model that always predicts the base rate. The **Brier score**, $\frac{1}{n}\sum_i (p_i - y_i)^2$ where $`y_i \in \{0, 1\}`$ indicates correctness, combines calibration and discrimination in one proper scoring rule and is a useful complement. For deciding when to abstain, a *selective prediction* curve, accuracy on the answers the model keeps as a function of the fraction it keeps, is often the most directly useful view.
 

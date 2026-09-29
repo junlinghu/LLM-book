@@ -104,117 +104,23 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Apply the simplified WordPiece score for six merges, marking non-initial symbols with `##`.
 
-```python
-from collections import Counter
-
-def wordpiece_merges(word_freqs, num_merges):
-    # non-initial symbols carry the "##" prefix
-    words = {tuple([w[0]] + ["##" + c for c in w[1:]]): n for w, n in word_freqs.items()}
-    for step in range(num_merges):
-        pair_counts, sym_counts = Counter(), Counter()
-        for w, n in words.items():
-            for s in w:
-                sym_counts[s] += n
-            for pair in zip(w, w[1:]):
-                pair_counts[pair] += n
-        score = {p: c / (sym_counts[p[0]] * sym_counts[p[1]])
-                 for p, c in pair_counts.items()}
-        best = max(score, key=score.get)
-        new = best[0] + best[1].removeprefix("##")
-        print(step + 1, best, pair_counts[best], round(score[best], 4))
-        merged = {}
-        for w, n in words.items():
-            out, i = [], 0
-            while i < len(w):
-                if i + 1 < len(w) and (w[i], w[i + 1]) == best:
-                    out.append(new); i += 2
-                else:
-                    out.append(w[i]); i += 1
-            merged[tuple(out)] = n
-        words = merged
-    print(list(words))
-
-wordpiece_merges({"low": 5, "lower": 2, "newest": 6, "widest": 3}, 6)
-```
-
-Output:
-
-```
-1 ('w', '##i') 3 0.3333
-2 ('wi', '##d') 3 0.3333
-3 ('l', '##o') 7 0.1429
-4 ('##s', '##t') 9 0.1111
-5 ('lo', '##w') 7 0.0769
-6 ('##e', '##r') 2 0.0588
-[('low',), ('low', '##er'), ('n', '##e', '##w', '##e', '##st'), ('wid', '##e', '##st')]
-```
+Notebook: [5.4-A.1-wordpiece-merges-on-the-toy-corpus.ipynb](../../code/05-tokenizer/5.4-A.1-wordpiece-merges-on-the-toy-corpus.ipynb)
 
 ### A.2 Greedy longest-match encoding
 
 Implement WordPiece encoding and compare it with BERT's tokenizer, using BERT's vocabulary.
 
-```python
-def wordpiece_encode(word, vocab, unk="[UNK]"):
-    """Greedy longest-match-first segmentation of a single word."""
-    pieces, start = [], 0
-    while start < len(word):
-        end = len(word)
-        while end > start:
-            piece = word[start:end] if start == 0 else "##" + word[start:end]
-            if piece in vocab:
-                break
-            end -= 1
-        if end == start:              # no piece matches: the whole word is unknown
-            return [unk]
-        pieces.append(piece)
-        start = end
-    return pieces
-```
-
-```python
-from transformers import AutoTokenizer
-
-bert = AutoTokenizer.from_pretrained("bert-base-uncased")
-vocab = bert.get_vocab()
-for w in ["tokenization", "unaffable", "playing", "xyzzy"]:
-    print(w, wordpiece_encode(w, vocab), bert.tokenize(w))
-```
-
-Output:
-
-```
-tokenization ['token', '##ization'] ['token', '##ization']
-unaffable ['una', '##ffa', '##ble'] ['una', '##ffa', '##ble']
-playing ['playing'] ['playing']
-xyzzy ['x', '##y', '##zzy'] ['x', '##y', '##zzy']
-```
+Notebook: [5.4-A.2-greedy-longest-match-encoding.ipynb](../../code/05-tokenizer/5.4-A.2-greedy-longest-match-encoding.ipynb)
 
 ### A.3 Unknown characters in BERT
 
 Characters outside BERT's vocabulary turn whole words into `[UNK]`.
 
-```python
-print(bert.tokenize("I love 🙂 emoji"))
-print(bert.tokenize("Ωmega ∮ integral"))
-```
-
-Output:
-
-```
-['i', 'love', '[UNK]', 'em', '##oj', '##i']
-['ω', '##me', '##ga', '[UNK]', 'integral']
-```
+Notebook: [5.4-A.3-unknown-characters-in-bert.ipynb](../../code/05-tokenizer/5.4-A.3-unknown-characters-in-bert.ipynb)
 
 ### A.4 Automatic special tokens
 
 BERT's tokenizer adds `[CLS]` and `[SEP]` by itself.
 
-```python
-print(bert.convert_ids_to_tokens(bert("Hello world")["input_ids"]))
-```
+Notebook: [5.4-A.4-automatic-special-tokens.ipynb](../../code/05-tokenizer/5.4-A.4-automatic-special-tokens.ipynb)
 
-Output:
-
-```
-['[CLS]', 'hello', 'world', '[SEP]']
-```

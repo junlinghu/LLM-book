@@ -101,39 +101,7 @@ RMSNorm is used in many recent LLMs, including the Llama family, while LayerNorm
 
 The chapter's suggested code lab implements all three layers and checks them against PyTorch. Here is a compact version:
 
-```python
-import torch
-import torch.nn as nn
-
-def batch_norm(x, gamma, beta, eps=1e-5):
-    # x: (B, d); statistics over the batch dimension (training mode)
-    mu = x.mean(dim=0, keepdim=True)
-    var = x.var(dim=0, unbiased=False, keepdim=True)
-    return gamma * (x - mu) / torch.sqrt(var + eps) + beta
-
-def layer_norm(x, gamma, beta, eps=1e-5):
-    # statistics over the feature dimension, per example
-    mu = x.mean(dim=-1, keepdim=True)
-    var = x.var(dim=-1, unbiased=False, keepdim=True)
-    return gamma * (x - mu) / torch.sqrt(var + eps) + beta
-
-def rms_norm(x, gamma, eps=1e-6):
-    rms = torch.sqrt(x.pow(2).mean(dim=-1, keepdim=True) + eps)
-    return gamma * x / rms
-
-B, d = 8, 16
-x = torch.randn(B, d) * 3 + 1
-g, b = torch.ones(d), torch.zeros(d)
-
-print(torch.allclose(layer_norm(x, g, b), nn.LayerNorm(d)(x), atol=1e-5))
-print(torch.allclose(batch_norm(x, g, b), nn.BatchNorm1d(d).train()(x), atol=1e-5))
-print(torch.allclose(rms_norm(x, g), nn.RMSNorm(d, eps=1e-6)(x), atol=1e-5))
-
-# BatchNorm output for example 0 depends on the rest of the batch; LayerNorm's does not.
-x2 = x.clone(); x2[1:] = torch.randn(B - 1, d) * 10
-print(torch.allclose(batch_norm(x, g, b)[0], batch_norm(x2, g, b)[0]))   # False
-print(torch.allclose(layer_norm(x, g, b)[0], layer_norm(x2, g, b)[0]))   # True
-```
+Notebook: [3.5-normalization-from-scratch.ipynb](../../code/03-deep-neural-networks/3.5-normalization-from-scratch.ipynb)
 
 Note the use of the *biased* variance (dividing by $`B`$ or $`d`$, not $`B - 1`$ or $`d - 1`$), which matches what PyTorch's layers use in the forward pass. (`nn.RMSNorm` was added in PyTorch 2.4.) The last two lines demonstrate the batch dependence directly: changing the *other* examples in the batch changes BatchNorm's output for example 0 but leaves LayerNorm's unchanged.
 
@@ -176,23 +144,7 @@ In practice, pre-norm is the default in most modern deep transformers, including
 
 In code, the two variants differ by one line:
 
-```python
-class PostNormBlock(nn.Module):
-    def __init__(self, d):
-        super().__init__()
-        self.f = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
-        self.norm = nn.LayerNorm(d)
-    def forward(self, x):
-        return self.norm(x + self.f(x))
-
-class PreNormBlock(nn.Module):
-    def __init__(self, d):
-        super().__init__()
-        self.f = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
-        self.norm = nn.LayerNorm(d)
-    def forward(self, x):
-        return x + self.f(self.norm(x))
-```
+Notebook: [3.5-where-to-put-the-norm-post-norm-vs-pre-norm.ipynb](../../code/03-deep-neural-networks/3.5-where-to-put-the-norm-post-norm-vs-pre-norm.ipynb)
 
 ## Key takeaways
 

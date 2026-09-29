@@ -109,36 +109,11 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Embedding lookup with √d scaling
 
-```python
-import math
-import torch
-import torch.nn as nn
-
-V, d = 1000, 512
-emb = nn.Embedding(V, d)
-tokens = torch.tensor([[5, 17, 42, 3]])      # a batch with one sequence of 4 token IDs
-X = emb(tokens) * math.sqrt(d)               # shape (1, 4, 512)
-print(X.shape)
-```
+Notebook: [6.2-embedding-lookup-with-sqrt-d-scaling.ipynb](../../code/06-transformer-basic-architecture/6.2-embedding-lookup-with-sqrt-d-scaling.ipynb)
 
 ### One matrix for source embedding, target embedding and output logits
 
-```python
-class TiedEmbeddings(nn.Module):
-    """One V x d matrix used for source embedding, target embedding, and output logits."""
-    def __init__(self, V, d):
-        super().__init__()
-        self.E = nn.Embedding(V, d)
-        self.d = d
-    def embed(self, tokens):
-        return self.E(tokens) * math.sqrt(self.d)
-    def logits(self, z):                     # z: (B, n, d)
-        return z @ self.E.weight.T           # (B, n, V)
-
-tie = TiedEmbeddings(V, d)
-z = torch.randn(2, 7, d)
-print(tie.embed(torch.tensor([[1, 2, 3]])).shape, tie.logits(z).shape)
-```
+Notebook: [6.2-one-matrix-for-source-embedding-target-embedding-and-output-logits.ipynb](../../code/06-transformer-basic-architecture/6.2-one-matrix-for-source-embedding-target-embedding-and-output-logits.ipynb)
 
 ## Further reading
 

@@ -53,24 +53,7 @@ The same data give an inconclusive answer when analyzed as if unpaired and a (ju
 
 When formulas are awkward, for example for win rates with ties, pass@k, F1 scores, or medians, the **bootstrap** gives confidence intervals by resampling. Draw $n$ questions with replacement from the $n$ you have, recompute the metric, repeat thousands of times, and take the 2.5th and 97.5th percentiles of the resulting distribution. For comparing two models, resample *questions* and recompute the difference on each resample, which preserves the pairing.
 
-```python
-import numpy as np
-
-def paired_bootstrap_ci(scores_a, scores_b, n_boot: int = 10_000, seed: int = 0, alpha: float = 0.05):
-    """95% CI for mean(scores_b) - mean(scores_a), resampling questions (keeps pairing)."""
-    a, b = np.asarray(scores_a, float), np.asarray(scores_b, float)
-    rng = np.random.default_rng(seed)
-    n = len(a)
-    idx = rng.integers(0, n, size=(n_boot, n))
-    diffs = b[idx].mean(axis=1) - a[idx].mean(axis=1)
-    lo, hi = np.quantile(diffs, [alpha / 2, 1 - alpha / 2])
-    return b.mean() - a.mean(), (lo, hi)
-
-# Per-question correctness for the worked example above
-a = np.array([1] * 328 + [0] * 112 + [1] * 22 + [0] * 38)   # agree-correct, agree-wrong, A-only, B-only
-b = np.array([1] * 328 + [0] * 112 + [0] * 22 + [1] * 38)
-print(paired_bootstrap_ci(a, b))   # difference 0.032, CI roughly (0.002, 0.062)
-```
+Notebook: [12.8-the-bootstrap.ipynb](../../code/12-evaluation/12.8-the-bootstrap.ipynb)
 
 The Chatbot Arena leaderboard (Section 3) uses exactly this idea, bootstrapping over votes, to put confidence intervals on its ratings.
 

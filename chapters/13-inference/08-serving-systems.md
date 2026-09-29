@@ -80,32 +80,7 @@ For interactive use, systems **stream** output: they send each token (or small g
 
 Most HTTP APIs stream using **server-sent events (SSE)**: the server keeps the connection open and writes a sequence of `data: {...}` lines, each carrying a JSON chunk with the next text increment, followed by a final marker. A client using the OpenAI Python library against any compatible server, such as the vLLM server started above, looks like this:
 
-```python
-import time
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed-locally")
-
-start = time.perf_counter()
-first, n_chunks = None, 0
-stream = client.chat.completions.create(
-    model="meta-llama/Llama-3.1-8B-Instruct",
-    messages=[{"role": "user", "content": "Explain the KV cache in two sentences."}],
-    temperature=0.7,
-    max_tokens=200,
-    stream=True,
-)
-for chunk in stream:
-    if not chunk.choices:
-        continue
-    delta = chunk.choices[0].delta.content
-    if delta:
-        first = first or time.perf_counter()
-        n_chunks += 1
-        print(delta, end="", flush=True)
-end = time.perf_counter()
-print(f"\nTTFT {first - start:.3f} s; {n_chunks} chunks in {end - first:.2f} s after the first")
-```
+Notebook: [13.8-streaming-responses.ipynb](../../code/13-inference/13.8-streaming-responses.ipynb)
 
 Measuring TTFT and the time between chunks from the client side, as here, captures network and queueing delays that server-side metrics miss.
 
@@ -113,18 +88,7 @@ Streaming raises a few implementation issues:
 
 - **Incremental detokenization.** A token does not always correspond to a complete piece of text. With byte-level BPE (Chapter 5), a multi-byte UTF-8 character such as an emoji may be split across several tokens, and decoding a partial byte sequence produces a replacement character. Some tokenizers also add or remove spaces depending on neighboring tokens. The streamer therefore decodes a window of recent tokens and emits only the text that is stable:
 
-```python
-def stream_text(token_ids, tokenizer):
-    """Yield text increments, holding back incomplete UTF-8 characters."""
-    ids, emitted = [], ""
-    for tid in token_ids:
-        ids.append(tid)
-        text = tokenizer.decode(ids)       # real engines decode only a recent window
-        if text.endswith("\ufffd"):        # replacement char: incomplete multi-byte sequence
-            continue
-        yield text[len(emitted):]
-        emitted = text
-```
+Notebook: [13.8-streaming-responses-stream-text.ipynb](../../code/13-inference/13.8-streaming-responses-stream-text.ipynb)
 
 - **Stop strings.** As Section 1 explained, text that might be the start of a stop string must be held back until the system knows whether the full stop string follows.
 - **Cancellation.** If the client disconnects, the server should abort the request promptly and free its KV cache; otherwise it keeps spending GPU time on tokens nobody will read.
@@ -149,28 +113,7 @@ The key question is $r$, and it is very different for the two kinds of token:
 
 A rough calculation for an 8B model on our hypothetical accelerator, priced at a hypothetical \$2.50 per hour:
 
-```python
-def cost_per_million(gpu_dollars_per_hour, tokens_per_second):
-    tokens_per_hour = tokens_per_second * 3600
-    return gpu_dollars_per_hour / tokens_per_hour * 1e6
-
-gpu_price = 2.50                      # hypothetical $/hour for one accelerator
-n_params = 8e9
-# Prefill: compute-bound. Assume 50% of 1,000 TFLOP/s is achieved.
-prefill_tps = 0.5 * 1e15 / (2 * n_params)
-# Decode: batch of 128 at ~2,000 tokens of context; idealized 7,750 tok/s, assume half is achieved.
-decode_tps = 0.5 * 7750
-
-print(f"input  (prefill): {prefill_tps:>8,.0f} tok/s -> ${cost_per_million(gpu_price, prefill_tps):.3f} per M tokens")
-print(f"output (decode):  {decode_tps:>8,.0f} tok/s -> ${cost_per_million(gpu_price, decode_tps):.3f} per M tokens")
-```
-
-It prints:
-
-```
-input  (prefill):   31,250 tok/s -> $0.022 per M tokens
-output (decode):     3,875 tok/s -> $0.179 per M tokens
-```
+Notebook: [13.8-where-the-cost-comes-from.ipynb](../../code/13-inference/13.8-where-the-cost-comes-from.ipynb)
 
 Under these assumptions, an output token costs about eight times as much to produce as an input token. The exact ratio depends on the model, hardware, context lengths, batch sizes, and utilization, and the absolute numbers here say nothing about any real provider's costs, which also include idle capacity, redundancy, networking, staff, and margin. But the direction is robust: output tokens are more expensive because decode uses the hardware less efficiently.
 

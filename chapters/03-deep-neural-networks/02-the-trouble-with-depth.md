@@ -102,28 +102,7 @@ The most informative plots for a deep net at the start of training (and periodic
 
 A few lines of PyTorch are enough to see the problem. The function below builds a deep MLP, runs one forward and backward pass, and returns the gradient norm of each hidden layer's weight matrix:
 
-```python
-import torch
-import torch.nn as nn
-
-def layer_grad_norms(activation, init, depth=20, width=256):
-    torch.manual_seed(0)
-    layers = []
-    for _ in range(depth):
-        lin = nn.Linear(width, width)
-        init(lin.weight)
-        nn.init.zeros_(lin.bias)
-        layers += [lin, activation()]
-    model = nn.Sequential(*layers, nn.Linear(width, 10))
-    x, y = torch.randn(64, width), torch.randint(0, 10, (64,))
-    nn.functional.cross_entropy(model(x), y).backward()
-    return [m.weight.grad.norm().item() for m in model if isinstance(m, nn.Linear)][:-1]
-
-sig = layer_grad_norms(nn.Sigmoid, lambda w: nn.init.xavier_normal_(w))
-relu = layer_grad_norms(nn.ReLU, lambda w: nn.init.kaiming_normal_(w, nonlinearity="relu"))
-print("sigmoid+Xavier: first %.2e  last %.2e" % (sig[0], sig[-1]))
-print("ReLU+He:        first %.2e  last %.2e" % (relu[0], relu[-1]))
-```
+Notebook: [3.2-diagnosing-with-activation-and-gradient-statistics.ipynb](../../code/03-deep-neural-networks/3.2-diagnosing-with-activation-and-gradient-statistics.ipynb)
 
 On one run with this seed, the 20-layer sigmoid network's first-layer gradient norm was about $`3 \times 10^{-13}`$, twelve orders of magnitude smaller than its last hidden layer's (about $`0.2`$): the early layers receive essentially no learning signal. The ReLU network with He initialization (Section 3) had gradient norms of the same order, between about 0.5 and 0.7, in its first and last layers. Note that the sigmoid network's forward activations look unremarkable in this experiment (their spread stays roughly constant across depth), so plotting activations alone would not have revealed the problem. Always look at both activations and gradients.
 
@@ -151,10 +130,7 @@ Pascanu et al. (2013) analyzed clipping in the context of training recurrent net
 
 In PyTorch:
 
-```python
-torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-optimizer.step()
-```
+Notebook: [3.2-gradient-clipping.ipynb](../../code/03-deep-neural-networks/3.2-gradient-clipping.ipynb)
 
 **Element-wise clipping** (`clip_grad_value_`) caps each gradient entry independently. It is less common as a primary stabilizer because it changes the direction of $`\mathbf{g}`$, but it appears in some older recipes.
 

@@ -106,43 +106,7 @@ When the batch is small and the context is short, the weight read dominates $t_{
 
 The following code evaluates this model for Llama 3 8B on our hypothetical accelerator:
 
-```python
-def decode_step(batch, context, n_params=8e9, bytes_per_param=2, L=32, d=4096,
-                kv_bytes_per_token=131_072,                  # Llama 3 8B, 16-bit
-                peak_flops=1e15, bandwidth=3e12, capacity=80e9):
-    weight_bytes = n_params * bytes_per_param
-    kv_bytes = batch * context * kv_bytes_per_token
-    if weight_bytes + kv_bytes > capacity:
-        return None                                          # does not fit in memory
-    flops = batch * (2 * n_params + 4 * L * context * d)
-    t_mem, t_compute = (weight_bytes + kv_bytes) / bandwidth, flops / peak_flops
-    return max(t_mem, t_compute), ("memory" if t_mem > t_compute else "compute")
-
-for context in [100, 2000]:
-    for batch in [1, 8, 32, 128, 512]:
-        r = decode_step(batch, context)
-        if r is None:
-            print(f"context {context:>5}, batch {batch:>3}: does not fit")
-            continue
-        t, bound = r
-        print(f"context {context:>5}, batch {batch:>3}: {t*1e3:5.1f} ms/step, "
-              f"{batch/t:7.0f} tok/s total, {1/t:4.0f} tok/s per user ({bound}-bound)")
-```
-
-It prints:
-
-```
-context   100, batch   1:   5.3 ms/step,     187 tok/s total,  187 tok/s per user (memory-bound)
-context   100, batch   8:   5.4 ms/step,    1490 tok/s total,  186 tok/s per user (memory-bound)
-context   100, batch  32:   5.5 ms/step,    5847 tok/s total,  183 tok/s per user (memory-bound)
-context   100, batch 128:   5.9 ms/step,   21722 tok/s total,  170 tok/s per user (memory-bound)
-context   100, batch 512:   8.2 ms/step,   62296 tok/s total,  122 tok/s per user (compute-bound)
-context  2000, batch   1:   5.4 ms/step,     184 tok/s total,  184 tok/s per user (memory-bound)
-context  2000, batch   8:   6.0 ms/step,    1326 tok/s total,  166 tok/s per user (memory-bound)
-context  2000, batch  32:   8.1 ms/step,    3936 tok/s total,  123 tok/s per user (memory-bound)
-context  2000, batch 128:  16.5 ms/step,    7749 tok/s total,   61 tok/s per user (memory-bound)
-context  2000, batch 512: does not fit
-```
+Notebook: [13.5-why-bigger-batches-improve-hardware-utilization.ipynb](../../code/13-inference/13.5-why-bigger-batches-improve-hardware-utilization.ipynb)
 
 The results illustrate three regimes:
 

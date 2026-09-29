@@ -10,26 +10,7 @@ What does that one vector end up representing? Recall how skip-gram trains it (S
 
 A toy example makes the compromise visible. Use 3-dimensional vectors whose axes loosely mean "finance," "water and nature," and "action," and give "bank" a vector partway between the two senses:
 
-```python
-import torch
-import torch.nn.functional as F
-
-static = {
-    "bank":    torch.tensor([0.6, 0.5, 0.0]),   # a blend of both senses
-    "river":   torch.tensor([0.0, 1.0, 0.1]),
-    "muddy":   torch.tensor([0.0, 0.8, 0.0]),
-    "account": torch.tensor([1.0, 0.0, 0.1]),
-    "opened":  torch.tensor([0.3, 0.0, 0.9]),
-    "the":     torch.tensor([0.1, 0.1, 0.1]),
-}
-cos = lambda a, b: F.cosine_similarity(a, b, dim=0).item()
-print(f"static bank vs river: {cos(static['bank'], static['river']):.3f}, "
-      f"vs account: {cos(static['bank'], static['account']):.3f}")
-```
-
-```text
-static bank vs river: 0.637, vs account: 0.764
-```
+Notebook: [4.4-one-vector-per-word-is-not-enough.ipynb](../../code/04-embeddings/4.4-one-vector-per-word-is-not-enough.ipynb)
 
 The static vector is moderately similar to both senses and strongly similar to neither. Any model that reads "bank" through this vector starts out not knowing which bank is meant, and must work it out from the other words using its later layers, if it can.
 
@@ -37,46 +18,7 @@ The static vector is moderately similar to both senses and strongly similar to n
 
 Real embeddings trained on a large corpus show the frequency effect directly. The code below loads the 100,000 most frequent words of a set of pretrained GloVe vectors (Pennington et al. 2014), 50-dimensional vectors trained on Wikipedia and newswire text, and lists the nearest neighbors (Section 4.3) of two ambiguous words:
 
-```python
-import gzip
-import numpy as np
-
-# GloVe vectors (50 dimensions, trained on Wikipedia and newswire text), top 100,000 words
-words, vecs = [], []
-with gzip.open("glove50.gz", "rt", encoding="utf8") as f:
-    next(f)                                             # header line: "400000 50"
-    for i, line in enumerate(f):
-        if i == 100_000:
-            break
-        parts = line.rstrip().split(" ")
-        words.append(parts[0])
-        vecs.append(np.array(parts[1:], dtype=np.float32))
-E = np.stack(vecs)
-E /= np.linalg.norm(E, axis=1, keepdims=True)          # unit length: dot product = cosine
-idx = {w: i for i, w in enumerate(words)}
-
-def neighbors(word, k=10):
-    scores = E @ E[idx[word]]
-    order = [i for i in np.argsort(-scores) if words[i] != word][:k]
-    return [words[i] for i in order]
-
-def cos(a, b):
-    return float(E[idx[a]] @ E[idx[b]])
-
-for w in ["bank", "apple"]:
-    print(f"{w}: {', '.join(neighbors(w, 8))}")
-for a, b in [("bank", "loan"), ("bank", "river"), ("apple", "microsoft"), ("apple", "pear")]:
-    print(f"cos({a}, {b}) = {cos(a, b):.3f}")
-```
-
-```text
-bank: banks, securities, banking, investment, exchange, financial, credit, lender
-apple: blackberry, chips, iphone, microsoft, ipad, pc, ipod, intel
-cos(bank, loan) = 0.676
-cos(bank, river) = 0.414
-cos(apple, microsoft) = 0.733
-cos(apple, pear) = 0.543
-```
+Notebook: [4.4-what-pretrained-vectors-show.ipynb](../../code/04-embeddings/4.4-what-pretrained-vectors-show.ipynb)
 
 (The file `glove50.gz` is the `glove-wiki-gigaword-50` vectors in word2vec text format, as distributed by the `gensim-data` project.) Every one of the eight neighbors of "bank" is financial; "river" does not appear even among its 100 nearest neighbors. The neighbors of "apple" are all about computers and phones, because in news text the company is mentioned far more often than the fruit, and the vector for "apple" is closer to "microsoft" than to "pear." The less frequent sense has not vanished, since "bank" is still somewhat similar to "river," but it has been outvoted. A model that reads "apple" in a recipe gets a vector that mostly says "technology company."
 

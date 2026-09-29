@@ -1,5 +1,5 @@
 # code: Inference
 
-Labs and figure scripts for this chapter will appear here as the chapter is written.
+Notebooks for the worked examples in Chapter 13 (Sections 13.1–13.9). Each listing in [`chapters/13-inference/`](../../chapters/13-inference/) links to a notebook in this folder.
 
-Prose and rendered figures stay in [`chapters/13-inference/`](../../chapters/13-inference/).
+Prose stays in the chapter. These notebooks use the standard library and NumPy.

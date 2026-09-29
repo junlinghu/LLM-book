@@ -45,37 +45,7 @@ A good rule of thumb: **use a reference whenever you can create one.** Even for 
 
 A pairwise judge is a prompt template plus parsing. Here is a sketch using a generic chat-completion function; any LLM API or local model can fill in `call_llm`.
 
-```python
-JUDGE_TEMPLATE = """You are an impartial evaluator. Compare two responses to the user's question.
-Judge helpfulness, correctness, and adherence to the question. Do not let response length,
-formatting, or the order of the responses affect your decision.
-
-[Question]
-{question}
-
-[Response A]
-{a}
-
-[Response B]
-{b}
-
-Explain your reasoning briefly, then output exactly one final line:
-"Verdict: A", "Verdict: B", or "Verdict: tie"."""
-
-def parse_verdict(text: str) -> str:
-    for line in reversed(text.strip().splitlines()):
-        if line.strip().lower().startswith("verdict:"):
-            return line.split(":", 1)[1].strip().lower()
-    return "invalid"
-
-def judge_pair(question, resp_1, resp_2, call_llm) -> float:
-    """Returns resp_1's score in [0, 1], judging both orders to cancel position bias."""
-    v1 = parse_verdict(call_llm(JUDGE_TEMPLATE.format(question=question, a=resp_1, b=resp_2)))
-    v2 = parse_verdict(call_llm(JUDGE_TEMPLATE.format(question=question, a=resp_2, b=resp_1)))
-    score_1 = {"a": 1.0, "tie": 0.5, "b": 0.0}.get(v1, 0.5)
-    score_2 = {"b": 1.0, "tie": 0.5, "a": 0.0}.get(v2, 0.5)   # order swapped
-    return (score_1 + score_2) / 2
-```
+Notebook: [12.6-a-minimal-judge.ipynb](../../code/12-evaluation/12.6-a-minimal-judge.ipynb)
 
 If the judge prefers response 1 in both orders, its score is 1.0. If the verdict flips when the order is swapped, the score is 0.5: the judge's preference was driven by position, not content, and the pair is effectively a tie. Counting how often verdicts flip is itself a useful measure of a judge's position bias.
 
@@ -138,16 +108,7 @@ Beyond bias-specific fixes, several general practices make LLM judges more trust
 4. Compare judge-human agreement with human-human agreement. If they are similar, the judge is roughly as reliable as an additional annotator. If much lower, improve the judge or do not use it.
 5. Inspect the disagreements. They often reveal a rubric ambiguity or a specific bias.
 
-```python
-def judge_human_agreement(judge_labels, human_labels_1, human_labels_2):
-    """Compare judge-vs-human agreement with human-vs-human agreement."""
-    # cohens_kappa as defined in Section 5
-    return {
-        "human_human_kappa": cohens_kappa(human_labels_1, human_labels_2),
-        "judge_human1_kappa": cohens_kappa(judge_labels, human_labels_1),
-        "judge_human2_kappa": cohens_kappa(judge_labels, human_labels_2),
-    }
-```
+Notebook: [12.6-making-judges-reliable.ipynb](../../code/12-evaluation/12.6-making-judges-reliable.ipynb)
 
 This is Suggested Code Lab 4 in miniature: score a set of answers with a rubric by hand and with an LLM judge, and compare how often they agree.
 

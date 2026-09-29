@@ -133,104 +133,17 @@ These listings reproduce the measurements in this section. Run them in order in 
 
 Train byte-level BPE tokenizers of six sizes on 90 percent of tiny Shakespeare and measure them on the rest.
 
-```python
-import os, urllib.request
-from collections import Counter
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers, decoders
-
-if not os.path.exists("shakespeare.txt"):
-    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    urllib.request.urlretrieve(url, "shakespeare.txt")
-text = open("shakespeare.txt", encoding="utf-8").read()
-split = int(0.9 * len(text))
-train, held_out = text[:split], text[split:]
-with open("train.txt", "w", encoding="utf-8") as f:
-    f.write(train)
-n_bytes = len(held_out.encode("utf-8"))
-
-for V in [512, 1000, 2000, 4000, 8000, 16000]:
-    tok = Tokenizer(models.BPE())
-    tok.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
-    tok.decoder = decoders.ByteLevel()
-    trainer = trainers.BpeTrainer(vocab_size=V, show_progress=False,
-                                  initial_alphabet=pre_tokenizers.ByteLevel.alphabet())
-    tok.train(["train.txt"], trainer)
-    counts = Counter(tok.encode(train).ids)
-    rare = sum(1 for i in range(tok.get_vocab_size()) if counts[i] < 10)
-    n_tokens = len(tok.encode(held_out).ids)
-    print(V, n_tokens, round(n_bytes / n_tokens, 2), rare)
-```
-
-Output:
-
-```
-512 59401 1.88 193
-1000 49650 2.25 223
-2000 43755 2.55 373
-4000 38542 2.89 850
-8000 35070 3.18 5291
-16000 33720 3.31 13917
-```
+Notebook: [5.7-A.1-compression-as-a-function-of-vocabulary-size.ipynb](../../code/05-tokenizer/5.7-A.1-compression-as-a-function-of-vocabulary-size.ipynb)
 
 ### A.2 Token counts across languages
 
 Count tokens for one sentence in ten languages with three OpenAI tokenizers.
 
-```python
-import tiktoken
-
-sentences = {
-    "English": "The weather is nice today, so I want to go for a walk in the park.",
-    "French": "Il fait beau aujourd'hui, alors je veux aller me promener dans le parc.",
-    "Spanish": "Hoy hace buen tiempo, así que quiero ir a pasear por el parque.",
-    "German": "Heute ist schönes Wetter, deshalb möchte ich im Park spazieren gehen.",
-    "Russian": "Сегодня хорошая погода, поэтому я хочу погулять в парке.",
-    "Chinese": "今天天气很好，所以我想去公园散步。",
-    "Japanese": "今日は天気がいいので、公園を散歩したいです。",
-    "Korean": "오늘은 날씨가 좋아서 공원에 산책하러 가고 싶어요.",
-    "Hindi": "आज मौसम अच्छा है, इसलिए मैं पार्क में टहलने जाना चाहता हूँ।",
-    "Arabic": "الطقس جميل اليوم، لذلك أريد أن أتمشى في الحديقة.",
-}
-encs = {n: tiktoken.get_encoding(n) for n in ["gpt2", "cl100k_base", "o200k_base"]}
-base = {n: len(e.encode(sentences["English"])) for n, e in encs.items()}
-for lang, s in sentences.items():
-    row = f"{lang:9}{len(s.encode()):>5} bytes"
-    for n, e in encs.items():
-        k = len(e.encode(s))
-        row += f"{k:>5} ({k / base[n]:.1f}x)"
-    print(row)
-```
-
-Output:
-
-```
-English     66 bytes   18 (1.0x)   18 (1.0x)   18 (1.0x)
-French      71 bytes   29 (1.6x)   18 (1.0x)   17 (0.9x)
-Spanish     64 bytes   25 (1.4x)   19 (1.1x)   16 (0.9x)
-German      71 bytes   28 (1.6x)   19 (1.1x)   14 (0.8x)
-Russian    102 bytes   63 (3.5x)   30 (1.7x)   16 (0.9x)
-Chinese     51 bytes   32 (1.8x)   22 (1.2x)   13 (0.7x)
-Japanese    66 bytes   29 (1.6x)   23 (1.3x)   15 (0.8x)
-Korean      70 bytes   64 (3.6x)   33 (1.8x)   19 (1.1x)
-Hindi      153 bytes   89 (4.9x)   62 (3.4x)   16 (0.9x)
-Arabic      87 bytes   52 (2.9x)   34 (1.9x)   17 (0.9x)
-```
+Notebook: [5.7-A.2-token-counts-across-languages.ipynb](../../code/05-tokenizer/5.7-A.2-token-counts-across-languages.ipynb)
 
 ### A.3 Prose versus code
 
 Compare compression on Shakespeare and on Python source.
 
-```python
-held = held_out
-code = open("bpe.py", encoding="utf-8").read()
-for label, t in [("Shakespeare", held), ("Python", code)]:
-    b = len(t.encode("utf-8"))
-    print(label, b, {n: round(b / len(e.encode(t)), 2) for n, e in encs.items()})
-```
+Notebook: [5.7-A.3-prose-versus-code.ipynb](../../code/05-tokenizer/5.7-A.3-prose-versus-code.ipynb)
 
-Output:
-
-```
-Shakespeare 111540 {'gpt2': 3.09, 'cl100k_base': 3.54, 'o200k_base': 3.6}
-Python 3411 {'gpt2': 2.02, 'cl100k_base': 3.98, 'o200k_base': 4.0}
-```

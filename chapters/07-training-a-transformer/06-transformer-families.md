@@ -109,65 +109,11 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### BERT's masking rule and an encoder-only classifier
 
-```python
-import torch
-import torch.nn as nn
-
-PAD, CLS, SEP, MASK, V = 0, 1, 2, 3, 1000        # special tokens, then ordinary tokens 4..999
-
-def bert_mask(tokens, p=0.15):
-    """BERT's corruption: choose 15% of ordinary tokens; of those, 80% become [MASK],
-    10% a random token, 10% stay unchanged. Labels are -100 (ignored) elsewhere."""
-    special = tokens < 4
-    chosen = (torch.rand(tokens.shape) < p) & ~special
-    labels = torch.where(chosen, tokens, torch.full_like(tokens, -100))
-    r = torch.rand(tokens.shape)
-    corrupted = tokens.clone()
-    corrupted[chosen & (r < 0.8)] = MASK
-    random_tok = chosen & (r >= 0.8) & (r < 0.9)
-    corrupted[random_tok] = torch.randint(4, V, (int(random_tok.sum()),))
-    return corrupted, labels
-
-torch.manual_seed(0)
-x = torch.randint(4, V, (64, 128))
-x[:, 0], x[:, -1] = CLS, SEP
-xc, y = bert_mask(x)
-chosen = y != -100
-print(f"chosen {chosen.float().mean():.3f}, of which [MASK] {(xc[chosen] == MASK).float().mean():.2f}, "
-      f"unchanged {(xc[chosen] == x[chosen]).float().mean():.2f}")
-
-class EncoderClassifier(nn.Module):              # encoder-only model: classify from the [CLS] vector
-    def __init__(self, d=128, h=4, N=2, n_classes=3, max_len=512):
-        super().__init__()
-        self.tok = nn.Embedding(V, d)
-        self.pos = nn.Embedding(max_len, d)      # learned positions, as in BERT and ViT
-        layer = nn.TransformerEncoderLayer(d, h, 4 * d, batch_first=True)   # post-norm, like BERT
-        self.encoder = nn.TransformerEncoder(layer, N)
-        self.head = nn.Linear(d, n_classes)
-    def forward(self, tokens):
-        h = self.tok(tokens) + self.pos(torch.arange(tokens.size(1)))
-        h = self.encoder(h, src_key_padding_mask=tokens == PAD)   # no causal mask
-        return self.head(h[:, 0])                # position 0 holds [CLS]
-
-print(EncoderClassifier()(x).shape)             # one prediction per sequence
-
-```
+Notebook: [7.6-bert-masking-rule-and-an-encoder-only-classifier.ipynb](../../code/07-training-a-transformer/7.6-bert-masking-rule-and-an-encoder-only-classifier.ipynb)
 
 ### ViT's patch embedding is a strided convolution
 
-```python
-import torch
-import torch.nn as nn
-
-# ViT's patch embedding: cutting an image into 16x16 patches and applying one linear map
-# to each flattened patch is the same as a convolution with kernel size = stride = 16.
-img = torch.randn(1, 3, 224, 224)
-conv = nn.Conv2d(3, 768, kernel_size=16, stride=16)
-patches = img.unfold(2, 16, 16).unfold(3, 16, 16)            # (1, 3, 14, 14, 16, 16)
-patches = patches.permute(0, 2, 3, 1, 4, 5).reshape(1, 196, 3 * 16 * 16)
-linear = patches @ conv.weight.reshape(768, -1).T + conv.bias
-print(linear.shape, torch.allclose(linear, conv(img).flatten(2).transpose(1, 2), atol=1e-4))
-```
+Notebook: [7.6-vit-patch-embedding-is-a-strided-convolution.ipynb](../../code/07-training-a-transformer/7.6-vit-patch-embedding-is-a-strided-convolution.ipynb)
 
 ## Further reading
 

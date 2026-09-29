@@ -6,15 +6,7 @@ Neural networks compute with numbers. Every network in Chapters 2 and 3 took a v
 
 Suppose we have fixed a **vocabulary**: a list of the $`V`$ distinct symbols the model will ever see. In this chapter the symbols will usually be whole words, because words make the examples easy to follow. Real LLMs use subword *tokens* instead, which Chapter 5 explains; everything in this chapter applies to tokens unchanged. Numbering the vocabulary entries $`0, 1, \dots, V-1`$ turns a sentence into a sequence of integers:
 
-```python
-vocab = ["<unk>", "the", "cat", "dog", "sat", "on", "mat"]
-word_to_id = {w: i for i, w in enumerate(vocab)}
-
-sentence = "the cat sat on the mat".split()
-ids = [word_to_id.get(w, 0) for w in sentence]   # unknown words map to ID 0
-print(ids)
-# [1, 2, 4, 5, 1, 6]
-```
+Notebook: [4.1-from-symbols-to-integers.ipynb](../../code/04-embeddings/4.1-from-symbols-to-integers.ipynb)
 
 The integers are only names. The fact that "cat" is 2 and "dog" is 3 says nothing about cats and dogs being related, and the fact that "mat" is 6 does not make it "bigger" than "the." If we fed these integers directly into a network as numbers, the first layer would compute $`w \cdot 2`$ for "cat" and $`w \cdot 3`$ for "dog," imposing an ordering and a scale that mean nothing. We need a representation that treats each symbol as a separate category.
 
@@ -34,27 +26,7 @@ One-hot vectors fix the ordering problem: no word is larger than another, and ea
 
 **They carry no notion of similarity.** This is the most important defect. Any two different one-hot vectors are orthogonal, so their dot product is 0, and every pair of distinct words is exactly the same distance apart:
 
-```python
-import numpy as np
-
-vocab = ["cat", "dog", "car", "banana"]
-one_hot = np.eye(len(vocab))
-
-def cos(a, b):
-    return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
-
-print("cos(cat, dog)    =", cos(one_hot[0], one_hot[1]))
-print("cos(cat, banana) =", cos(one_hot[0], one_hot[3]))
-print("distance(cat, dog)    =", np.linalg.norm(one_hot[0] - one_hot[1]).round(4))
-print("distance(cat, banana) =", np.linalg.norm(one_hot[0] - one_hot[3]).round(4))
-```
-
-```text
-cos(cat, dog)    = 0.0
-cos(cat, banana) = 0.0
-distance(cat, dog)    = 1.4142
-distance(cat, banana) = 1.4142
-```
+Notebook: [4.1-one-hot-vectors.ipynb](../../code/04-embeddings/4.1-one-hot-vectors.ipynb)
 
 (The cosine similarity used here measures the angle between two vectors; Section 4.3 treats it properly.) In one-hot space, "cat" is exactly as similar to "dog" as it is to "banana." Whatever a network learns about the word "cat" tells it nothing about "dog," because the two words activate completely different input weights. If the training data contains "the cat sat on the mat" many times but "the dog sat on the mat" only rarely, the network cannot transfer what it learned about cats to dogs. It has to learn every word separately from that word's own occurrences. For rare words, which make up most of any vocabulary, there simply is not enough data.
 
@@ -68,18 +40,7 @@ Something useful happens anyway as soon as a one-hot vector enters a network. Le
 
 Every other row is multiplied by 0. So the first layer's output for word $`i`$ is simply row $`i`$ of $`W`$, a vector of $`d`$ numbers, and $`d`$ can be much smaller than $`V`$: a few hundred or a few thousand, instead of tens of thousands.
 
-```python
-rng = np.random.default_rng(0)
-W = rng.normal(size=(4, 3)).round(2)   # V = 4 words, d = 3
-x = one_hot[1]                         # "dog"
-print(x @ W)
-print(W[1])
-```
-
-```text
-[ 0.1  -0.54  0.36]
-[ 0.1  -0.54  0.36]
-```
+Notebook: [4.1-what-the-first-layer-does-with-a-one-hot-vector.ipynb](../../code/04-embeddings/4.1-what-the-first-layer-does-with-a-one-hot-vector.ipynb)
 
 Figure 4.1 shows the equivalence.
 
@@ -100,29 +61,7 @@ That row, a dense vector of $`d`$ learned numbers standing in for a discrete sym
 
 Deep learning libraries provide this table as a layer of its own. In PyTorch it is `nn.Embedding(num_embeddings, embedding_dim)`: a $`V \times d`$ matrix of learned parameters, stored in `.weight`, whose output for a tensor of integer IDs of any shape is the same tensor with one extra dimension of size $`d`$, holding the looked-up rows:
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-torch.manual_seed(0)
-
-V, d = 10, 4
-emb = nn.Embedding(V, d)
-print(emb.weight.shape)
-
-ids = torch.tensor([[3, 7, 3, 1]])            # a batch of one sequence of 4 word IDs
-x = emb(ids)
-print(x.shape)
-
-one_hot = F.one_hot(ids, num_classes=V).float()   # (1, 4, V)
-print(torch.allclose(one_hot @ emb.weight, x))    # lookup == one-hot times matrix
-```
-
-```text
-torch.Size([10, 4])
-torch.Size([1, 4, 4])
-True
-```
+Notebook: [4.1-the-embedding-layer-in-a-neural-network.ipynb](../../code/04-embeddings/4.1-the-embedding-layer-in-a-neural-network.ipynb)
 
 A batch of shape `(B, T)`, holding $`B`$ sequences of $`T`$ word IDs, becomes a tensor of shape `(B, T, d)`, one $`d`$-dimensional vector per position, ready for the layers that follow. The last line confirms the equivalence of Figure 4.1: the lookup gives exactly what a bias-free linear layer would compute on one-hot inputs. Notice also that word 3 appears twice in the sequence and receives the same vector both times. The embedding layer gives a word the same vector wherever it occurs; Section 4.4 returns to what that costs.
 
@@ -132,14 +71,7 @@ Where do the rows come from? One option is to train them separately, with a meth
 
 Gradients reach the table through backpropagation like any other layer (Section 2.6), with one special property: only the rows that were actually looked up receive a gradient.
 
-```python
-x.sum().backward()                            # any loss that depends on x
-print(emb.weight.grad.abs().sum(dim=1))       # gradient magnitude for each row
-```
-
-```text
-tensor([0., 4., 0., 8., 0., 0., 0., 4., 0., 0.])
-```
+Notebook: [4.1-learned-end-to-end.ipynb](../../code/04-embeddings/4.1-learned-end-to-end.ipynb)
 
 Rows 1, 3, and 7, the words in the batch, have gradients. Row 3 has twice as much because word 3 appeared twice, and its gradients from the two positions add up. Every other row has exactly zero gradient. The backward pass of a lookup is a *scatter-add*: each position's gradient is added into the row it came from.
 

@@ -8,13 +8,7 @@ Word2Vec needs no labeled data. It reads a long stream of words $`w_1, w_2, \dot
 
 With $`m = 2`$ and the sentence "the quick brown fox jumps," the center word "brown" has the context words "the," "quick," "fox," and "jumps." Sliding the window along the text produces an enormous number of (center, context) pairs from nothing but raw text:
 
-```python
-def skipgram_pairs(ids, window):
-    for t, center in enumerate(ids):
-        for j in range(max(0, t - window), min(len(ids), t + window + 1)):
-            if j != t:
-                yield center, ids[j]
-```
+Notebook: [4.2-turning-text-into-training-examples.ipynb](../../code/04-embeddings/4.2-turning-text-into-training-examples.ipynb)
 
 A corpus of a billion words with $`m = 5`$ yields about ten billion pairs. Each pair is a small piece of evidence about which words keep company with which. Word2Vec turns that evidence into vectors.
 
@@ -106,38 +100,7 @@ Read the update for the center word's vector: gradient descent moves $`\mathbf{v
 
 As in Chapter 2, let us check the derivation against autograd:
 
-```python
-import torch
-import torch.nn.functional as F
-torch.manual_seed(0)
-torch.set_default_dtype(torch.float64)
-
-d, k = 8, 5
-v_c = torch.randn(d, requires_grad=True)        # center word, input vector
-u_o = torch.randn(d, requires_grad=True)        # true context word, output vector
-u_neg = torch.randn(k, d, requires_grad=True)   # k negative samples, output vectors
-
-loss = -F.logsigmoid(u_o @ v_c) - F.logsigmoid(-(u_neg @ v_c)).sum()
-loss.backward()
-
-with torch.no_grad():                           # the formulas derived above
-    s_pos = torch.sigmoid(u_o @ v_c)
-    s_neg = torch.sigmoid(u_neg @ v_c)
-    g_vc = (s_pos - 1) * u_o + (s_neg[:, None] * u_neg).sum(0)
-    g_uo = (s_pos - 1) * v_c
-    g_neg = s_neg[:, None] * v_c
-
-print(f"loss = {loss.item():.4f}")
-for name, ours, auto in [("v_c", g_vc, v_c.grad), ("u_o", g_uo, u_o.grad), ("u_neg", g_neg, u_neg.grad)]:
-    print(f"{name:5s}: max |difference| = {(ours - auto).abs().max().item():.1e}")
-```
-
-```text
-loss = 7.2111
-v_c  : max |difference| = 2.2e-16
-u_o  : max |difference| = 0.0e+00
-u_neg: max |difference| = 4.4e-16
-```
+Notebook: [4.2-gradients.ipynb](../../code/04-embeddings/4.2-gradients.ipynb)
 
 The hand-derived gradients match autograd to 64-bit round-off. Note the use of `F.logsigmoid` rather than `torch.log(torch.sigmoid(...))`: like the stable softmax of Section 2.4, it avoids taking the log of a number that has underflowed to zero.
 
@@ -151,18 +114,7 @@ P_n(w) = \frac{f(w)^{3/4}}{\sum_{w'} f(w')^{3/4}},
 
 where $`f(w)`$ is the count of word $`w`$ in the corpus. The exponent flattens the distribution, giving rare words a larger share than their raw frequency:
 
-```python
-counts = torch.tensor([1000., 100., 10., 1.])
-p_uni = counts / counts.sum()
-p_34 = counts ** 0.75 / (counts ** 0.75).sum()
-print("unigram:    ", p_uni.numpy().round(4))
-print("unigram^3/4:", p_34.numpy().round(4))
-```
-
-```text
-unigram:     [9.001e-01 9.000e-02 9.000e-03 9.000e-04]
-unigram^3/4: [0.823  0.1464 0.026  0.0046]
-```
+Notebook: [4.2-choosing-the-negatives.ipynb](../../code/04-embeddings/4.2-choosing-the-negatives.ipynb)
 
 The rarest word's share rises about fivefold, while the most frequent word's falls a little. The same paper suggests $`k`$ between 5 and 20 for small datasets and as few as 2 to 5 for large ones. Occasionally a "negative" happens to be a true context word; with a large vocabulary this is rare, and it only adds a little noise.
 
@@ -182,43 +134,9 @@ where $`f(w)`$ is now the word's *relative* frequency and $`t`$ is a threshold, 
 
 Putting the pieces together, the whole model is two embedding tables and the loss above. `nn.Embedding` is PyTorch's lookup table from Section 4.1: `emb(ids)` fetches rows `ids` of the table, and only those rows receive gradients.
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-class SkipGramNS(nn.Module):
-    def __init__(self, vocab_size, dim):
-        super().__init__()
-        self.inp = nn.Embedding(vocab_size, dim)    # v_w: center-word vectors
-        self.out = nn.Embedding(vocab_size, dim)    # u_w: context-word vectors
-        nn.init.uniform_(self.inp.weight, -0.5 / dim, 0.5 / dim)
-        nn.init.zeros_(self.out.weight)
-
-    def forward(self, center, context, negatives):
-        # center: (B,), context: (B,), negatives: (B, k), all integer word IDs
-        v = self.inp(center)                                  # (B, d)
-        u_pos = self.out(context)                             # (B, d)
-        u_neg = self.out(negatives)                           # (B, k, d)
-        pos = F.logsigmoid((u_pos * v).sum(-1))               # (B,)
-        neg = F.logsigmoid(-(u_neg @ v.unsqueeze(-1)).squeeze(-1)).sum(-1)  # (B,)
-        return -(pos + neg).mean()
-```
+Notebook: [4.2-skip-gram-with-negative-sampling-in-pytorch.ipynb](../../code/04-embeddings/4.2-skip-gram-with-negative-sampling-in-pytorch.ipynb)
 
 A training step draws a minibatch of (center, context) pairs, samples $`k`$ negatives per pair from the noise distribution with `torch.multinomial`, and runs the usual loop of Section 2.9:
-
-```python
-# Assumes vocab, pairs (a LongTensor of (center, context) IDs), noise_dist, k, and num_steps
-model = SkipGramNS(len(vocab), dim=100)
-opt = torch.optim.Adam(model.parameters(), lr=0.01)
-for step in range(num_steps):
-    batch = pairs[torch.randint(len(pairs), (256,))]                  # (256, 2)
-    negatives = torch.multinomial(noise_dist, 256 * k, replacement=True).view(256, k)
-    loss = model(batch[:, 0], batch[:, 1], negatives)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-```
 
 The initialization follows the original Word2Vec code: small random input vectors and all-zero output vectors. It also gives a handy sanity check in the spirit of Chapter 3's training checklist. With zero output vectors, every dot product is 0 and every sigmoid is 1/2, so the initial loss is exactly $`(k + 1) \ln 2`$, about 4.159 for $`k = 5`$. If your first reported loss is far from that, something is wired up wrong.
 
@@ -232,22 +150,7 @@ Word2Vec treats every word as an atomic symbol with its own independent vector. 
 
 **fastText** (Bojanowski et al. 2017) fixes both problems by representing each word as a bag of **character n-grams**. The word is wrapped in boundary symbols `<` and `>`, so that prefixes and suffixes are distinguishable from the same letters in the middle of a word, and then all substrings of length 3 to 6 are extracted. The word itself, with its boundary symbols, is added as one more unit:
 
-```python
-def char_ngrams(word, n_min=3, n_max=6):
-    w = f"<{word}>"                                   # mark the word's boundaries
-    grams = {w[i:i + n] for n in range(n_min, n_max + 1)
-                        for i in range(len(w) - n + 1)}
-    grams.add(w)                                      # the whole word is kept too
-    return sorted(grams, key=lambda g: (len(g), g))
-
-print(char_ngrams("where", 3, 3))
-print(len(char_ngrams("where")), "n-grams with n from 3 to 6")
-```
-
-```text
-['<wh', 'ere', 'her', 're>', 'whe', '<where>']
-15 n-grams with n from 3 to 6
-```
+Notebook: [4.2-fasttext-vectors-from-pieces-of-words.ipynb](../../code/04-embeddings/4.2-fasttext-vectors-from-pieces-of-words.ipynb)
 
 Note that the trigram `her` from "where" is a different unit from the word "her," which would be written `<her>`.
 

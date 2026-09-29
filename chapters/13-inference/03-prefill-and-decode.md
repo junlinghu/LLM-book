@@ -12,19 +12,7 @@ Consider a prompt of $m$ tokens and a response of $g$ generated tokens. Section 
 
 In code, using a model interface that accepts and returns a cache:
 
-```python
-def generate_with_cache(model, prompt_ids, choose_token, max_new_tokens):
-    # Prefill: one parallel pass over the whole prompt.
-    logits, cache = model.forward(prompt_ids, cache=None)   # logits: [m, V]
-    next_id = choose_token(logits[-1])
-    output = [next_id]
-    # Decode: one token per pass, reusing the cache.
-    for _ in range(max_new_tokens - 1):
-        logits, cache = model.forward([next_id], cache=cache)  # logits: [1, V]
-        next_id = choose_token(logits[-1])
-        output.append(next_id)
-    return output
-```
+Notebook: [13.3-the-two-phases.ipynb](../../code/13-inference/13.3-the-two-phases.ipynb)
 
 Both phases run the same network with the same weights. What differs is the *shape* of the work: prefill multiplies each weight matrix by a matrix of $m$ token vectors, while decode multiplies it by a single vector (or, with batching, by one vector per active request).
 
@@ -103,22 +91,7 @@ Which metric matters depends on the application. For a chat interface that strea
 
 A small calculator makes the tradeoffs concrete:
 
-```python
-def latency_estimate(n_params, bytes_per_param, prompt_len, gen_len,
-                     peak_flops=1e15, bandwidth=3e12, mfu=0.5, mbu=0.7):
-    """Rough single-request latency using compute and memory lower bounds.
-    mfu/mbu: fraction of peak FLOP/s and peak bandwidth actually achieved (assumed)."""
-    weight_bytes = n_params * bytes_per_param
-    prefill_compute = 2 * n_params * prompt_len / (peak_flops * mfu)
-    prefill_memory = weight_bytes / (bandwidth * mbu)
-    ttft = max(prefill_compute, prefill_memory)
-    tpot = weight_bytes / (bandwidth * mbu)      # ignores KV-cache reads at short context
-    return ttft, tpot, ttft + (gen_len - 1) * tpot
-
-ttft, tpot, total = latency_estimate(8e9, 2, prompt_len=2000, gen_len=500)
-print(f"TTFT {ttft*1e3:.0f} ms, TPOT {tpot*1e3:.1f} ms, total {total:.2f} s")
-# TTFT 64 ms, TPOT 7.6 ms, total 3.87 s
-```
+Notebook: [13.3-time-to-first-token-vs-time-per-output-token.ipynb](../../code/13-inference/13.3-time-to-first-token-vs-time-per-output-token.ipynb)
 
 The utilization factors `mfu` (model FLOPs utilization) and `mbu` (memory bandwidth utilization) are assumptions for illustration. Even so, the example shows the typical pattern: a 2,000-token prompt is processed in tens of milliseconds, while 500 output tokens take several seconds. Per token, decode is far more expensive than prefill.
 

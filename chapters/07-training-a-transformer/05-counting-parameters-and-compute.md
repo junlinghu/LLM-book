@@ -139,41 +139,7 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Parameter and FLOP counters, checked against PyTorch
 
-```python
-import torch
-import torch.nn as nn
-from torch.utils.flop_counter import FlopCounterMode
-from torch.nn.attention import sdpa_kernel, SDPBackend
-
-def transformer_params(d=512, d_ff=2048, N=6, V=37000, final_norms=True):
-    attn = 4 * d * d + 4 * d                     # W_Q, W_K, W_V, W_O and their biases
-    ffn = 2 * d * d_ff + d_ff + d                # two linear layers with biases
-    ln = 2 * d                                   # gain and bias
-    enc_layer = attn + ffn + 2 * ln
-    dec_layer = 2 * attn + ffn + 3 * ln
-    final = 2 * ln if final_norms else 0         # PyTorch adds a LayerNorm after each stack
-    return N * (enc_layer + dec_layer) + final, V * d
-
-body, emb = transformer_params()
-tf = nn.Transformer(512, 8, 6, 6, 2048, dropout=0.0, batch_first=True)
-print(body, sum(p.numel() for p in tf.parameters()))            # formula vs PyTorch
-print(f"with shared embedding: {(body + emb) / 1e6:.2f}M")
-
-def forward_flops(n, m, d=512, d_ff=2048, N=6):
-    """Matrix-multiply FLOPs of one forward pass (source length n, target length m)."""
-    enc = N * (n * 2 * (4 * d * d + 2 * d * d_ff) + 4 * n * n * d)
-    dec = N * (m * 2 * (4 * d * d + 2 * d * d + 2 * d * d_ff)   # self Q,K,V,O; cross Q,O; FFN
-               + n * 2 * (2 * d * d)                             # cross K,V on the memory
-               + 4 * m * m * d + 4 * m * n * d)                  # self and cross attention
-    return enc + dec
-
-n, m = 48, 40
-src, tgt = torch.randn(1, n, 512), torch.randn(1, m, 512)
-tf.train()                            # eval mode would use a fused fast path the counter cannot see
-with torch.no_grad(), sdpa_kernel(SDPBackend.MATH), FlopCounterMode(display=False) as counter:
-    tf(src, tgt, tgt_mask=nn.Transformer.generate_square_subsequent_mask(m))
-print(forward_flops(n, m), counter.get_total_flops())         # formula vs measured
-```
+Notebook: [7.5-parameter-and-flop-counters-checked-against-pytorch.ipynb](../../code/07-training-a-transformer/7.5-parameter-and-flop-counters-checked-against-pytorch.ipynb)
 
 Two settings make every multiplication visible to the FLOP counter: `sdpa_kernel(SDPBackend.MATH)` computes attention with ordinary batched matrix multiplications instead of a fused kernel, and training mode (with dropout 0, so the output is unchanged) keeps PyTorch from using its fused inference path for encoder layers.
 
