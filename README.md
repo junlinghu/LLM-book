@@ -1,6 +1,40 @@
-# Introduction to LLM
+# A Concise Guide to Large Language Models
 
-This is the repo for the book Introduction to LLM by Junling Hu. All book content are in Chapter folder, and code are in code folder. 
+Companion repository for the book by **Junling Hu**.
+
+This repo holds the book’s chapter drafts, figures, and accompanying code. It is meant as a practical path from neural-network basics to how modern LLMs are trained, fine-tuned, evaluated, and served—with enough explanation that you can follow the ideas and enough code that you can try them.
+
+## What this repo is for
+
+- **Read the book in progress.** Chapter text lives under [`chapters/`](chapters/) as Markdown.
+- **Run the examples.** Code that supports a chapter (from-scratch labs, figure scripts, notebooks) lives with that chapter, usually under `figures/src/` or similar.
+- **Regenerate figures.** Where a chapter ships plotting scripts, you can rebuild the images from those scripts rather than editing PNGs by hand.
+
+It is **not** a pretrained-model zoo, a production serving stack, or a complete copy of every commercial LLM paper. The focus is understanding the pipeline end to end.
+
+## How the repo is organized
+
+```text
+LLM-book/
+├── README.md                 ← you are here
+└── chapters/
+    ├── README.md             ← short chapter index
+    ├── 01-introduction/
+    ├── 02-neural-network-basics/
+    ├── …
+    └── 14-more-rl-methods-for-llms/
+```
+
+Each chapter folder typically contains:
+
+| Item | Role |
+|------|------|
+| `README.md` | Chapter overview, section list, labs, takeaways |
+| Numbered `.md` files | The section prose (e.g. `01-….md`, `02-….md`) |
+| `figures/` | Images used in the chapter |
+| `figures/src/` | Python scripts that generate those figures (when present) |
+
+Start from a chapter’s `README.md`, then open the numbered sections in order.
 
 ## Chapter outline
 
@@ -18,3 +52,30 @@ This is the repo for the book Introduction to LLM by Junling Hu. All book conten
 12. [Evaluation](chapters/12-evaluation/)
 13. [Inference](chapters/13-inference/)
 14. [More RL Methods for LLMs](chapters/14-more-rl-methods-for-llms/)
+
+Chapters early in the sequence (especially neural networks and deep networks) are the most complete. Later chapters may still be stubs or drafts while the book is written.
+
+## Who it is for
+
+Readers who want a clear picture of LLMs without unnecessary jargon: engineers, students, teachers, and practitioners who need to evaluate or build on these systems. Early chapters assume comfort with basic Python and high-school linear algebra; later chapters build on that foundation.
+
+## Working with the code
+
+Requirements vary by chapter. A typical setup for the neural-network chapters is Python 3 with **NumPy**, **Matplotlib**, and **PyTorch**.
+
+Example (Chapter 2 figures):
+
+```bash
+cd chapters/02-neural-network-basics/figures/src
+for f in fig_*.py; do python "$f"; done
+```
+
+See each chapter’s `README.md` for that chapter’s labs and dependencies.
+
+## Status
+
+This is an active book draft. Content, figure numbering, and folder layout may change as chapters are revised. Prefer the latest `main` branch.
+
+## License and attribution
+
+Unless a file says otherwise, treat the materials as the author’s book draft. If you reuse excerpts or figures, credit **Junling Hu** and link back to this repository.
