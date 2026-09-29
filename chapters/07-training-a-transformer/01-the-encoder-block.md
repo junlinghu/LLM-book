@@ -1,6 +1,6 @@
 # 7.1 The Encoder Block
 
-The previous sections built the Transformer's parts: embeddings with positional encodings, attention, masks, and multiple heads. This section assembles them into the **encoder block**, the unit that is stacked $`N`$ times to form the encoder. A block has two sublayers, multi-head self-attention and a position-wise feed-forward network, each wrapped in a residual connection with layer normalization. We look at each sublayer, at the division of labor between them, at where normalization and dropout go, at the original post-norm arrangement and the pre-norm alternative, and at the encoder stack as a whole.
+Chapter 6 built the Transformer's parts: embeddings with positional encodings, attention, masks, and multiple heads. This section assembles them into the **encoder block**, the unit that is stacked $`N`$ times to form the encoder. A block has two sublayers, multi-head self-attention and a position-wise feed-forward network, each wrapped in a residual connection with layer normalization. We look at each sublayer, at the division of labor between them, at where normalization and dropout go, at the original post-norm arrangement and the pre-norm alternative, and at the encoder stack as a whole.
 
 ## Two sublayers
 
