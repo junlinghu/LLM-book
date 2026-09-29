@@ -1,6 +1,7 @@
 """Generate the figures for Chapter 8 (Generative Pretraining).
 
-Usage:  python make_figures.py [name ...]   (writes PNG files next to this script;
+Usage:  python make_figures.py [name ...]
+        (writes PNG files to chapters/08-generative-pretraining-gpt/figures/;
         names: lr, isoflop, temperature, nucleus, icl, training; default: all)
 
 Requires numpy, matplotlib, torch, tiktoken, transformers, and datasets. Everything
@@ -23,7 +24,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-OUT = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent
+OUT = HERE.parents[1] / "chapters" / "08-generative-pretraining-gpt" / "figures"
 plt.rcParams.update({"figure.dpi": 120, "savefig.bbox": "tight", "font.size": 10})
 
 
@@ -145,7 +147,7 @@ class GPT(nn.Module):
 def shakespeare_tokens():
     """Tiny Shakespeare in GPT-2 tokens, renumbered to the tokens that occur (as in Code 8.4.1)."""
     import tiktoken
-    path = OUT / "input.txt"
+    path = HERE / "input.txt"
     downloaded = not path.exists()
     if downloaded:
         urllib.request.urlretrieve(

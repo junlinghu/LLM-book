@@ -3,11 +3,14 @@
 Loads dqn_results.npy written by run_dqn_experiments.py (run that first;
 it takes several minutes on a CPU).
 """
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, GRAY, save
 
-res = np.load("dqn_results.npy", allow_pickle=True)
+HERE = os.path.dirname(os.path.abspath(__file__))
+res = np.load(os.path.join(HERE, "dqn_results.npy"), allow_pickle=True)
 grid = np.arange(0, 40_001, 500)
 colors = {"full DQN": BLUE, "no target network": RED, "no replay": ORANGE}
 

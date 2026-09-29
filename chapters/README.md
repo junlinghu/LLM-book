@@ -1,5 +1,7 @@
 # Chapters
 
+Runnable examples and figure scripts live in [`../code/`](../code/), in a folder with the same name as the chapter. The folders below hold the prose and rendered figures.
+
 1. [Introduction](01-introduction/)
 2. [The Basics of Neural Networks](02-neural-network-basics/)
 3. [Deep Neural Networks](03-deep-neural-networks/)

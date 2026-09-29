@@ -82,7 +82,7 @@ It helps to trace one prediction. Suppose the source is a German sentence and th
 
 The two stacks run at different rhythms. The encoder runs once per source sentence. During training, the decoder runs once per sentence pair, computing all target positions in parallel thanks to the causal mask (Section 7.3). During generation, the decoder runs once per output token, reusing the same memory each time.
 
-Cross-attention weights are often interpretable. The figure below comes from a tiny Transformer (two encoder and two decoder blocks, $`d = 64`$, four heads) trained by `figures/make_figures.py` to reverse sequences of eight digits. Each row is a decoder input position and each column a source position; the weights are averaged over the heads of the last decoder block. The model has learned to attend to the source position it must copy next: when its input is `<bos>`, it attends mostly to the *last* source digit, which is the first digit of the reversed output, and so on down the anti-diagonal.
+Cross-attention weights are often interpretable. The figure below comes from a tiny Transformer (two encoder and two decoder blocks, $`d = 64`$, four heads) trained by [`code/07-training-a-transformer/make_figures.py`](../../code/07-training-a-transformer/make_figures.py) to reverse sequences of eight digits. Each row is a decoder input position and each column a source position; the weights are averaged over the heads of the last decoder block. The model has learned to attend to the source position it must copy next: when its input is `<bos>`, it attends mostly to the *last* source digit, which is the first digit of the reversed output, and so on down the anti-diagonal.
 
 ![Cross-attention weights of a toy Transformer trained to reverse sequences](figures/cross-attention-reversal.png)
 
@@ -125,7 +125,7 @@ PyTorch provides the same architecture as `nn.Transformer`, built from `nn.Trans
 | `tgt_mask` | causal mask for decoder self-attention |
 | `src_key_padding_mask`, `tgt_key_padding_mask`, `memory_key_padding_mask` | the three padding masks of Section 6.4 |
 
-`nn.Transformer` contains only the two stacks. The embeddings, positional encodings, and output projection must be added separately, as in the toy model of `figures/make_figures.py`. Its encoder and decoder each end with an extra final LayerNorm, which the paper's post-norm description does not include; for post-norm stacks it is redundant but harmless.
+`nn.Transformer` contains only the two stacks. The embeddings, positional encodings, and output projection must be added separately, as in the toy model of [`code/07-training-a-transformer/make_figures.py`](../../code/07-training-a-transformer/make_figures.py). Its encoder and decoder each end with an extra final LayerNorm, which the paper's post-norm description does not include; for post-norm stacks it is redundant but harmless.
 
 ## Key takeaways
 

@@ -1,6 +1,7 @@
 """Generate the figures for Chapter 7 (Training a Transformer).
 
-Usage:  python make_figures.py        (writes PNG files next to this script)
+Usage:  python make_figures.py
+        (writes PNG files to chapters/07-training-a-transformer/figures/)
 
 Requires numpy, matplotlib, and torch. Everything is seeded; the only figure
 that involves training is the cross-attention heatmap, which trains a tiny
@@ -18,7 +19,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-OUT = Path(__file__).resolve().parent
+OUT = Path(__file__).resolve().parents[2] / "chapters" / "07-training-a-transformer" / "figures"
 plt.rcParams.update({"figure.dpi": 120, "savefig.bbox": "tight", "font.size": 10})
 
 

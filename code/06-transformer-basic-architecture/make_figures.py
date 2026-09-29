@@ -1,6 +1,7 @@
 """Generate the figures for Chapter 6 (Transformer: Basic Architecture).
 
-Usage:  python make_figures.py        (writes PNG files next to this script)
+Usage:  python make_figures.py
+        (writes PNG files to chapters/06-transformer-basic-architecture/figures/)
 
 Requires numpy and matplotlib. Everything is computed from formulas or seeded
 random numbers; nothing is trained.
@@ -13,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-OUT = Path(__file__).resolve().parent
+OUT = Path(__file__).resolve().parents[2] / "chapters" / "06-transformer-basic-architecture" / "figures"
 plt.rcParams.update({"figure.dpi": 120, "savefig.bbox": "tight", "font.size": 10})
 
 

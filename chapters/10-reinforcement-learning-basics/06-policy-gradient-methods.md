@@ -171,7 +171,7 @@ Ronald Williams introduced REINFORCE in 1992, together with the observation that
 
 ## Code for this section
 
-The listings below collect the code for this section in the order in which the text refers to them. Code 10.6.1 is [`figures/src/score_function_check.py`](figures/src/score_function_check.py). Codes 10.6.2 and 10.6.3 are from [`figures/src/reinforce.py`](figures/src/reinforce.py); the script `run_reinforce_experiments.py` trains all the configurations in parallel (several minutes on a CPU), and `fig_s6_reinforce.py` draws Figures 10.14, 10.15, and 10.17 and prints the numbers quoted in the text.
+The listings below collect the code for this section in the order in which the text refers to them. Code 10.6.1 is [`code/10-reinforcement-learning-basics/score_function_check.py`](../../code/10-reinforcement-learning-basics/score_function_check.py). Codes 10.6.2 and 10.6.3 are from [`code/10-reinforcement-learning-basics/reinforce.py`](../../code/10-reinforcement-learning-basics/reinforce.py); the script `run_reinforce_experiments.py` trains all the configurations in parallel (several minutes on a CPU), and `fig_s6_reinforce.py` draws Figures 10.14, 10.15, and 10.17 and prints the numbers quoted in the text.
 
 ### Code 10.6.1: Checking the log-derivative trick
 

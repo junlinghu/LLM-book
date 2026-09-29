@@ -151,13 +151,13 @@ dW2 = [-0.1835, 0.0255]  db2 = -0.2562
 
 ### Code 2.9.3: Comparing hand-written and autograd gradients
 
-Builds the two-moons MLP with `nn.Sequential`, copies in the initial weights of the from-scratch network, and compares the two sets of gradients on one batch of 64 examples. It uses `make_moons` from `figures/src/style.py` and `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2).
+Builds the two-moons MLP with `nn.Sequential`, copies in the initial weights of the from-scratch network, and compares the two sets of gradients on one batch of 64 examples. It uses `make_moons` from [`code/02-neural-network-basics/style.py`](../../code/02-neural-network-basics/style.py) and `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2).
 
 ```python
 import numpy as np
 import torch.nn as nn
 
-X, y = make_moons(n=400, noise=0.2, seed=2)            # two-moons data from figures/src/style.py
+X, y = make_moons(n=400, noise=0.2, seed=2)            # two-moons data from code/02-neural-network-basics/style.py
 P0 = init_params(2, 16, 2, seed=0)                     # from-scratch initial weights (Section 2.7)
 
 model = nn.Sequential(nn.Linear(2, 16), nn.ReLU(), nn.Linear(16, 2))

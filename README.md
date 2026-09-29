@@ -7,7 +7,7 @@ This repo holds the book’s chapter drafts, figures, and accompanying code. It 
 ## What this repo is for
 
 - **Read the book in progress.** Chapter text lives under [`chapters/`](chapters/) as Markdown.
-- **Run the examples.** Code that supports a chapter (from-scratch labs, figure scripts, notebooks) lives with that chapter, usually under `figures/src/` or similar.
+- **Run the examples.** Code that supports a chapter (from-scratch labs, figure scripts, notebooks) lives under [`code/`](code/), in a folder with the same slug as the chapter (`code/02-neural-network-basics/`, and so on).
 - **Regenerate figures.** Where a chapter ships plotting scripts, you can rebuild the images from those scripts rather than editing PNGs by hand.
 
 It is **not** a pretrained-model zoo, a production serving stack, or a complete copy of every commercial LLM paper. The focus is understanding the pipeline end to end.
@@ -17,22 +17,29 @@ It is **not** a pretrained-model zoo, a production serving stack, or a complete 
 ```text
 LLM-book/
 ├── README.md                 ← you are here
-└── chapters/
-    ├── README.md             ← short chapter index
+├── chapters/                 ← prose and rendered figures
+│   ├── README.md             ← short chapter index
+│   ├── 01-introduction/
+│   ├── 02-neural-network-basics/
+│   ├── …
+│   └── 14-more-rl-methods-for-llms/
+└── code/                     ← runnable examples, labs, and figure scripts
+    ├── README.md
     ├── 01-introduction/
     ├── 02-neural-network-basics/
     ├── …
     └── 14-more-rl-methods-for-llms/
 ```
 
-Each chapter folder typically contains:
+Each chapter folder under `chapters/` typically contains:
 
 | Item | Role |
 |------|------|
 | `README.md` | Chapter overview, section list, labs, takeaways |
 | Numbered `.md` files | The section prose (e.g. `01-….md`, `02-….md`) |
-| `figures/` | Images used in the chapter |
-| `figures/src/` | Python scripts that generate those figures (when present) |
+| `figures/` | Rendered images used in the chapter |
+
+The matching folder under [`code/`](code/) holds the Python that generates those figures and any from-scratch labs. See [`code/README.md`](code/README.md). Chapters that do not yet have code contain a short note that labs will be added as the chapter is written.
 
 Start from a chapter’s `README.md`, then open the numbered sections in order.
 
@@ -63,11 +70,17 @@ Readers who want a clear picture of LLMs without unnecessary jargon: engineers, 
 
 Requirements vary by chapter. A typical setup for the neural-network chapters is Python 3 with **NumPy**, **Matplotlib**, and **PyTorch**.
 
-Example (Chapter 2 figures):
+Example (Chapter 2 figures). From the repository root:
 
 ```bash
-cd chapters/02-neural-network-basics/figures/src
+cd code/02-neural-network-basics
 for f in fig_*.py; do python "$f"; done
+```
+
+Those scripts write PNGs into `chapters/02-neural-network-basics/figures/`. Other chapters follow the same split: run the script from `code/<chapter-slug>/`, and the images land in `chapters/<chapter-slug>/figures/`. A single script can also be run by path:
+
+```bash
+python code/06-transformer-basic-architecture/make_figures.py
 ```
 
 See each chapter’s `README.md` for that chapter’s labs and dependencies.

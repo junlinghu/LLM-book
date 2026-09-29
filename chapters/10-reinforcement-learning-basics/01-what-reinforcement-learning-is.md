@@ -77,7 +77,7 @@ The first spectacular success was Gerald Tesauro's TD-Gammon (1992–1995), a ne
 
 ## Code for this section
 
-The listings below collect the code for this section in the order in which the text refers to them. The full scripts, which also draw the figures, are in [`figures/src/`](figures/src/) (`fig_s1_loop.py` and `gridworld.py`).
+The listings below collect the code for this section in the order in which the text refers to them. The full scripts, which also draw the figures, are in [`code/10-reinforcement-learning-basics/`](../../code/10-reinforcement-learning-basics/) (`fig_s1_loop.py` and `gridworld.py`).
 
 ### Code 10.1.1: The agent-environment loop in Gymnasium
 
