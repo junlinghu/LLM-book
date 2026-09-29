@@ -17,3 +17,4 @@ This is the repo for the book Introduction to LLM by Junling Hu. All book conten
 11. [Evaluation](chapters/11-evaluation/)
 12. [Inference](chapters/12-inference/)
 13. [More RL Methods for LLMs](chapters/13-more-rl-methods-for-llms/)
+14. [Advanced Transformer Topics](chapters/14-advanced-transformer-topics/)

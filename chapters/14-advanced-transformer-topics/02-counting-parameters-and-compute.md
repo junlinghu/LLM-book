@@ -1,14 +1,14 @@
-# 6.11 Counting Parameters and Compute
+# 14.2 Counting Parameters and Compute
 
-How big is a Transformer, and how much computation does it need? The answers follow directly from the architecture of Sections 3 to 8, and working them out is a good test of understanding: every parameter belongs to a specific matrix, and every FLOP to a specific multiplication. This section counts the parameters of the base model from its hyperparameters, estimates the computation of a forward and backward pass, and explains where attention's quadratic cost begins to matter. The same accounting carries over to the larger models of later chapters.
+How big is a Transformer, and how much computation does it need? The answers follow directly from the architecture of Sections 6.3 to 6.8, and working them out is a good test of understanding: every parameter belongs to a specific matrix, and every FLOP to a specific multiplication. This section counts the parameters of the base model from its hyperparameters, estimates the computation of a forward and backward pass, and explains where attention's quadratic cost begins to matter. The same accounting carries over to the larger models of later chapters.
 
 Throughout, $`d`$ is the model width, $`d_{\text{ff}}`$ the feed-forward width, $`N`$ the number of layers in each stack, $`V`$ the vocabulary size, $`n`$ the source length and $`m`$ the target length. The base model has $`d = 512`$, $`d_{\text{ff}} = 2048 = 4d`$, $`N = 6`$ and a shared vocabulary of about 37,000 tokens (Vaswani et al. 2017).
 
 ## Parameters of one block
 
-**Multi-head attention** (Section 5) has four $`d \times d`$ projections, $`W^Q`$, $`W^K`$, $`W^V`$ and $`W^O`$. The number of heads does not matter: the per-head matrices are slices of these four. That gives $`4d^2`$ weights (plus $`4d`$ biases in implementations that use them).
+**Multi-head attention** (Section 6.5) has four $`d \times d`$ projections, $`W^Q`$, $`W^K`$, $`W^V`$ and $`W^O`$. The number of heads does not matter: the per-head matrices are slices of these four. That gives $`4d^2`$ weights (plus $`4d`$ biases in implementations that use them).
 
-**The feed-forward network** (Section 7) has a $`d \times d_{\text{ff}}`$ matrix and a $`d_{\text{ff}} \times d`$ matrix: $`2 d\, d_{\text{ff}} = 8d^2`$ weights when $`d_{\text{ff}} = 4d`$, plus $`d_{\text{ff}} + d`$ biases.
+**The feed-forward network** (Section 6.7) has a $`d \times d_{\text{ff}}`$ matrix and a $`d_{\text{ff}} \times d`$ matrix: $`2 d\, d_{\text{ff}} = 8d^2`$ weights when $`d_{\text{ff}} = 4d`$, plus $`d_{\text{ff}} + d`$ biases.
 
 **Layer normalization** has a gain and a bias vector per sublayer, $`2d`$ parameters each, which are negligible.
 
@@ -18,7 +18,7 @@ So, ignoring biases and normalization,
 \text{encoder block: } 4d^2 + 8d^2 = 12d^2, \qquad \text{decoder block: } 4d^2 + 4d^2 + 8d^2 = 16d^2,
 ```
 
-where the decoder's extra $`4d^2`$ is its cross-attention sublayer (Section 8). For the base model, $`12d^2 = 3{,}145{,}728`$ and, with biases and the two layer norms, one encoder block has exactly 3,152,384 parameters (the figure checked against PyTorch in Section 7).
+where the decoder's extra $`4d^2`$ is its cross-attention sublayer (Section 6.8). For the base model, $`12d^2 = 3{,}145{,}728`$ and, with biases and the two layer norms, one encoder block has exactly 3,152,384 parameters (the figure checked against PyTorch in Section 6.7).
 
 ```mermaid
 flowchart LR
@@ -36,7 +36,7 @@ flowchart LR
     end
 ```
 
-*Figure 6.11.1. Where the weights live (with $`d_{\text{ff}} = 4d`$; biases and layer norms omitted).*
+*Figure 14.2.1. Where the weights live (with $`d_{\text{ff}} = 4d`$; biases and layer norms omitted).*
 
 ## Parameters of the whole model
 
@@ -46,7 +46,7 @@ With $`N`$ blocks in each stack and one shared embedding matrix,
 P \approx N(12d^2 + 16d^2) + Vd = 28Nd^2 + Vd.
 ```
 
-The sinusoidal positional encodings (Section 6) add no parameters. For the base model:
+The sinusoidal positional encodings (Section 6.6) add no parameters. For the base model:
 
 | Component | Formula | Weights |
 |---|---|---|
@@ -60,9 +60,9 @@ The sinusoidal positional encodings (Section 6) add no parameters. For the base 
 
 ![Stacked bar of base-model weights by component: encoder self-attention 6.3M, encoder FFN 12.6M, decoder self-attention 6.3M, decoder cross-attention 6.3M, decoder FFN 12.6M, shared embedding 18.9M, total 63.0M](figures/param-breakdown.png)
 
-*Figure 6.11.2. Base Transformer weights by component. The feed-forward networks hold twice as many weights as the attention sublayers of the same stack, and the embedding holds about 30% of the total.*
+*Figure 14.2.2. Base Transformer weights by component. The feed-forward networks hold twice as many weights as the attention sublayers of the same stack, and the embedding holds about 30% of the total.*
 
-Adding biases and layer-norm parameters brings the total to 63,082,496. The paper reports 65 million. The paper gives the vocabulary only as "about 37000 tokens," so the exact count cannot be reproduced; the remaining gap of about 1.9 million is the size of roughly 3,700 more embedding rows, and differences in vocabulary size or in what was counted could account for it. The general lesson holds regardless: at this scale the embedding matrix is a large fraction of the model. Tying the source embedding, target embedding and output projection (Section 2) saves two further copies of an 18.9-million-parameter matrix, which would otherwise make the model about 60% larger.
+Adding biases and layer-norm parameters brings the total to 63,082,496. The paper reports 65 million. The paper gives the vocabulary only as "about 37000 tokens," so the exact count cannot be reproduced; the remaining gap of about 1.9 million is the size of roughly 3,700 more embedding rows, and differences in vocabulary size or in what was counted could account for it. The general lesson holds regardless: at this scale the embedding matrix is a large fraction of the model. Tying the source embedding, target embedding and output projection (Section 6.2) saves two further copies of an 18.9-million-parameter matrix, which would otherwise make the model about 60% larger.
 
 Note which hyperparameters do *not* appear: the number of heads $`h`$ and the sequence lengths. Adding heads (at fixed $`d`$) changes how the $`4d^2`$ attention weights are sliced, not how many there are. Sequence length affects compute and memory, as below, but not the parameter count, which is why the same model can process inputs of different lengths.
 
@@ -75,7 +75,7 @@ These formulas can be checked against a real implementation (code in the appendi
 Multiplying a vector by a $`d_{\text{in}} \times d_{\text{out}}`$ weight matrix takes $`d_{\text{in}} d_{\text{out}}`$ multiply-adds, or $`2 d_{\text{in}} d_{\text{out}}`$ floating-point operations (FLOPs). So each weight costs about **2 FLOPs per token it is applied to**. That rule accounts for most of the computation:
 
 - Each **encoder** layer applies its $`12d^2`$ weights to each of the $`n`$ source tokens: $`24d^2`$ FLOPs per source token per layer, about 37.7 million per source token for the six-layer base encoder.
-- Each **decoder** layer applies its self-attention, feed-forward, and cross-attention query and output projections to each of the $`m`$ target tokens ($`2 \cdot 14d^2 = 28d^2`$ FLOPs per target token), and the cross-attention key and value projections to each of the $`n`$ memory vectors ($`4d^2`$ per source token). The key and value projections of the memory do not depend on the target, so during decoding they are computed once per source (Section 10).
+- Each **decoder** layer applies its self-attention, feed-forward, and cross-attention query and output projections to each of the $`m`$ target tokens ($`2 \cdot 14d^2 = 28d^2`$ FLOPs per target token), and the cross-attention key and value projections to each of the $`n`$ memory vectors ($`4d^2`$ per source token). The key and value projections of the memory do not depend on the target, so during decoding they are computed once per source (Section 14.1).
 - The **output projection** costs $`2Vd`$ FLOPs per target token, about 37.9 million for the base model: as much as the entire six-layer encoder costs per token. The input embeddings are table lookups and cost essentially nothing.
 
 **Attention itself** adds work that has no weights. For a query sequence of length $`q`$ attending to keys of length $`k`$, computing $`QK^\top`$ and multiplying the weights by $`V`$ each take $`2qkd`$ FLOPs, summed over heads. Per layer, that is $`4n^2 d`$ for encoder self-attention, $`4m^2 d`$ for decoder self-attention, and $`4mnd`$ for cross-attention. Softmax, layer norm and residual additions cost a number of operations proportional to the size of their inputs, which is small next to the matrix multiplications.
@@ -104,7 +104,7 @@ For the base model, $`6d = 3072`$ tokens, far longer than a typical translation 
 
 ![Log-log plot of forward MFLOPs per token per layer for the base encoder layer: the weight line is flat at about 6.3 MFLOPs, the attention line grows linearly with n and crosses it at n = 3072](figures/attention-cost.png)
 
-*Figure 6.11.3. Per-token forward cost of one base-model encoder layer. The weight multiplications cost the same per token at any length; attention's cost per token grows with $`n`$ and overtakes them at $`n = 6d = 3072`$.*
+*Figure 14.2.3. Per-token forward cost of one base-model encoder layer. The weight multiplications cost the same per token at any length; attention's cost per token grows with $`n`$ and overtakes them at $`n = 6d = 3072`$.*
 
 This matches the comparison in the original paper, which contrasted layer types by their cost per layer, the number of operations that must happen one after another, and the longest path a signal travels between two positions (Vaswani et al. 2017, Table 1):
 
@@ -115,13 +115,15 @@ This matches the comparison in the original paper, which contrasted layer types 
 | Convolutional (kernel width $`k`$) | $`O(k \cdot n \cdot d^2)`$ | $`O(1)`$ | $`O(\log_k n)`$ |
 | Restricted self-attention (neighborhood $`r`$) | $`O(r \cdot n \cdot d)`$ | $`O(1)`$ | $`O(n/r)`$ |
 
-The paper's argument was that self-attention is faster than a recurrent layer when $`n`$ is smaller than $`d`$, which is the usual case for sentences, and that it needs only a constant number of sequential steps and a constant path length between any two positions (Section 1). For inputs much longer than $`d`$, restricting each position to a neighborhood of $`r`$ positions reduces the cost at the price of a longer path.
+The paper's argument was that self-attention is faster than a recurrent layer when $`n`$ is smaller than $`d`$, which is the usual case for sentences, and that it needs only a constant number of sequential steps and a constant path length between any two positions (Section 6.1). For inputs much longer than $`d`$, restricting each position to a neighborhood of $`r`$ positions reduces the cost at the price of a longer path.
 
 ## Memory
 
 Parameters are only part of the memory needed for training. Adam keeps two extra values per parameter (Chapter 3), and backpropagation needs the **activations** saved during the forward pass. Most activations scale with (batch size) × (sequence length) × $`d`$, but the attention weights are an $`h \times q \times k`$ tensor per layer per sequence. For $`h = 8`$ and $`n = 512`$, one encoder layer's self-attention weights have $`8 \cdot 512^2 = 2{,}097{,}152`$ entries for a single sequence, and doubling the length quadruples that. This quadratic memory, more than the FLOPs, is what first limits attention on long inputs. Memory-efficient attention kernels such as FlashAttention (Dao et al. 2022) compute exactly the same result without ever storing the full weight matrix, processing it in tiles and recomputing what the backward pass needs. PyTorch's `F.scaled_dot_product_attention` dispatches to such kernels when it can.
 
 At inference, the encoder runs once and its memory is kept for all decoding steps; the decoder's cost per generated token is dominated by its weights and the output projection when outputs are short, as in translation.
+
+All of these counts are for one architecture: the encoder-decoder built for translation, whose parameters split between two stacks. Many tasks have no output sequence to generate, and others have no separate input to read. Does every task need both stacks, or can one of them, used alone, do the job?
 
 ## Key takeaways
 

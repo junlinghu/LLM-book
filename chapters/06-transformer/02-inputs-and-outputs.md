@@ -47,7 +47,7 @@ Every sublayer of the Transformer reads a matrix of shape $`(\cdot) \times d`$ a
 A seq2seq model needs a few tokens that do not correspond to words:
 
 - **Beginning-of-sequence** (`<bos>`): the first input to the decoder. When the decoder predicts the first target token, it has no previous target token to condition on, so it is given `<bos>` instead.
-- **End-of-sequence** (`<eos>`): appended to every target. The model learns to produce it when the output is complete, which is how generation knows when to stop (Section 10).
+- **End-of-sequence** (`<eos>`): appended to every target. The model learns to produce it when the output is complete, which is how generation knows when to stop.
 - **Padding** (`<pad>`): filler used to bring sequences in a batch to a common length, so they fit in one rectangular tensor. Padding carries no information, and masks keep attention from looking at it (Section 4).
 
 For a target $`y_1, \dots, y_n`$, the decoder's input and the training labels are offset by one position:
@@ -91,7 +91,7 @@ The model has three matrices of the same shape $`V \times d`$ when the vocabular
 
 Why would the same matrix work for input and output? Each row $`E_i`$ is used in two roles: as the vector representing token $`i`$ when it is read, and as the direction whose dot product with $`\mathbf{z}_t`$ gives the logit for token $`i`$ when it is predicted. Tokens that behave similarly should be close in both roles, so sharing the rows is a reasonable constraint, and it gives rare tokens more gradient signal, since each row is trained from both sides.
 
-The saving is substantial. With $`V \approx 37{,}000`$ and $`d = 512`$, one $`V \times d`$ matrix has about 18.9 million entries. Section 11 shows that this is close to a third of the base model's parameters, so untied matrices would add tens of millions more. A module that uses one matrix in all three roles takes only a few lines (see the appendix).
+The saving is substantial. With $`V \approx 37{,}000`$ and $`d = 512`$, one $`V \times d`$ matrix has about 18.9 million entries. That is close to a third of all the base model's parameters, so untied matrices would add tens of millions more. A module that uses one matrix in all three roles takes only a few lines (see the appendix).
 
 Tying is a design choice, not a requirement. Separate vocabularies for source and target make full tying impossible (the target embedding and output projection can still be tied), and some later models choose not to tie.
 

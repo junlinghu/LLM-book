@@ -1,12 +1,12 @@
-# 6.13 Encoders as Embedding Models
+# 14.4 Encoders as Embedding Models
 
-Section 12 used an encoder-only model such as BERT by attaching a small output layer and fine-tuning the whole network on a labeled task. An encoder is useful in a second way, with no task-specific head at all: as an **embedding model**. Its final layer produces one vector per token, and each vector depends on the entire input, so an encoder gives exactly the *contextual* embeddings that Chapter 4 (Section 4.4) asked for, where the same word gets different vectors in different sentences. Pooling those vectors and training the encoder so that similar texts get similar vectors turns it into a function from any piece of text to a single vector. This section looks at contextual token vectors from a pretrained BERT, shows how to build sentence embeddings from them, and uses those embeddings for semantic search and clustering. Chapter 7 (Section 7.6) connects them to a generative model in retrieval-augmented generation.
+Section 14.3 used an encoder-only model such as BERT (Devlin et al. 2019) by attaching a small output layer and fine-tuning the whole network on a labeled task. An encoder is useful in a second way, with no task-specific head at all: as an **embedding model**. Its final layer produces one vector per token, and each vector depends on the entire input, so an encoder gives exactly the *contextual* embeddings that Chapter 4 (Section 4.4) asked for, where the same word gets different vectors in different sentences. Pooling those vectors and training the encoder so that similar texts get similar vectors turns it into a function from any piece of text to a single vector. This section looks at contextual token vectors from a pretrained BERT, shows how to build sentence embeddings from them, and uses those embeddings for semantic search and clustering. Chapter 7 (Section 7.6) connects them to a generative model in retrieval-augmented generation.
 
 ## Contextual vectors from a pretrained encoder
 
-Chapter 4 ended with a problem that no static embedding can solve: "bank" in "we sat on the river bank" and in "I opened a bank account" gets one and the same vector, a blend dominated by the more frequent financial sense. In an encoder, the token embedding lookup of Section 2 still gives both occurrences the same starting vector, but every layer then mixes in information from the other positions through bidirectional self-attention (Section 3), with no causal mask (Section 4). By the last layer, each occurrence has its own vector, shaped by its context on both sides.
+Chapter 4 ended with a problem that no static embedding can solve: "bank" in "we sat on the river bank" and in "I opened a bank account" gets one and the same vector, a blend dominated by the more frequent financial sense. In an encoder, the token embedding lookup of Section 6.2 still gives both occurrences the same starting vector, but every layer then mixes in information from the other positions through bidirectional self-attention (Section 6.3), with no causal mask (Section 6.4). By the last layer, each occurrence has its own vector, shaped by its context on both sides.
 
-[Code 6.13.1](#code-6131-contextual-vectors-for-bank) extracts the last-layer vector for "bank" from BERT-base in three sentences and compares them by cosine similarity:
+[Code 14.4.1](#code-1441-contextual-vectors-for-bank) extracts the last-layer vector for "bank" from BERT-base in three sentences and compares them by cosine similarity:
 
 | Sentences compared | Cosine similarity of the two "bank" vectors |
 |---|---|
@@ -36,10 +36,10 @@ This is fast, needs no extra training, and works surprisingly well as a baseline
 An encoder gives us something better to average: its last-layer vectors $`\mathbf{h}_1, \dots, \mathbf{h}_T`$, which already reflect word order and context. The most common pooling methods are:
 
 - **Mean pooling**: average the contextual vectors of all real tokens.
-- **The `[CLS]` vector**: BERT prepends `[CLS]` to every input (Section 12), and its final vector can serve as a summary of the whole text.
+- **The `[CLS]` vector**: BERT prepends `[CLS]` to every input (Section 14.3), and its final vector can serve as a summary of the whole text.
 - **Last token**: in a decoder-only model (Chapter 7), only the final position has seen the entire text, because of the causal mask, so its vector is the natural summary.
 
-Mean pooling needs one piece of care. Sentences in a batch have different lengths, so shorter ones are padded to a common length, and the padding positions must not be counted in the average. The tokenizer's **attention mask**, 1 for real tokens and 0 for padding, is the same information as the padding mask of Section 4, and weighting the sum by it removes the padding. In the toy batch of [Code 6.13.2](#code-6132-mean-pooling-with-a-padding-mask), the first sentence has two real tokens, $`(1, 0)`$ and $`(3, 2)`$, and one padding position; mean pooling with the mask gives $`(2, 1)`$, while a plain average over all three positions would have given $`(1.33, 0.67)`$.
+Mean pooling needs one piece of care. Sentences in a batch have different lengths, so shorter ones are padded to a common length, and the padding positions must not be counted in the average. The tokenizer's **attention mask**, 1 for real tokens and 0 for padding, is the same information as the padding mask of Section 6.4, and weighting the sum by it removes the padding. In the toy batch of [Code 14.4.2](#code-1442-mean-pooling-with-a-padding-mask), the first sentence has two real tokens, $`(1, 0)`$ and $`(3, 2)`$, and one padding position; mean pooling with the mask gives $`(2, 1)`$, while a plain average over all three positions would have given $`(1.33, 0.67)`$.
 
 There is a catch. A model pretrained with masked language modeling was never asked to make whole-sentence vectors comparable by cosine similarity. Reimers and Gurevych (2019) found that sentence vectors pooled from an off-the-shelf BERT model performed poorly on semantic similarity benchmarks, in some settings worse than simply averaging static word vectors. The pretrained representations contain the needed information, but not in a geometry where cosine similarity reads it out.
 
@@ -53,7 +53,7 @@ Most sentence embedding models today are trained with a **contrastive** objectiv
 \ell_i = -\log \frac{\exp\!\left(\cos(\mathbf{q}_i, \mathbf{p}_i) / \tau\right)}{\sum_{j=1}^{B} \exp\!\left(\cos(\mathbf{q}_i, \mathbf{p}_j) / \tau\right)} ,
 ```
 
-where $`\tau`$ is a small **temperature** (such as 0.05) that sharpens the softmax, since cosines lie only between $`-1`$ and $`1`$. This is a $`B`$-way classification: for each query, pick out its true partner among the passages in the batch. It is the same idea as negative sampling, "score real pairs above fake ones," but with the other examples in the batch serving as the negatives for free, and with a softmax instead of independent sigmoids. The appendix implements it in a few lines ([Code 6.13.3](#code-6133-in-batch-contrastive-loss)).
+where $`\tau`$ is a small **temperature** (such as 0.05) that sharpens the softmax, since cosines lie only between $`-1`$ and $`1`$. This is a $`B`$-way classification: for each query, pick out its true partner among the passages in the batch. It is the same idea as negative sampling, "score real pairs above fake ones," but with the other examples in the batch serving as the negatives for free, and with a softmax instead of independent sigmoids. The appendix implements it in a few lines ([Code 14.4.3](#code-1443-in-batch-contrastive-loss)).
 
 Larger batches provide more negatives and generally train better embeddings. Adding **hard negatives**, passages that look relevant but are not (for instance, retrieved by keyword overlap), forces the model to learn finer distinctions than random negatives do.
 
@@ -63,7 +63,7 @@ An encoder has a maximum input length (BERT's learned position embeddings stop a
 
 ## Semantic search
 
-With a sentence embedding model, search by meaning takes a few lines. Embed every document once and store the vectors. At query time, embed the query with the same model and return the documents with the highest cosine similarity. [Code 6.13.4](#code-6134-semantic-search-and-clustering) does this with `all-MiniLM-L6-v2`, a small Sentence-BERT-style encoder from the `sentence-transformers` library that produces 384-dimensional vectors, over six short documents. The top two results for three queries:
+With a sentence embedding model, search by meaning takes a few lines. Embed every document once and store the vectors. At query time, embed the query with the same model and return the documents with the highest cosine similarity. [Code 14.4.4](#code-1444-semantic-search-and-clustering) does this with `all-MiniLM-L6-v2`, a small Sentence-BERT-style encoder from the `sentence-transformers` library that produces 384-dimensional vectors, over six short documents. The top two results for three queries:
 
 | Query | Top results (cosine similarity) |
 |---|---|
@@ -86,11 +86,11 @@ Exact search compares the query with every stored vector, at a cost of $`N \time
 
 Once texts are vectors, the standard tools of machine learning apply directly.
 
-**Clustering** groups texts by meaning without any labels. Running k-means with three clusters on the six normalized document vectors from the search example (Code 6.13.4) separates them into the three topics, cats, account access, and finance, two documents each, without supervision. The same approach organizes support tickets by issue, groups news articles into stories, or reveals what topics a large dataset contains. A closely related use is **near-duplicate detection**: pairs of texts with very high cosine similarity are likely paraphrases or copies, which is useful when cleaning the enormous text collections used to pretrain language models (Chapter 7).
+**Clustering** groups texts by meaning without any labels. Running k-means with three clusters on the six normalized document vectors from the search example (Code 14.4.4) separates them into the three topics, cats, account access, and finance, two documents each, without supervision. The same approach organizes support tickets by issue, groups news articles into stories, or reveals what topics a large dataset contains. A closely related use is **near-duplicate detection**: pairs of texts with very high cosine similarity are likely paraphrases or copies, which is useful when cleaning the enormous text collections used to pretrain language models (Chapter 7).
 
 **Classification** with few labels is another. Training a small classifier, even logistic regression (Chapter 2), on top of frozen sentence embeddings often works well with only a few hundred labeled examples, because the embedding model has already done the hard work of representing meaning.
 
-This completes the families of Section 12 as users meet them: encoder-decoder models that map one sequence to another, and encoder-only models used either with a task head or as embedding models. The third family keeps only the decoder, trains it to predict the next token of ordinary text, and is the subject of the next chapter.
+This completes the families of Section 14.3 as users meet them: encoder-decoder models that map one sequence to another, and encoder-only models used either with a task head or as embedding models. The third family keeps only the decoder, trains it to predict the next token of ordinary text, and is the subject of Chapter 7.
 
 ## Key takeaways
 
@@ -102,9 +102,9 @@ This completes the families of Section 12 as users meet them: encoder-decoder mo
 
 ## Appendix: Code
 
-The snippets below reproduce the results described in this section. They need PyTorch, Hugging Face `transformers` (Code 6.13.1), `sentence-transformers` and scikit-learn (Code 6.13.4); the pretrained models download on first use, and everything runs on a CPU. Printed output is shown in comments.
+The snippets below reproduce the results described in this section. They need PyTorch, Hugging Face `transformers` (Code 14.4.1), `sentence-transformers` and scikit-learn (Code 14.4.4); the pretrained models download on first use, and everything runs on a CPU. Printed output is shown in comments.
 
-### Code 6.13.1: Contextual vectors for "bank"
+### Code 14.4.1: Contextual vectors for "bank"
 
 ```python
 import torch
@@ -131,7 +131,7 @@ print(f"finance vs finance: {cos(b, c):.3f}")
 # finance vs finance: 0.746
 ```
 
-### Code 6.13.2: Mean pooling with a padding mask
+### Code 14.4.2: Mean pooling with a padding mask
 
 ```python
 import torch
@@ -152,7 +152,7 @@ print(mean_pool(token_vecs, mask))
 #         [2., 2.]])
 ```
 
-### Code 6.13.3: In-batch contrastive loss
+### Code 14.4.3: In-batch contrastive loss
 
 ```python
 import torch
@@ -167,7 +167,7 @@ def in_batch_contrastive_loss(q, p, temperature=0.05):
     return F.cross_entropy(scores, labels)
 ```
 
-### Code 6.13.4: Semantic search and clustering
+### Code 14.4.4: Semantic search and clustering
 
 ```python
 from sentence_transformers import SentenceTransformer

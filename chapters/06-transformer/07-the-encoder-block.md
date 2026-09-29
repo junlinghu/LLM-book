@@ -22,7 +22,7 @@ The hidden layer is wider than the model: $`d_{\text{ff}} = 2048 = 4d`$ in the b
 The two sublayers do complementary jobs:
 
 - **Attention moves information between positions.** It is the only sublayer in which a position's output depends on other positions. But as Section 3 noted, each attention output is a weighted average of value vectors: it mixes, but by itself it adds little nonlinear processing.
-- **The FFN transforms information within each position.** It never looks at other positions, but it applies a nonlinear function with a large hidden layer to whatever each position now contains. It also holds most of the block's parameters: $`2 d \, d_{\text{ff}} = 8d^2`$ weights against attention's $`4d^2`$ (Section 11).
+- **The FFN transforms information within each position.** It never looks at other positions, but it applies a nonlinear function with a large hidden layer to whatever each position now contains. It also holds most of the block's parameters: $`2 d \, d_{\text{ff}} = 8d^2`$ weights against attention's $`4d^2`$.
 
 Stacking blocks alternates the two operations: gather, transform, gather, transform. After a few blocks, each source position's vector reflects the token itself, its position, and whatever the model has learned to extract from the rest of the sentence. This is the "hierarchical features" picture of deep networks from Chapter 3, with attention supplying the connections between positions.
 

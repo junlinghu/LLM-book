@@ -82,7 +82,7 @@ Writing out shapes is the best defense against bugs. For a single sequence witho
 | $`S = QK^\top`$, $`A = \mathrm{softmax}(S / \sqrt{d_k})`$ | $`n_q \times n_k`$ | one row per query, one column per key |
 | Output $`AV`$ | $`n_q \times d_v`$ | one output per query |
 
-Two properties follow directly from the table. First, the **output has one row per query**, regardless of how many keys there are: attention changes *what* each query position contains, not how many positions there are. Second, the **attention matrix is** $`n_q \times n_k`$, which is where attention's quadratic cost comes from (Section 11).
+Two properties follow directly from the table. First, the **output has one row per query**, regardless of how many keys there are: attention changes *what* each query position contains, not how many positions there are. Second, the **attention matrix is** $`n_q \times n_k`$, which is where attention's quadratic cost comes from.
 
 In the Transformer, attention appears in three places, with three shapes of attention matrix:
 

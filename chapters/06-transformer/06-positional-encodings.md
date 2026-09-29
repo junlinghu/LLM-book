@@ -73,7 +73,7 @@ All three properties are easy to confirm numerically. The appendix computes the 
 
 ## Learned absolute embeddings
 
-The simplest alternative is to learn the position vectors: a second embedding table $`P \in \mathbb{R}^{n_{\max} \times d}`$ with one trainable row per position, added to the token embeddings exactly like the sinusoids. Vaswani et al. tried this and found that it produced **nearly identical results** to sinusoidal encodings on their translation task. BERT (Section 12) uses learned position embeddings.
+The simplest alternative is to learn the position vectors: a second embedding table $`P \in \mathbb{R}^{n_{\max} \times d}`$ with one trainable row per position, added to the token embeddings exactly like the sinusoids. Vaswani et al. tried this and found that it produced **nearly identical results** to sinusoidal encodings on their translation task. Later encoder-only models such as BERT (Devlin et al. 2019) also use learned position embeddings.
 
 Learned embeddings are flexible, but they have a hard limit: a table with $`n_{\max}`$ rows has no vector for position $`n_{\max}`$ or beyond, so the model cannot process longer inputs at all. Rows for rarely seen positions (near $`n_{\max}`$, if most training sequences are short) are also poorly trained.
 
@@ -166,6 +166,8 @@ print(torch.allclose(s1, s2))           # True: the score depends only on the of
 ```
 
 ## Further reading
+
+Devlin, Jacob, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding." In *Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies*, 4171–4186, 2019. https://arxiv.org/abs/1810.04805.
 
 Press, Ofir, Noah A. Smith, and Mike Lewis. "Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation." In *International Conference on Learning Representations*, 2022. https://arxiv.org/abs/2108.12409.
 

@@ -39,7 +39,7 @@ flowchart BT
 
 The order of the first two sublayers matters. Masked self-attention first lets each target position build a representation of "what has been produced so far"; cross-attention then uses that representation as the query to decide which source positions are relevant for producing the next token.
 
-The decoder block has one more attention sublayer than the encoder block, so its parameter count is $`4d^2 + 4d^2 + 8d^2 = 16d^2`$ weights (with $`d_{\text{ff}} = 4d`$), against the encoder block's $`12d^2`$ (Section 11).
+The decoder block has one more attention sublayer than the encoder block, so its parameter count is $`4d^2 + 4d^2 + 8d^2 = 16d^2`$ weights (with $`d_{\text{ff}} = 4d`$), against the encoder block's $`12d^2`$.
 
 ## The full architecture
 
@@ -80,7 +80,7 @@ It helps to trace one prediction. Suppose the source is a German sentence and th
 - The **FFN** transforms the result, and the next block repeats the process with a more refined query.
 - The final vector at that position is projected to vocabulary logits, giving the distribution for the fourth English word.
 
-The two stacks run at different rhythms. The encoder runs once per source sentence. During training, the decoder runs once per sentence pair, computing all target positions in parallel thanks to the causal mask (Section 9). During generation, the decoder runs once per output token, reusing the same memory each time (Section 10).
+The two stacks run at different rhythms. The encoder runs once per source sentence. During training, the decoder runs once per sentence pair, computing all target positions in parallel thanks to the causal mask (Section 9). During generation, the decoder runs once per output token, reusing the same memory each time.
 
 Cross-attention weights are often interpretable. The figure below comes from a tiny Transformer (two encoder and two decoder blocks, $`d = 64`$, four heads) trained by `figures/make_figures.py` to reverse sequences of eight digits. Each row is a decoder input position and each column a source position; the weights are averaged over the heads of the last decoder block. The model has learned to attend to the source position it must copy next: when its input is `<bos>`, it attends mostly to the *last* source digit, which is the first digit of the reversed output, and so on down the anti-diagonal.
 
@@ -102,11 +102,11 @@ Vaswani et al. (2017) reported two main configurations for translation:
 | Dropout, $`P_{\text{drop}}`$ | 0.1 | 0.3 |
 | Parameters (reported) | 65 million | 213 million |
 
-For English-French, the big model used dropout 0.1 instead of 0.3. Both configurations keep $`d_{\text{ff}} = 4d`$ and $`d_k = 64`$; the big model doubles the width and the number of heads. Section 11 derives the base model's parameter count from these numbers.
+For English-French, the big model used dropout 0.1 instead of 0.3. Both configurations keep $`d_{\text{ff}} = 4d`$ and $`d_k = 64`$; the big model doubles the width and the number of heads.
 
 ## Implementation
 
-The decoder block follows the same pattern as the encoder block. The appendix implements it, checks it against PyTorch's `nn.TransformerDecoderLayer` by copying weights, and combines it with the encoder block of Section 7 into a complete model. That from-scratch model, with the base configuration and a 37,000-token vocabulary has about 63.1 million parameters, close to the 65 million the paper reports; Section 11 discusses the difference. For a notation-level description of the same encoder-decoder forward pass, see the pseudocode in Phuong and Hutter (2022). PyTorch's attention modules use the "True means masked" convention for `attn_mask` and `key_padding_mask` (Section 4), so a causal mask for them marks the positions *above* the diagonal, as `torch.triu(..., diagonal=1)` produces.
+The decoder block follows the same pattern as the encoder block. The appendix implements it, checks it against PyTorch's `nn.TransformerDecoderLayer` by copying weights, and combines it with the encoder block of Section 7 into a complete model. That from-scratch model, with the base configuration and a 37,000-token vocabulary has about 63.1 million parameters, close to the 65 million the paper reports. The paper gives its vocabulary only as about 37,000 tokens, so the exact count cannot be reproduced. For a notation-level description of the same encoder-decoder forward pass, see the pseudocode in Phuong and Hutter (2022). PyTorch's attention modules use the "True means masked" convention for `attn_mask` and `key_padding_mask` (Section 4), so a causal mask for them marks the positions *above* the diagonal, as `torch.triu(..., diagonal=1)` produces.
 
 ## PyTorch's built-in modules
 

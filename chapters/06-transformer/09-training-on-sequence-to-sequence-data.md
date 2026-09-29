@@ -44,13 +44,13 @@ flowchart LR
     end
 ```
 
-*Figure 6.9.1. Teacher forcing feeds the reference prefix and trains all positions in one pass; inference feeds the model's own outputs back in, one token at a time (Section 10).*
+*Figure 6.9.1. Teacher forcing feeds the reference prefix and trains all positions in one pass; inference feeds the model's own outputs back in, one token at a time.*
 
 ## Exposure bias
 
 Teacher forcing creates a mismatch. During training, the decoder always conditions on **correct** prefixes. During inference, it conditions on its **own** previous outputs, which may contain mistakes, and it has never been trained to recover from a prefix it produced itself. An early error can put the decoder in unfamiliar territory, making later errors more likely. This mismatch is called **exposure bias**.
 
-In practice, teacher forcing works well enough that it remains the standard way to train Transformers for seq2seq tasks: it is simple, parallel, and stable. The effects of exposure bias are mitigated at inference time by search (beam search keeps alternatives alive in case the greedy choice was wrong; Section 10) and by label smoothing, discussed next, which makes the model less overconfident. Alternatives that train on the model's own outputs exist, but they give up the parallelism that makes teacher forcing attractive.
+In practice, teacher forcing works well enough that it remains the standard way to train Transformers for seq2seq tasks: it is simple, parallel, and stable. The effects of exposure bias are mitigated at inference time by search procedures that keep several candidate outputs alive instead of committing to the single most likely token at every step, and by label smoothing, discussed next, which makes the model less overconfident. Alternatives that train on the model's own outputs exist, but they give up the parallelism that makes teacher forcing attractive.
 
 ## Label smoothing
 
@@ -67,7 +67,7 @@ The correct token gets probability $`1 - \epsilon_{\text{ls}} + \epsilon_{\text{
 
 *Figure 6.9.2. A one-hot target and its smoothed version with* $`\epsilon_{\text{ls}} = 0.1`$ *over a 10-token vocabulary.*
 
-The original Transformer used $`\epsilon_{\text{ls}} = 0.1`$. Vaswani et al. (2017) reported that this **hurt perplexity**, because the model learns to be more unsure, **but improved accuracy and BLEU**. The perplexity result is expected: perplexity measures how much probability the model assigns to the reference tokens, and label smoothing deliberately holds some probability back. Müller et al. (2019) studied why label smoothing helps and found that it improves calibration (predicted probabilities better match actual accuracy) and makes representations of different classes more tightly clustered. They also found that a teacher network trained with label smoothing is worse for knowledge distillation.
+The original Transformer used $`\epsilon_{\text{ls}} = 0.1`$. Vaswani et al. (2017) reported that this **hurt perplexity**, because the model learns to be more unsure, **but improved accuracy and BLEU**, a standard translation-quality score based on how many of the output's word sequences also appear in a reference translation (Papineni et al. 2002). The perplexity result is expected: perplexity measures how much probability the model assigns to the reference tokens, and label smoothing deliberately holds some probability back. Müller et al. (2019) studied why label smoothing helps and found that it improves calibration (predicted probabilities better match actual accuracy) and makes representations of different classes more tightly clustered. They also found that a teacher network trained with label smoothing is worse for knowledge distillation.
 
 PyTorch's cross-entropy has label smoothing built in, through the `label_smoothing` argument of `nn.CrossEntropyLoss`, and it matches the formula above exactly (check in the appendix).
 
@@ -89,7 +89,7 @@ Warmup matters especially for the original post-norm Transformer. Section 7 desc
 
 In PyTorch, the schedule can be written as a `LambdaLR` wrapped around Adam, with the optimizer's base learning rate set to 1 so that the lambda gives the actual value. The appendix uses it to train a small encoder-decoder to reverse sequences of digits, with label smoothing and a 200-step warmup; in 400 steps the training loss falls from 3.42 to about 0.57.
 
-A freshly initialized model should have a loss near $`\ln V`$, since it spreads its probability roughly evenly (Chapter 3's debugging checklist); that check is why the appendix code initializes the embedding with standard deviation $`d^{-1/2}`$. The same matrix is multiplied by $`\sqrt{d}`$ on the way in and reused as the output projection; with PyTorch's default initialization (standard deviation 1) the initial logits are large and the initial loss is many times $`\ln V`$, which slows early training. Note that with label smoothing the loss cannot reach zero: its minimum is the entropy of the smoothed target distribution. The code labs train a model like this to completion and add decoding.
+A freshly initialized model should have a loss near $`\ln V`$, since it spreads its probability roughly evenly (Chapter 3's debugging checklist); that check is why the appendix code initializes the embedding with standard deviation $`d^{-1/2}`$. The same matrix is multiplied by $`\sqrt{d}`$ on the way in and reused as the output projection; with PyTorch's default initialization (standard deviation 1) the initial logits are large and the initial loss is many times $`\ln V`$, which slows early training. Note that with label smoothing the loss cannot reach zero: its minimum is the entropy of the smoothed target distribution. The code labs train a model like this to completion and look inside it at its cross-attention.
 
 ## Practical details
 
@@ -105,9 +105,11 @@ Several engineering choices from the original work are still standard for seq2se
 The training loss, computed with teacher forcing, measures how well the model predicts each reference token given a *correct* prefix. That is not the same as how good its generated outputs are, which depends on the decoding procedure and on exposure bias. So seq2seq training is usually monitored at two levels:
 
 1. **Loss (or perplexity) on a validation set**, computed with teacher forcing. It is cheap and smooth, and it is the right signal for spotting divergence or overfitting (with the caveat, above, that label smoothing raises it).
-2. **Quality of decoded outputs** on a validation set, using greedy or beam search (Section 10) and a task metric: exact match for toy tasks, BLEU for translation. This is slower but measures what actually matters.
+2. **Quality of decoded outputs** on a validation set, generated by the model one token at a time from its own predictions and scored with a task metric: exact match for toy tasks, BLEU for translation. This is slower but measures what actually matters.
 
 The two usually move together early in training and can diverge later; when choosing checkpoints or hyperparameters, prefer the decoded-output metric.
+
+With training in place, the model of this chapter is complete. Token embeddings and positional encodings feed a stack of encoder blocks, each pairing self-attention with a feed-forward network; a stack of decoder blocks adds masked self-attention over the target prefix and cross-attention to the encoder's output; and teacher forcing, label smoothing and a warmup schedule train the whole network end to end on sentence pairs. Every piece serves the idea that opened the chapter: instead of passing information step by step through a recurrent state, let each position gather what it needs from every other position, by content and all at once.
 
 ## Key takeaways
 
@@ -200,6 +202,8 @@ for step in range(400):
 ## Further reading
 
 Müller, Rafael, Simon Kornblith, and Geoffrey Hinton. "When Does Label Smoothing Help?" In *Advances in Neural Information Processing Systems 32*, 2019. https://arxiv.org/abs/1906.02629.
+
+Papineni, Kishore, Salim Roukos, Todd Ward, and Wei-Jing Zhu. "BLEU: A Method for Automatic Evaluation of Machine Translation." In *Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics*, 311–318, 2002. https://aclanthology.org/P02-1040/.
 
 Szegedy, Christian, et al. "Rethinking the Inception Architecture for Computer Vision." In *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition*, 2016. https://arxiv.org/abs/1512.00567.
 

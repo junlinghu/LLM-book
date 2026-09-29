@@ -1,6 +1,6 @@
-# 6.10 Decoding: From a Trained Model to an Output Sequence
+# 14.1 Decoding: From a Trained Model to an Output Sequence
 
-A trained Transformer gives, for any source $`\mathbf{x}`$ and any target prefix $`y_{\lt t}`$, a distribution $`p_\theta(y_t \mid y_{\lt t}, \mathbf{x})`$ over the next token. Turning that into an output sentence is the job of a **decoding** procedure. This section covers autoregressive generation with an encoder-decoder model, **greedy decoding**, **beam search** and the **length penalty** that makes it work, how to avoid redundant computation, and how outputs are evaluated.
+Chapter 6 ended with a trained encoder-decoder Transformer. For any source $`\mathbf{x}`$ and any target prefix $`y_{\lt t}`$, it gives a distribution $`p_\theta(y_t \mid y_{\lt t}, \mathbf{x})`$ over the next token, but a distribution is not yet a sentence. Turning it into an output sentence is the job of a **decoding** procedure. This section covers autoregressive generation with an encoder-decoder model, **greedy decoding**, **beam search** and the **length penalty** that makes it work, how to avoid redundant computation, and how outputs are evaluated.
 
 ## Autoregressive generation
 
@@ -24,9 +24,9 @@ flowchart TB
     Q -- "yes" --> OUT["output sequence"]
 ```
 
-*Figure 6.10.1. Autoregressive decoding with an encoder-decoder Transformer.*
+*Figure 14.1.1. Autoregressive decoding with an encoder-decoder Transformer.*
 
-This loop is inherently sequential: token $`t+1`$ cannot be computed until token $`t`$ has been chosen. The parallelism that makes training fast (Section 9) is not available here. What remains to decide is step 4, how to choose.
+This loop is inherently sequential: token $`t+1`$ cannot be computed until token $`t`$ has been chosen. The parallelism that makes training fast (Section 6.9) is not available here. What remains to decide is step 4, how to choose.
 
 The goal, in principle, is the most probable output under the model,
 
@@ -44,7 +44,7 @@ With a vocabulary of $`V`$ tokens there are $`V^T`$ sequences of length $`T`$, f
 y_t = \arg\max_{k} \; p_\theta(k \mid y_{\lt t}, \mathbf{x}).
 ```
 
-It is fast, needing exactly one decoder pass per output token, and deterministic. For tasks where the model is confident, it is often all that is needed. But a locally best choice need not lead to the best sequence. Suppose the most likely first word leads to continuations that are all fairly unlikely, while the second most likely first word leads to one very likely continuation; greedy decoding commits to the first word and never reconsiders. Because the decoder was trained only on correct prefixes (exposure bias, Section 9), an early mistake can also make later predictions worse.
+It is fast, needing exactly one decoder pass per output token, and deterministic. For tasks where the model is confident, it is often all that is needed. But a locally best choice need not lead to the best sequence. Suppose the most likely first word leads to continuations that are all fairly unlikely, while the second most likely first word leads to one very likely continuation; greedy decoding commits to the first word and never reconsiders. Because the decoder was trained only on correct prefixes (exposure bias, Section 6.9), an early mistake can also make later predictions worse.
 
 ## Beam search
 
@@ -70,7 +70,7 @@ flowchart LR
     T -. "dog: 0.05" .-> TD["The dog (−3.91) pruned"]
 ```
 
-*Figure 6.10.2. Beam search with beam size 2 on a hypothetical model (illustrative probabilities; scores are total natural-log probabilities). Solid edges survive pruning; dotted edges are discarded.*
+*Figure 14.1.2. Beam search with beam size 2 on a hypothetical model (illustrative probabilities; scores are total natural-log probabilities). Solid edges survive pruning; dotted edges are discarded.*
 
 ## Length bias and the length penalty
 
@@ -86,7 +86,7 @@ With $`\alpha = 0`$ there is no normalization; with $`\alpha = 1`$ the score is 
 
 ## Implementation
 
-The appendix trains a small model to reverse digit sequences of variable length (as in Section 9), then implements greedy decoding and beam search with the length penalty for any model that exposes separate encode and decode steps, and compares the two. Three details of the implementation are worth noticing. The encoder runs once per source, and its memory is reused by every decoder call. The live beams are stacked into one batch so that each step is a single decoder call. And beam search with $`k = 1`$ reproduces greedy decoding exactly, a useful test when implementing beam search. On an easy task like reversal, a reasonably trained model gets nearly every example right with either method (in our run, both exceeded 95% exact match, and beam search was not better). Beam search finds hypotheses with higher model score, which is not the same thing as a correct output: if the model's probabilities are miscalibrated, a wider search can surface a high-scoring wrong answer. Its advantage shows up when the greedy path goes wrong early on harder tasks, as in translation. The fourth code lab compares the two on a harder task.
+The appendix trains a small model to reverse digit sequences of variable length (as in Section 6.9), then implements greedy decoding and beam search with the length penalty for any model that exposes separate encode and decode steps, and compares the two. Three details of the implementation are worth noticing. The encoder runs once per source, and its memory is reused by every decoder call. The live beams are stacked into one batch so that each step is a single decoder call. And beam search with $`k = 1`$ reproduces greedy decoding exactly, a useful test when implementing beam search. On an easy task like reversal, a reasonably trained model gets nearly every example right with either method (in our run, both exceeded 95% exact match, and beam search was not better). Beam search finds hypotheses with higher model score, which is not the same thing as a correct output: if the model's probabilities are miscalibrated, a wider search can surface a high-scoring wrong answer. Its advantage shows up when the greedy path goes wrong early on harder tasks, as in translation. The first code lab of this chapter compares the two on a harder task.
 
 ## Avoiding repeated work
 
@@ -105,6 +105,8 @@ Decoded outputs are compared with references using a task metric:
 - **BLEU** (Papineni et al. 2002) for translation. BLEU counts how many of the output's n-grams (up to length 4) appear in the reference, combines those precisions with a geometric mean, and multiplies by a *brevity penalty* that punishes outputs shorter than the reference (otherwise a very short output with only safe words would score well). Scores are computed over a whole test set, not averaged over sentences.
 
 BLEU scores depend on details such as tokenization and normalization of the reference, so numbers computed by different scripts are often not comparable. Post (2018) documented these differences and released **sacreBLEU**, a tool that computes BLEU on detokenized text in a standard way and reports a signature of the settings used. Reporting sacreBLEU scores with their signature makes translation results comparable across papers.
+
+Every decoding step is a full pass through the decoder, and beam search runs one such pass for each hypothesis it keeps. How much computation does one pass take, and how many parameters must the model store to make it?
 
 ## Key takeaways
 
