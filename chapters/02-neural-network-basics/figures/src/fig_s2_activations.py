@@ -32,7 +32,7 @@ ACTS = {
 }
 COLORS = [GRAY, BLUE, ORANGE, GREEN, PURPLE, RED]
 
-# ---------------------------------------------------------------- Figure 2.4
+# ---------------------------------------------------------------- Figure 2.3
 x = np.linspace(-6, 6, 1201)
 fig, axes = plt.subplots(2, 6, figsize=(17, 5.6), sharex=True)
 for j, ((name, (f, df)), c) in enumerate(zip(ACTS.items(), COLORS)):
@@ -68,7 +68,7 @@ fig.text(0.5, -0.02, "Shaded: regions where the derivative is below 5% of its ma
 fig.tight_layout()
 save(fig, "fig2-07-activation-gallery.png")
 
-# ---------------------------------------------------------------- Figure 2.3
+# ---------------------------------------------------------------- removed Figure 2.3 (why-nonlinearity plot; asset kept)
 rng = np.random.default_rng(0)
 xs = np.linspace(-3, 3, 400)[:, None]
 fig, axes = plt.subplots(1, 3, figsize=(14, 3.9), sharey=False)
@@ -90,7 +90,7 @@ axes[0].set_ylabel("network output")
 fig.suptitle("Four randomly initialized 1-8-8-1 networks", y=1.02)
 save(fig, "fig2-06-why-nonlinearity.png")
 
-# ---------------------------------------------------------------- Figure 2.5
+# ---------------------------------------------------------------- Figure 2.4
 x = np.linspace(-4, 3, 701)
 fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 for name, c in [("ReLU", GREEN), ("GELU", PURPLE), ("SiLU / Swish", RED)]:

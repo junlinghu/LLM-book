@@ -10,11 +10,11 @@ An MLP with one hidden layer has three layers of units:
 - The **hidden layer** has $H$ neurons. Each one computes its own weighted sum of all the inputs, adds its own bias, and applies an activation $g$. The layer is called hidden because its values are not given in the data: the network has to discover what they should be.
 - The **output layer** has $C$ neurons that combine the hidden activations into the final prediction. For a regression it may output one real number; for a classifier, one score per class.
 
-Because every unit in one layer connects to every unit in the next, these are called *fully connected* or *dense* layers. Figure 2.6 draws a network with two inputs, four hidden units, and one output, written "2-4-1."
+Because every unit in one layer connects to every unit in the next, these are called *fully connected* or *dense* layers. Figure 2.5 draws a network with two inputs, four hidden units, and one output, written "2-4-1."
 
 ![A 2-4-1 multi-layer perceptron](figures/fig2-09-mlp-architecture.png)
 
-*Figure 2.6: A multi-layer perceptron with two inputs, one hidden layer of four units, and one output. Every gray line is a weight. The "+1" nodes stand for biases, drawn as weights on a constant input. The hidden layer applies a nonlinearity; the weights of the two layers form matrices W⁽¹⁾ (2 × 4) and W⁽²⁾ (4 × 1).*
+*Figure 2.5: A multi-layer perceptron with two inputs, one hidden layer of four units, and one output. Every gray line is a weight. The "+1" nodes stand for biases, drawn as weights on a constant input. The hidden layer applies a nonlinearity; the weights of the two layers form matrices W⁽¹⁾ (2 × 4) and W⁽²⁾ (4 × 1).*
 
 Writing out every weighted sum separately quickly becomes unwieldy. Instead we collect the weights of a layer into a matrix. We use the convention, common in code, that an example is a row vector and each *column* of a weight matrix holds the incoming weights of one unit. For a single example $`\mathbf{x} \in \mathbb{R}^{1 \times d}`$, the forward pass is
 
@@ -85,11 +85,11 @@ z^{(2)} = 0.7163 \cdot 1.0 + (-0.0997) \cdot (-1.5) + 0.2 \approx 0.7163 + 0.149
 \hat{p} = \sigma(1.0658) = \frac{1}{1 + e^{-1.0658}} \approx 0.7438.
 ```
 
-The network assigns probability 0.744 to the correct class. Section 2.4 will define the cross-entropy loss for this prediction as $`-\ln 0.7438 \approx 0.2960`$. Figure 2.7 shows every intermediate value on the network diagram, and [Code 2.3.2](#code-232-checking-the-2-2-1-worked-example) checks the arithmetic in a few lines of NumPy.
+The network assigns probability 0.744 to the correct class. Section 2.4 will define the cross-entropy loss for this prediction as $`-\ln 0.7438 \approx 0.2960`$. Figure 2.6 shows every intermediate value on the network diagram, and [Code 2.3.2](#code-232-checking-the-2-2-1-worked-example) checks the arithmetic in a few lines of NumPy.
 
 ![Forward pass through the 2-2-1 worked example](figures/fig2-10-worked-forward.png)
 
-*Figure 2.7: The forward pass of the worked example. Numbers on the edges are weights; numbers inside the nodes are activations. Purple labels give each unit's bias and pre-activation. The output probability is 0.7438 and the cross-entropy loss for the target y = 1 is 0.2960.*
+*Figure 2.6: The forward pass of the worked example. Numbers on the edges are weights; numbers inside the nodes are activations. Purple labels give each unit's bias and pre-activation. The output probability is 0.7438 and the cross-entropy loss for the target y = 1 is 0.2960.*
 
 ## Solving XOR with one hidden layer
 
@@ -116,23 +116,23 @@ In matrix form, $`W^{(1)} = \begin{pmatrix} 1 \;\; 1 \\ 1 \;\; 1 \end{pmatrix}`$
 
 ### A solution found by training
 
-We do not want to design weights by hand for every problem. Instead, we let gradient descent find them, using the loss of Section 2.4, the gradients of Section 2.6, and the optimizer of Section 2.5. Training a 2-2-1 network with tanh hidden units and a sigmoid output on the four XOR points produces the result in Figure 2.8. (The run uses full-batch gradient descent with learning rate 1.5 for 3,000 steps from one particular random initialization; some initializations get stuck, a first hint of the non-convexity discussed in Section 2.5.)
+We do not want to design weights by hand for every problem. Instead, we let gradient descent find them, using the loss of Section 2.4, the gradients of Section 2.6, and the optimizer of Section 2.5. Training a 2-2-1 network with tanh hidden units and a sigmoid output on the four XOR points produces the result in Figure 2.7. (The run uses full-batch gradient descent with learning rate 1.5 for 3,000 steps from one particular random initialization; some initializations get stuck, a first hint of the non-convexity discussed in Section 2.5.)
 
 ![A 2-2-1 MLP solves XOR](figures/fig2-11-xor-mlp.png)
 
-*Figure 2.8: Left: the XOR inputs. Middle: the decision boundary of a trained 2-2-1 network is a band made of two roughly parallel lines, one contributed by each hidden unit. Right: the same four points in the space of hidden activations. The inputs (0,0) and (1,1) are mapped almost on top of each other, and the output neuron separates the classes with a single line (dashed).*
+*Figure 2.7: Left: the XOR inputs. Middle: the decision boundary of a trained 2-2-1 network is a band made of two roughly parallel lines, one contributed by each hidden unit. Right: the same four points in the space of hidden activations. The inputs (0,0) and (1,1) are mapped almost on top of each other, and the output neuron separates the classes with a single line (dashed).*
 
-The right panel of Figure 2.8 is the most important picture in this section. The trained hidden layer maps $(0,0)$ and $(1,1)$ to almost the same point, about $(0.96, -0.96)$, while $(0,1)$ goes to about $(-0.97, -1.00)$ and $(1,0)$ to about $(1.00, 0.97)$. In this new coordinate system the classes are linearly separable, and the output neuron, which is just logistic regression on the hidden activations, can do its job. The network has *learned a feature*. Nobody told it to detect "exactly one input is on"; the representation emerged from minimizing the loss.
+The right panel of Figure 2.7 is the most important picture in this section. The trained hidden layer maps $(0,0)$ and $(1,1)$ to almost the same point, about $(0.96, -0.96)$, while $(0,1)$ goes to about $(-0.97, -1.00)$ and $(1,0)$ to about $(1.00, 0.97)$. In this new coordinate system the classes are linearly separable, and the output neuron, which is just logistic regression on the hidden activations, can do its job. The network has *learned a feature*. Nobody told it to detect "exactly one input is on"; the representation emerged from minimizing the loss.
 
 This is the central idea of deep learning, and it scales all the way up to LLMs: each layer re-represents its input so that the next layer's job becomes easier. In a language model, the "features" are directions in a high-dimensional space that encode things like syntax, topic, and meaning (Chapter 4).
 
 ### A harder dataset: two moons
 
-XOR has only four points. Figure 2.9 shows a more realistic example, the "two moons" dataset: two interleaving half-circles with noise. No straight line separates them, but a 16-unit ReLU MLP trained with gradient descent reaches 98.3% training accuracy with a curved boundary. Because the hidden units are ReLUs, the boundary is made of straight segments: each hidden unit contributes a line where it switches on or off, and the output combines these pieces.
+XOR has only four points. Figure 2.8 shows a more realistic example, the "two moons" dataset: two interleaving half-circles with noise. No straight line separates them, but a 16-unit ReLU MLP trained with gradient descent reaches 98.3% training accuracy with a curved boundary. Because the hidden units are ReLUs, the boundary is made of straight segments: each hidden unit contributes a line where it switches on or off, and the output combines these pieces.
 
 ![MLP decision boundary on two moons](figures/fig2-12-two-moons.png)
 
-*Figure 2.9: Left: the two-moons dataset (300 points). Right: the decision boundary of a trained MLP with 16 ReLU hidden units. The boundary is piecewise linear because ReLU units are piecewise linear.*
+*Figure 2.8: Left: the two-moons dataset (300 points). Right: the decision boundary of a trained MLP with 16 ReLU hidden units. The boundary is piecewise linear because ReLU units are piecewise linear.*
 
 ## Universal approximation
 
@@ -144,11 +144,11 @@ Formally, for any continuous $f$ on $[0,1]^d$ and any $`\varepsilon \gt 0`$, the
 \left| f(\mathbf{x}) - \sum_{j=1}^{H} v_j \, g\bigl(\mathbf{w}_j^\top \mathbf{x} + b_j\bigr) \right| \lt \varepsilon \quad \text{for all } \mathbf{x} \in [0,1]^d .
 ```
 
-In one dimension there is a simple intuition for ReLU networks. Each hidden unit $`\mathrm{ReLU}(w x + b)`$ is a hinge that is flat on one side of the point $x = -b/w$ and a straight line on the other. A weighted sum of $H$ hinges is a piecewise-linear function with up to $H$ bends, and with enough bends you can trace any continuous curve as closely as you like, the same way a polygon with enough sides approximates a circle. Figure 2.10 shows this happening as the hidden layer widens.
+In one dimension there is a simple intuition for ReLU networks. Each hidden unit $`\mathrm{ReLU}(w x + b)`$ is a hinge that is flat on one side of the point $x = -b/w$ and a straight line on the other. A weighted sum of $H$ hinges is a piecewise-linear function with up to $H$ bends, and with enough bends you can trace any continuous curve as closely as you like, the same way a polygon with enough sides approximates a circle. Figure 2.9 shows this happening as the hidden layer widens.
 
 ![Universal approximation in one dimension](figures/fig2-13-universal-approx.png)
 
-*Figure 2.10: A one-hidden-layer ReLU network fitted to 80 noisy samples of a wiggly function, with 1, 3, 10, and 50 hidden units. Each hidden unit adds one possible bend. With 10 units the fit is already close; with 50 it is nearly indistinguishable from the true function. (Fits trained with PyTorch and the Adam optimizer, which Chapter 3 introduces.)*
+*Figure 2.9: A one-hidden-layer ReLU network fitted to 80 noisy samples of a wiggly function, with 1, 3, 10, and 50 hidden units. Each hidden unit adds one possible bend. With 10 units the fit is already close; with 50 it is nearly indistinguishable from the true function. (Fits trained with PyTorch and the Adam optimizer, which Chapter 3 introduces.)*
 
 Universal approximation is reassuring, but it is easy to read too much into it. The theorem guarantees that good weights *exist*. It says nothing about:
 

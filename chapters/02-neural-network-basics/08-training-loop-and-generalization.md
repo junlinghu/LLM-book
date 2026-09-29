@@ -13,7 +13,7 @@ Every training loop in this book, from the 9-parameter XOR network to LLM pretra
 5. **Update** the parameters with the optimizer, for plain SGD $`\theta \leftarrow \theta - \eta \nabla_\theta L`$.
 6. **Repeat**, and periodically evaluate on held-out data, log metrics, and save checkpoints.
 
-Figure 2.30 draws the loop.
+Figure 2.29 draws the loop.
 
 ```mermaid
 flowchart TD
@@ -30,13 +30,13 @@ flowchart TD
     stop -->|"yes"| test["Evaluate best checkpoint<br/>on the test set, once"]
 ```
 
-*Figure 2.30: The training loop. The inner cycle (steps 1–5) runs once per minibatch. At the end of each epoch the model is evaluated on validation data, which drives checkpointing and early stopping. The test set is used only once, after training is finished.*
+*Figure 2.29: The training loop. The inner cycle (steps 1–5) runs once per minibatch. At the end of each epoch the model is evaluated on validation data, which drives checkpointing and early stopping. The test set is used only once, after training is finished.*
 
 ## Training, validation, and test sets
 
 Suppose a model reaches a training loss of nearly zero. Is it a good model? We cannot tell. The training loss measures how well the model fits the examples it was optimized on, and a flexible enough model can drive it to zero by memorizing them. To estimate performance on new data, we must evaluate on data the model has not been trained on.
 
-The standard practice is to split the available labeled data, before any training, into three disjoint parts (Figure 2.31):
+The standard practice is to split the available labeled data, before any training, into three disjoint parts (Figure 2.30):
 
 - The **training set** is used to compute gradients and update the weights.
 - The **validation set** (also called the *development set*) is used to make decisions *about* training: which learning rate, how many hidden units, when to stop. The model never computes gradients on it, but our choices adapt to it.
@@ -44,7 +44,7 @@ The standard practice is to split the available labeled data, before any trainin
 
 ![Training, validation, and test split](figures/fig2-34-data-split.png)
 
-*Figure 2.31: A typical split of a labeled dataset. Proportions such as 70/15/15 or 80/10/10 are common for small datasets; very large datasets can use a much smaller fraction for validation and test.*
+*Figure 2.30: A typical split of a labeled dataset. Proportions such as 70/15/15 or 80/10/10 are common for small datasets; very large datasets can use a much smaller fraction for validation and test.*
 
 Why a separate validation set *and* test set? Because every decision made by looking at a dataset leaks a little information about that dataset into the model. If we try twenty learning rates and pick the one with the best validation loss, the chosen model's validation loss is an optimistically biased estimate: part of its apparent quality is luck that happened to suit those particular validation examples. The test set protects against this only if it plays no part in any decision. **Touch the test set once.** If you evaluate on it repeatedly and adjust the model in response, it silently becomes a second validation set, and the number you report no longer measures generalization. Chapter 12 discusses the large-scale version of this problem in LLM evaluation, where benchmark test sets can leak into training data.
 
@@ -54,11 +54,11 @@ The split should be random (shuffle before splitting) unless there is a reason t
 
 The most informative diagnostic of a training run is a plot of the **training loss** and the **validation loss** over time, called the **learning curves**. The training loss usually decreases more or less steadily, since that is what the optimizer is minimizing. The validation loss tells the real story.
 
-Figure 2.32 shows a deliberately overfitting-prone experiment: a network with 64 tanh hidden units fitted to just 30 noisy samples of a smooth curve, $`y = \sin(3x) + \text{noise}`$, with the noise having standard deviation 0.3. Because the noise is random, even a perfect model cannot achieve a mean squared error below the noise variance, $0.3^2 = 0.09$, on new data. That "noise floor" is drawn as a dotted line.
+Figure 2.31 shows a deliberately overfitting-prone experiment: a network with 64 tanh hidden units fitted to just 30 noisy samples of a smooth curve, $`y = \sin(3x) + \text{noise}`$, with the noise having standard deviation 0.3. Because the noise is random, even a perfect model cannot achieve a mean squared error below the noise variance, $0.3^2 = 0.09$, on new data. That "noise floor" is drawn as a dotted line.
 
 ![Learning curves and early stopping](figures/fig2-35-learning-curves.png)
 
-*Figure 2.32: Left: training and validation loss (MSE, log scales) for a 64-unit network trained on 30 noisy points for 20,000 steps. Validation loss reaches its minimum, close to the noise floor, around step 540, then rises as the network starts fitting the noise. Right: the final model (red) passes near every training point but swings wildly between them; the early-stopped model (green) stays close to the true function. (Trained with PyTorch and the Adam optimizer, introduced in Chapter 3, to reach the overfitting regime quickly.)*
+*Figure 2.31: Left: training and validation loss (MSE, log scales) for a 64-unit network trained on 30 noisy points for 20,000 steps. Validation loss reaches its minimum, close to the noise floor, around step 540, then rises as the network starts fitting the noise. Right: the final model (red) passes near every training point but swings wildly between them; the early-stopped model (green) stays close to the true function. (Trained with PyTorch and the Adam optimizer, introduced in Chapter 3, to reach the overfitting regime quickly.)*
 
 Three phases are visible:
 
@@ -70,11 +70,11 @@ The gap between the two curves is the **generalization gap**. A widening gap wit
 
 ## Underfitting, overfitting, and model capacity
 
-A model's **capacity** is, informally, the richness of the set of functions it can represent. For a one-hidden-layer MLP, the width of the hidden layer is the main capacity knob: by the universal approximation argument of Section 2.3, more hidden units allow more bends and wiggles. Figure 2.33 trains four networks of different widths on the same 30 points, each for 20,000 steps.
+A model's **capacity** is, informally, the richness of the set of functions it can represent. For a one-hidden-layer MLP, the width of the hidden layer is the main capacity knob: by the universal approximation argument of Section 2.3, more hidden units allow more bends and wiggles. Figure 2.32 trains four networks of different widths on the same 30 points, each for 20,000 steps.
 
 ![Model capacity: underfitting and overfitting](figures/fig2-36-capacity.png)
 
-*Figure 2.33: Networks with 1, 3, 8, and 64 hidden units trained on the same 30 noisy points (blue) from the gray curve. Titles give the final training and validation MSE. Width 1 underfits; width 3 captures the trend; widths 8 and 64 overfit, with low training loss but large validation loss.*
+*Figure 2.32: Networks with 1, 3, 8, and 64 hidden units trained on the same 30 noisy points (blue) from the gray curve. Titles give the final training and validation MSE. Width 1 underfits; width 3 captures the trend; widths 8 and 64 overfit, with low training loss but large validation loss.*
 
 The four panels show the two failure modes on either side of a good model:
 
@@ -114,11 +114,11 @@ Every training loop starts from some initial parameters. It might seem natural t
 
 If two hidden units in the same layer start with identical incoming weights and identical outgoing weights, they compute the same activation for every input. By the backpropagation equations of Section 2.6, they then receive identical gradients, so after the update their weights are still identical. By induction they stay identical forever: the layer behaves as if it had a single unit, no matter how wide it is. (With all weights and biases exactly zero it is even worse: in our tanh network, $`\tanh(0) = 0`$ and zero outgoing weights mean that every weight gradient is zero, and only the output bias ever changes.) Random initialization **breaks the symmetry**, giving each unit a different starting point so that the units can specialize.
 
-Figure 2.34 shows the effect on a 2-4-1 tanh network trained on two moons with SGD.
+Figure 2.33 shows the effect on a 2-4-1 tanh network trained on two moons with SGD.
 
 ![Symmetric versus random initialization](figures/fig2-37-symmetry.png)
 
-*Figure 2.34: The weight from input x₁ into each of four hidden units during training. Left: when every weight starts at 0.5, all four units receive identical updates and their curves lie exactly on top of each other; the network is effectively one unit wide and stalls at a loss of 0.290. Right: with random initialization, the units follow different paths, and the network reaches a loss of 0.049 in the same 1,000 steps.*
+*Figure 2.33: The weight from input x₁ into each of four hidden units during training. Left: when every weight starts at 0.5, all four units receive identical updates and their curves lie exactly on top of each other; the network is effectively one unit wide and stalls at a loss of 0.290. Right: with random initialization, the units follow different paths, and the network reaches a loss of 0.049 in the same 1,000 steps.*
 
 The *scale* of the random initialization matters too. Weights that are too large saturate tanh and sigmoid units (Section 2.2) or make activations explode through many layers; weights that are too small make signals and gradients shrink. The initializers we used in this chapter scale the random weights by $`1/\sqrt{\text{fan-in}}`$ or $`\sqrt{2/\text{fan-in}}`$, where the fan-in is the number of inputs to a unit, which keeps activations in a reasonable range. Chapter 3 explains where these scalings come from (Xavier/Glorot and He initialization) and why they become essential in deep networks.
 
