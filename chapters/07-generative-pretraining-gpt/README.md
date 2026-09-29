@@ -78,7 +78,7 @@ C \approx 6PD
 \mathcal{L}(P, D) \approx E + \frac{A}{P^{\alpha}} + \frac{B}{D^{\beta}}
 ```
 
-- Why many models are trained on far more tokens than the compute-optimal amount: a smaller model is cheaper to serve at inference (Touvron et al. 2023; Chapter 13)
+- Why many models are trained on far more tokens than the compute-optimal amount: a smaller model is cheaper to serve at inference (Touvron et al. 2023; Chapter 12)
 - Monitoring a run: training and validation loss against tokens seen, gradient norms, and loss spikes
 
 ### 5. [Generating text](05-generating-text.md)
@@ -98,7 +98,7 @@ V^{(p)} = \text{smallest set such that} \sum_{i \in V^{(p)}} p(i) \ge p
 ```
 
 - Combining the settings, how they trade diversity against coherence, and fixing the random seed for reproducible outputs
-- Reusing work: the key-value caching of Section 6.10 makes each new token cheap; its memory cost, and other ways to make generation fast, are the subject of Chapter 13
+- Reusing work: the key-value caching of Section 6.10 makes each new token cheap; its memory cost, and other ways to make generation fast, are the subject of Chapter 12
 
 ### 6. [What pretraining produces](06-what-pretraining-produces.md)
 - A **base model** continues text: given a prompt, it produces what is likely to come next in its training data
@@ -106,8 +106,8 @@ V^{(p)} = \text{smallest set such that} \sum_{i \in V^{(p)}} p(i) \ge p
 - **In-context learning**: zero-, one-, and few-shot prompting, where examples of a task in the prompt improve performance without any weight updates, and more so for larger models (Brown et al. 2020)
 - What a base model does not do reliably: follow instructions (it may continue a question with more questions), refuse harmful requests, or avoid stating falsehoods and reproducing biases in its data
 - Retrieval-augmented generation: retrieve passages with a sentence embedding model (Section 6.13), place them in the prompt with the question, and generate; its failure modes trace mostly to retrieval
-- Evaluating a base model: validation loss or perplexity, bits per byte across tokenizers (Chapter 5), and few-shot benchmarks (Chapter 12)
-- From a base model to an assistant: supervised fine-tuning on demonstrations (Chapter 8) and learning from human preferences (Chapters 9 to 11; Ouyang et al. 2022)
+- Evaluating a base model: validation loss or perplexity, bits per byte across tokenizers (Chapter 5), and few-shot benchmarks (Chapter 11)
+- From a base model to an assistant: supervised fine-tuning on demonstrations (Chapter 8) and learning from human preferences (Chapters 9, 10, and 13; Ouyang et al. 2022)
 
 ## Suggested code labs
 

@@ -12,7 +12,7 @@ The policy still samples a response $`y`$ to a prompt $`x`$. The reward is a fun
 
 The training loop is then any policy gradient from Section 2, most often GRPO. For each problem, sample a group of solutions, score each with $`v`$, compute group-relative advantages, and update the policy. No Bradley-Terry model is fit. The dataset is a set of problems with answers, not a set of ranked essays.
 
-[Code 11.5.1](#code-1151-a-verifier-and-the-advantages-it-induces) is the whole reward function for a toy arithmetic task: find a `\boxed{...}` span, compare it with the gold answer, and turn the bits into GRPO advantages. On four samples with rewards $`1, 0, 0, 1`$, the advantages are $`+1, -1, -1, +1`$. The two samples that never boxed an answer get the same zero as the sample that boxed the wrong number. The checker cannot tell "almost" from "wrong," and the advantage does not pretend it can.
+[Code 13.5.1](#code-1351-a-verifier-and-the-advantages-it-induces) is the whole reward function for a toy arithmetic task: find a `\boxed{...}` span, compare it with the gold answer, and turn the bits into GRPO advantages. On four samples with rewards $`1, 0, 0, 1`$, the advantages are $`+1, -1, -1, +1`$. The two samples that never boxed an answer get the same zero as the sample that boxed the wrong number. The checker cannot tell "almost" from "wrong," and the advantage does not pretend it can.
 
 ## Why this resists reward hacking
 
@@ -42,7 +42,7 @@ Binary rewards also make the scale of $`\hat{A}_i`$ depend only on how many of t
 
 The behavior the R1 report describes is a change in *how* the model spends tokens, not only in how often the final answer is right.
 
-The traces get longer. A model paid only for the final answer, and allowed to generate for many tokens, learns to use the tokens. Intermediate calculations, restatements of the problem, and checks of earlier steps all have a chance of raising the probability of eventually boxing the right number, and the outcome reward reinforces the whole trace when the number is right. Average length is therefore a training curve, not just a decoding parameter. A length that rises while held-out accuracy rises is the model spending test-time compute (Section 13.9). A length that rises while accuracy is flat is the model filling the context window without being paid for it, and it is the first thing the length-normalization fixes in Section 8 are aimed at.
+The traces get longer. A model paid only for the final answer, and allowed to generate for many tokens, learns to use the tokens. Intermediate calculations, restatements of the problem, and checks of earlier steps all have a chance of raising the probability of eventually boxing the right number, and the outcome reward reinforces the whole trace when the number is right. Average length is therefore a training curve, not just a decoding parameter. A length that rises while held-out accuracy rises is the model spending test-time compute (Section 12.9). A length that rises while accuracy is flat is the model filling the context window without being paid for it, and it is the first thing the length-normalization fixes in Section 8 are aimed at.
 
 The traces also change shape. The R1 report describes the model beginning to reflect: to notice a contradiction, to back up, and to try a different step, without anyone having supervised those phrases. This is less mysterious than it sounds, and it is not a guarantee. Reflection is one of the behaviors that can precede a correct answer in a long sample. Outcome RL reinforces every token in a successful sample equally (Section 2), so a pattern that correlates with eventual success becomes more likely. If "wait, let me recompute" sometimes saves a wrong derivation, that phrase is reinforced on the samples where the derivation is then fixed. The pattern is emergent in the weak sense that it was not a line in the reward function. It is not emergent in the sense that the reward was indifferent to it. The reward paid for correct finals, and reflection was a means that showed up in the winning samples.
 
@@ -52,7 +52,7 @@ Two limits follow. First, the means and the ends are not separated. A superstiti
 
 An **outcome reward** scores the finished response. Everything in this section so far is an outcome reward, whether it is a program or a reward model. A **process reward** scores the steps. The response is split into lines or into reasoning steps, and each step gets its own label: correct given the previous steps, or not.
 
-The labels are expensive, because a person or a strong model has to read each step, and the split into steps is itself a choice. Lightman et al. (2023) collected human judgments of this kind and found that a reward model trained on step-level correctness selected correct solutions to challenging math problems more reliably than a reward model that saw only the final answer. Uesato et al. (2022) compared process feedback with outcome feedback on math word problems and studied how each one locates the step where a solution failed. Cobbe et al. (2021) is the earlier form of the outcome side: train a verifier on finished solutions, and search against it at test time. Section 13.9 uses these models as inference-time scorers. Here they are training signals.
+The labels are expensive, because a person or a strong model has to read each step, and the split into steps is itself a choice. Lightman et al. (2023) collected human judgments of this kind and found that a reward model trained on step-level correctness selected correct solutions to challenging math problems more reliably than a reward model that saw only the final answer. Uesato et al. (2022) compared process feedback with outcome feedback on math word problems and studied how each one locates the step where a solution failed. Cobbe et al. (2021) is the earlier form of the outcome side: train a verifier on finished solutions, and search against it at test time. Section 12.9 uses these models as inference-time scorers. Here they are training signals.
 
 Inside GRPO, a process reward changes the advantage from one number per response to one number per step. Tokens inside a step share that step's reward, and the return can be the sum of later step rewards, so an early mistake is blamed on the early step rather than spread over the whole trace. Credit assignment, which Section 2 gave up on when it multiplied every token by the same outcome advantage, comes back in a coarse form. The group baseline still applies: a step is good or bad relative to other samples, or relative to a value model if one has been put back.
 
@@ -62,7 +62,7 @@ The split used in practice follows the split in the R1 pipeline. Use a verifier 
 
 ## Code for this section
 
-### Code 11.5.1: A verifier and the advantages it induces
+### Code 13.5.1: A verifier and the advantages it induces
 
 ```python
 import re

@@ -30,7 +30,7 @@ There are three main ways to ask for a judgment.
 | Ranking of $K$ | $`\binom{K}{2}`$ correlated comparisons | Amortizes reading the prompt; InstructGPT's choice | Slower per task; comparisons within one ranking are not independent |
 | Rating | 1 score per response, possibly per attribute | Absolute and reusable; multi-attribute detail | Scales drift between labelers and over time; coarse |
 
-Most RLHF pipelines prefer comparisons or rankings, because relative judgments are easier to make consistently than absolute ones. Two labelers may disagree about whether a response is a 5 or a 6, yet agree about which of two responses is better. The same observation led Chatbot Arena to rank models from pairwise votes rather than scores (Section 12.3).
+Most RLHF pipelines prefer comparisons or rankings, because relative judgments are easier to make consistently than absolute ones. Two labelers may disagree about whether a response is a 5 or a 6, yet agree about which of two responses is better. The same observation led Chatbot Arena to rank models from pairwise votes rather than scores (Section 11.3).
 
 A practical detail with rankings: the $`\binom{K}{2}`$ comparisons from one ranking share responses and are strongly correlated. InstructGPT found that shuffling them into the dataset as independent examples made the reward model overfit within a single pass, and instead put all the comparisons from one prompt into the same batch element (Ouyang et al. 2022). Section 5 shows the corresponding loss.
 
@@ -44,7 +44,7 @@ Good guidelines typically:
 
 - **Define the criteria and their priority.** InstructGPT's labelers were asked to prioritize helpfulness to the user during training data collection, while in final evaluations they were asked to prioritize truthfulness and harmlessness (Ouyang et al. 2022). Llama 2 collected helpfulness and safety preferences separately, with separate guidelines, and trained a separate reward model for each (Touvron et al. 2023).
 - **Give worked examples**, especially of hard cases: a harmful request, an ambiguous prompt, a response that is well written but wrong.
-- **Say how to handle what the labeler cannot check.** A labeler cannot verify every fact in a medical answer. Should an unverifiable but confident answer beat a hedged one? Unless guidelines say otherwise, confident-sounding responses tend to win, which teaches the model to sound confident (Section 12.4 connects this to hallucination).
+- **Say how to handle what the labeler cannot check.** A labeler cannot verify every fact in a medical answer. Should an unverifiable but confident answer beat a hedged one? Unless guidelines say otherwise, confident-sounding responses tend to win, which teaches the model to sound confident (Section 11.4 connects this to hallucination).
 - **Break big judgments into smaller ones.** Sparrow broke the requirements for good dialogue into natural-language rules, such as not pretending to have a human identity, and asked raters about each rule separately (Glaese et al. 2022).
 
 Not every project writes detailed guidelines. Bai et al. (2022) deliberately left crowdworkers to interpret "helpful" and "harmful" largely for themselves, trading consistency for breadth.
@@ -61,7 +61,7 @@ However carefully they are chosen, people disagree. Some reported agreement rate
 - In the summarization work, researcher-researcher agreement was 73 ± 4% (as reported by Ouyang et al. 2022), and on CNN/DM summaries the inter-labeler agreement was 66.9% (Stiennon et al. 2020).
 - Bai et al. (2022) found average agreement of only about 63% between Anthropic researchers and their crowdworkers on a sample of comparisons.
 
-These numbers set expectations for Section 5. If two careful people agree on only about 70 to 75% of comparisons, a reward model cannot be expected to "agree" with a held-out label much more often than that; a reward model accuracy of 70% can be excellent. Raw agreement also overstates consistency, because two people choosing at random agree half the time on a binary choice. Cohen's kappa (Section 12.5) corrects for chance: for a binary choice with balanced labels, the chance agreement is 0.5, and $`\kappa = (p_o - 0.5) / 0.5`$, so 72.6% observed agreement corresponds to $\kappa \approx 0.45$ ([Code 10.4.2](#code-1042-agreement-and-cohens-kappa-for-pairwise-labels)).
+These numbers set expectations for Section 5. If two careful people agree on only about 70 to 75% of comparisons, a reward model cannot be expected to "agree" with a held-out label much more often than that; a reward model accuracy of 70% can be excellent. Raw agreement also overstates consistency, because two people choosing at random agree half the time on a binary choice. Cohen's kappa (Section 11.5) corrects for chance: for a binary choice with balanced labels, the chance agreement is 0.5, and $`\kappa = (p_o - 0.5) / 0.5`$, so 72.6% observed agreement corresponds to $\kappa \approx 0.45$ ([Code 10.4.2](#code-1042-agreement-and-cohens-kappa-for-pairwise-labels)).
 
 Disagreement is not only noise. Some comparisons are genuinely close, and for some prompts reasonable people want different things. A single reward model averages over all of this, so it learns the preferences of a typical labeler under the guidelines, not those of any particular user.
 
@@ -71,8 +71,8 @@ Beyond random disagreement, human judgments have systematic biases that a reward
 
 - **Length and thoroughness.** People often prefer longer responses that look more comprehensive. OpenAI noted that ChatGPT was "often excessively verbose," and attributed this partly to biases in the training data, "trainers prefer longer answers that look more comprehensive," and partly to over-optimization (OpenAI 2022). Stiennon et al. (2020) found that their reward models preferred longer summaries, and Singhal et al. (2023) found that response length explains much of the reward gain in several RLHF setups.
 - **Confidence and style.** A fluent, confident, well-formatted answer can win over a correct but hesitant one, especially when the labeler cannot check the facts.
-- **Agreement with the user.** Responses that agree with the user's stated views can be preferred to ones that correct them, a source of sycophancy (Chapter 11).
-- **Position.** When two responses are shown side by side, the order can influence the choice, which is why interfaces randomize it (Section 12.5 discusses the same bias in evaluation).
+- **Agreement with the user.** Responses that agree with the user's stated views can be preferred to ones that correct them, a source of sycophancy (Chapter 13).
+- **Position.** When two responses are shown side by side, the order can influence the choice, which is why interfaces randomize it (Section 11.5 discusses the same bias in evaluation).
 
 A useful check on any preference dataset is to measure such features directly. In the helpful subset of Anthropic's HH-RLHF data, for example, the chosen response is the longer of the two in about 59% of training pairs ([Code 10.4.1](#code-1041-loading-hh-rlhf-and-checking-a-length-bias)). Length is thus mildly predictive of preference on its own, and a reward model can pick up that shortcut.
 
@@ -80,7 +80,7 @@ A useful check on any preference dataset is to measure such features directly. I
 
 Preference datasets have grown by orders of magnitude. Ziegler et al. (2019) used 5,000 comparisons for stylistic tasks and 60,000 for summarization. Stiennon et al. (2020) collected 64,832 summary comparisons. Bai et al. (2022) collected a base dataset of 44,000 helpfulness and 42,000 harmlessness (red-teaming) comparisons, followed by further rounds from rejection sampling and online RLHF. For Llama 2, Meta collected over 1.4 million binary comparisons of its own (Touvron et al. 2023).
 
-Because human labels are expensive, a growing share of preference data is produced by AI models acting as judges. UltraFeedback, for example, is labeled entirely by GPT-4 (Cui et al. 2024). AI feedback and the Constitutional AI approach are the subject of Chapter 11 (Section 6). This chapter assumes human labels, but the algorithms are the same whoever provides the comparisons.
+Because human labels are expensive, a growing share of preference data is produced by AI models acting as judges. UltraFeedback, for example, is labeled entirely by GPT-4 (Cui et al. 2024). AI feedback and the Constitutional AI approach are the subject of Chapter 13 (Section 6). This chapter assumes human labels, but the algorithms are the same whoever provides the comparisons.
 
 ## Public datasets
 

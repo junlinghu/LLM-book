@@ -148,7 +148,7 @@ Finally, **reproducibility**. Sampling makes generation random, which is what we
 
 A naive loop reruns the whole model on the whole sequence at every step, as the mini GPT's loop in Code 7.5.3 does. Most of that work is repeated. Because of the causal mask, appending a token changes nothing at the earlier positions: their keys and values in every attention layer are exactly what they were at the previous step. Section 6.10 introduced the fix for the decoder of a translation model, and it applies unchanged here: keep each layer's keys and values for the positions already processed in a **key-value cache**, and at each step run the model on the new token alone, letting it attend to the cached keys and values. The prompt is processed once, in parallel, and each new token then costs one position's worth of computation instead of a pass over the whole sequence. The GPT-2 loop in [Code 7.5.2](#code-752-greedy-beam-search-and-sampling-with-gpt-2) works this way: it passes the cache (`past_key_values`) back to the model with each new token.
 
-The cache is not free. It stores two vectors of size $`d`$ per layer for every token of every sequence being generated, so its memory grows with the batch size and the length of the text and, for long contexts, can exceed the memory of the weights themselves. How large it gets, how to shrink it, and the other techniques that make generation fast and cheap to serve are the subject of Chapter 13, which also covers practical decoding controls, such as repetition penalties, stop sequences, and constrained decoding, that go beyond the three settings of this section.
+The cache is not free. It stores two vectors of size $`d`$ per layer for every token of every sequence being generated, so its memory grows with the batch size and the length of the text and, for long contexts, can exceed the memory of the weights themselves. How large it gets, how to shrink it, and the other techniques that make generation fast and cheap to serve are the subject of Chapter 12, which also covers practical decoding controls, such as repetition penalties, stop sequences, and constrained decoding, that go beyond the three settings of this section.
 
 With a trained model and a way to generate from it, we can finally ask what pretraining has actually produced. What does a model trained only to continue text do when we give it a question, an instruction, or a few examples of a task?
 
@@ -351,7 +351,7 @@ for w in [" spike", " area"]:
 - Temperature rescales the logits: $`\tau \lt 1`$ sharpens the distribution toward greedy decoding and $`\tau \gt 1`$ flattens it toward uniform, without changing the order of the tokens.
 - Top-k keeps a fixed number of candidates; top-p keeps the smallest set holding probability $`p`$, so the number of candidates adapts to the model's confidence, from one token to over a thousand in our GPT-2 run.
 - Truncation trades some diversity for coherence; a fixed random seed makes sampled outputs reproducible on the same software and hardware.
-- A key-value cache (Section 6.10) avoids recomputing earlier positions at each step; its costs and other ways to speed up generation are covered in Chapter 13.
+- A key-value cache (Section 6.10) avoids recomputing earlier positions at each step; its costs and other ways to speed up generation are covered in Chapter 12.
 
 ## Further reading
 

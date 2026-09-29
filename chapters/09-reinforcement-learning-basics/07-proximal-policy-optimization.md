@@ -173,7 +173,7 @@ Typical settings are $`\epsilon = 0.2`$ (sometimes 0.1), $`\lambda = 0.95`$, $`\
 
 ## Where this leads
 
-PPO is generic: nothing in this section assumed anything about the environment beyond states, actions, and rewards. Chapter 10 applies it to language models, where the policy is a pretrained LLM, an action is a token, an episode is one generated response, and the reward comes from a learned reward model. That setting adds its own ingredients: a KL penalty toward a reference model, a value head on the language model, and the cost of keeping four large models in memory at once. Chapter 11 then covers simpler alternatives that drop the learned critic, estimating advantages from groups of sampled responses instead, and methods that skip online RL altogether.
+PPO is generic: nothing in this section assumed anything about the environment beyond states, actions, and rewards. Chapter 10 applies it to language models, where the policy is a pretrained LLM, an action is a token, an episode is one generated response, and the reward comes from a learned reward model. That setting adds its own ingredients: a KL penalty toward a reference model, a value head on the language model, and the cost of keeping four large models in memory at once. Chapter 13 then covers simpler alternatives that drop the learned critic, estimating advantages from groups of sampled responses instead, and methods that skip online RL altogether.
 
 ## A short history
 

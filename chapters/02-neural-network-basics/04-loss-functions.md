@@ -37,7 +37,7 @@ Exponentiation makes every entry positive, and dividing by the sum makes the ent
 Two properties of softmax are worth knowing:
 
 - **Shift invariance.** Adding the same constant $c$ to every logit does not change the output, because the factor $`e^{c}`$ cancels between numerator and denominator. Only *differences* between logits matter.
-- **Sharpness depends on scale.** Multiplying all logits by a large number makes the distribution more peaked; multiplying by a small number flattens it toward uniform. Chapter 13 uses this idea, in the form of a *temperature* parameter, to control how random an LLM's generated text is.
+- **Sharpness depends on scale.** Multiplying all logits by a large number makes the distribution more peaked; multiplying by a small number flattens it toward uniform. Chapter 12 uses this idea, in the form of a *temperature* parameter, to control how random an LLM's generated text is.
 
 Figure 2.11 below illustrates both.
 
@@ -165,7 +165,7 @@ Because this average loss is measured in nats (natural-log units), it is often r
 \text{PPL} = \exp(L) .
 ```
 
-Perplexity has an intuitive reading: a perplexity of $k$ means the model is, on average, as uncertain as if it were choosing uniformly among $k$ equally likely tokens. A model that guesses uniformly over a 50,000-token vocabulary has loss $`\ln 50000 \approx 10.8`$ and perplexity 50,000; a model with an average loss of 3.0 nats has perplexity $`e^{3} \approx 20.1`$. Chapter 12 discusses perplexity as an evaluation metric and its pitfalls, such as its dependence on the tokenizer.
+Perplexity has an intuitive reading: a perplexity of $k$ means the model is, on average, as uncertain as if it were choosing uniformly among $k$ equally likely tokens. A model that guesses uniformly over a 50,000-token vocabulary has loss $`\ln 50000 \approx 10.8`$ and perplexity 50,000; a model with an average loss of 3.0 nats has perplexity $`e^{3} \approx 20.1`$. Chapter 11 discusses perplexity as an evaluation metric and its pitfalls, such as its dependence on the tokenizer.
 
 ## Code for this section
 

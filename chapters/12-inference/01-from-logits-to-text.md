@@ -245,7 +245,7 @@ Constrained decoding guarantees *syntactic* validity, not correctness: the model
 
 ## A note on determinism
 
-Setting temperature to 0 is often assumed to make outputs reproducible. In practice, the same prompt can still produce different outputs across runs. Floating-point addition is not associative, and high-performance kernels may sum numbers in different orders depending on the batch size, the other requests batched alongside yours, or the hardware. A tiny change in a logit can flip an argmax when two tokens are nearly tied, and from that point the generations diverge. Fully deterministic inference is possible but requires deliberately choosing batch-invariant kernels, usually at some cost in speed. When you evaluate a model (Chapter 12), report the decoding settings and do not assume that greedy decoding makes results exactly repeatable.
+Setting temperature to 0 is often assumed to make outputs reproducible. In practice, the same prompt can still produce different outputs across runs. Floating-point addition is not associative, and high-performance kernels may sum numbers in different orders depending on the batch size, the other requests batched alongside yours, or the hardware. A tiny change in a logit can flip an argmax when two tokens are nearly tied, and from that point the generations diverge. Fully deterministic inference is possible but requires deliberately choosing batch-invariant kernels, usually at some cost in speed. When you evaluate a model (Chapter 11), report the decoding settings and do not assume that greedy decoding makes results exactly repeatable.
 
 ## Key takeaways
 
