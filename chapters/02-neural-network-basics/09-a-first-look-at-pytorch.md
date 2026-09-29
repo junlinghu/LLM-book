@@ -85,7 +85,7 @@ This chapter covered the complete foundation: a network with one hidden layer, t
 - **Chapter 4, embeddings.** How discrete symbols such as words become vectors that a network can process, and why the hidden representations of Section 2.3 can capture meaning.
 - **Chapter 5, tokenization.** How raw text is split into the tokens that define the "classes" of next-token prediction.
 - **Chapter 6, the transformer.** The architecture of modern LLMs: attention, feed-forward blocks with GELU and SwiGLU activations, and the matrix multiplications that dominate their cost.
-- **Chapter 7, generative pretraining.** Training a transformer with exactly the cross-entropy loss of Section 2.4, averaged over trillions of token positions, using exactly the training loop of Section 2.8.
+- **Chapter 8, generative pretraining.** Training a transformer with exactly the cross-entropy loss of Section 2.4, averaged over trillions of token positions, using exactly the training loop of Section 2.8.
 
 When those chapters call `loss.backward()` on a model with billions of parameters, you will know what happens underneath: a graph of simple operations, local derivatives, and the chain rule applied in reverse.
 

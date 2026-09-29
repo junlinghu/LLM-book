@@ -149,7 +149,7 @@ This has practical consequences:
 - **The network learns its own notion of similarity.** When a table is trained end to end, words used in similar ways tend to end up nearby, for the reason given above. But the table is optimized for whatever helps the rest of the network reduce its loss, not for any separate similarity objective.
 - **The table and the layers adapt to each other.** Since the table is learned jointly with the rest of the network, the vectors and the layers that read them are shaped together.
 
-Word2Vec, in the next section, is itself trained this way. It is the simplest case possible: a network that is *only* an embedding table and an output layer, trained end to end so that the table becomes useful to other models afterward. Later chapters use the same `nn.Embedding` layer as the first layer of much larger networks (Chapters 6 and 7).
+Word2Vec, in the next section, is itself trained this way. It is the simplest case possible: a network that is *only* an embedding table and an output layer, trained end to end so that the table becomes useful to other models afterward. Later chapters use the same `nn.Embedding` layer as the first layer of much larger networks (Chapters 6 and 8).
 
 > **Code Lab 4.1** builds an `nn.Embedding` layer and inspects its weights: it checks that lookup equals one-hot multiplication, confirms the output shape for a batch of sequences, and watches which rows receive gradients, and how much, when some IDs repeat and others never appear.
 
