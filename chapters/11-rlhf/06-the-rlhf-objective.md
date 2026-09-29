@@ -168,7 +168,7 @@ We now know what to optimize: reward minus a KL penalty, charged per token. How 
 
 ### Code 11.6.1: The KL-regularized optimum on a toy problem
 
-Computes $`\pi^* \propto \pi_{\mathrm{ref}} \exp(r / \beta)`$ for six responses with made-up reference probabilities and rewards, and prints the expected reward and KL divergence for three values of $\beta$. The full plotting script is `figures/make_figures.py`.
+Computes $`\pi^* \propto \pi_{\mathrm{ref}} \exp(r / \beta)`$ for six responses with made-up reference probabilities and rewards, and prints the expected reward and KL divergence for three values of $\beta$. The full plotting script is [`code/11-rlhf/make_figures.py`](../../code/11-rlhf/make_figures.py).
 
 Notebook: [11.6.1-the-kl-regularized-optimum-on-a-toy-problem.ipynb](../../code/11-rlhf/11.6.1-the-kl-regularized-optimum-on-a-toy-problem.ipynb)
 

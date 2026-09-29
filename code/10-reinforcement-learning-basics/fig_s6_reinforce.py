@@ -3,11 +3,14 @@
 Loads reinforce_results.npy written by run_reinforce_experiments.py
 (run that script first; it takes several minutes on a CPU).
 """
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, save, smooth
 
-res = np.load("reinforce_results.npy", allow_pickle=True)
+HERE = os.path.dirname(os.path.abspath(__file__))
+res = np.load(os.path.join(HERE, "reinforce_results.npy"), allow_pickle=True)
 by = {}
 for name, seed, rets, var in res:
     by.setdefault(name, []).append((seed, rets, var))

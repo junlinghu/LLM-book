@@ -1,8 +1,16 @@
-"""Generate the figures for Chapter 11. Run from this directory: python make_figures.py"""
+"""Generate the figures for Chapter 11.
+
+Usage:  python make_figures.py
+        (writes PNG files to chapters/11-rlhf/figures/)
+"""
+from pathlib import Path
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+OUT = Path(__file__).resolve().parents[2] / "chapters" / "11-rlhf" / "figures"
 
 plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
 
@@ -19,7 +27,7 @@ ax[2].set(title="Gradient of the loss", xlabel=r"$r(x,y_c) - r(x,y_r)$", ylabel=
 for a in ax:
     a.axvline(0, color="gray", lw=0.5)
 fig.tight_layout()
-fig.savefig("bradley-terry.png", dpi=150)
+fig.savefig(OUT / "bradley-terry.png", dpi=150)
 
 # Figure 11.6.1: the KL-regularized optimum on a toy problem with six responses
 pi_ref = np.array([0.35, 0.25, 0.18, 0.12, 0.07, 0.03])   # toy reference probabilities
@@ -52,7 +60,7 @@ ax[1].text(0.02, r.max() - 0.15, "max reward", fontsize=8, color="gray")
 ax[1].set(xlabel=r"$\mathbb{D}_{\mathrm{KL}}(\pi^* \| \pi_{\mathrm{ref}})$ (nats)", ylabel="expected reward",
           title=r"Reward vs. KL as $\beta$ varies")
 fig.tight_layout()
-fig.savefig("kl-tradeoff.png", dpi=150)
+fig.savefig(OUT / "kl-tradeoff.png", dpi=150)
 for b in [2.0, 0.5, 0.2]:
     p = tilt(b)
     print(f"beta={b}: E[r]={p @ r:.2f}, KL={kl(p):.2f}, pi*={np.round(p, 3)}")

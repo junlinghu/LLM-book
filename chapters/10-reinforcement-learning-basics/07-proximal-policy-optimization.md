@@ -181,7 +181,7 @@ The idea of limiting how far each policy update moves goes back to Sham Kakade a
 
 ## Code for this section
 
-The listings below are taken from [`figures/src/ppo.py`](figures/src/ppo.py), in the order of the algorithm. The script `run_ppo_experiments.py` trains the 16 runs of Figures 10.20 and 10.21 in parallel (a few minutes on a CPU), and `fig_s7_ppo.py` draws Figures 10.18, 10.20, and 10.21 and prints the numbers quoted in the text. Together the listings form one self-contained file.
+The listings below are taken from [`code/10-reinforcement-learning-basics/ppo.py`](../../code/10-reinforcement-learning-basics/ppo.py), in the order of the algorithm. The script `run_ppo_experiments.py` trains the 16 runs of Figures 10.20 and 10.21 in parallel (a few minutes on a CPU), and `fig_s7_ppo.py` draws Figures 10.18, 10.20, and 10.21 and prints the numbers quoted in the text. Together the listings form one self-contained file.
 
 ### Code 10.7.1: The actor-critic networks
 

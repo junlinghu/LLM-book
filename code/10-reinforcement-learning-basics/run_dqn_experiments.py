@@ -2,6 +2,8 @@
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 import torch
 from multiprocessing import Pool
 from dqn import run_dqn
@@ -25,4 +27,4 @@ if __name__ == "__main__":
     jobs = [(n, s) for n in VARIANTS for s in SEEDS]
     with Pool(3) as p:
         out = p.map(job, jobs)
-    np.save("dqn_results.npy", np.array(out, dtype=object), allow_pickle=True)
+    np.save(os.path.join(HERE, "dqn_results.npy"), np.array(out, dtype=object), allow_pickle=True)

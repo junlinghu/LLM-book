@@ -107,7 +107,7 @@ Notebook: [2.9.2-the-2-2-1-worked-example-in-pytorch.ipynb](../../code/02-neural
 
 ### Code 2.9.3: Comparing hand-written and autograd gradients
 
-Builds the two-moons MLP with `nn.Sequential`, copies in the initial weights of the from-scratch network, and compares the two sets of gradients on one batch of 64 examples. It uses `make_moons` from `figures/src/style.py` and `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2).
+Builds the two-moons MLP with `nn.Sequential`, copies in the initial weights of the from-scratch network, and compares the two sets of gradients on one batch of 64 examples. It uses `make_moons` from [`code/02-neural-network-basics/style.py`](../../code/02-neural-network-basics/style.py) and `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2).
 
 Notebook: [2.9.3-comparing-hand-written-and-autograd-gradients.ipynb](../../code/02-neural-network-basics/2.9.3-comparing-hand-written-and-autograd-gradients.ipynb)
 

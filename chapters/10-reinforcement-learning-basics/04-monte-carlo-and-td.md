@@ -114,7 +114,7 @@ Monte Carlo methods take their name from the casino and date to the 1940s, when 
 
 ## Code for this section
 
-The listings below collect the code for this section in the order in which the text refers to them. The prediction code is from [`figures/src/fig_s4_mc_td.py`](figures/src/fig_s4_mc_td.py) and uses the `GridWorld` class of Code 10.2.1; the control code is from `fig_s4_cliff.py` in the same folder. The scripts also draw Figures 10.9 and 10.10.
+The listings below collect the code for this section in the order in which the text refers to them. The prediction code is from [`code/10-reinforcement-learning-basics/fig_s4_mc_td.py`](../../code/10-reinforcement-learning-basics/fig_s4_mc_td.py) and uses the `GridWorld` class of Code 10.2.1; the control code is from `fig_s4_cliff.py` in the same folder. The scripts also draw Figures 10.9 and 10.10.
 
 ### Code 10.4.1: Monte Carlo prediction
 

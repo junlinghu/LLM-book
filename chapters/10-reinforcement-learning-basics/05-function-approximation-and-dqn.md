@@ -88,7 +88,7 @@ Function approximation has been part of reinforcement learning from the start: S
 
 ## Code for this section
 
-The listings below collect the code for this section. Code 10.5.1 is condensed from [`figures/src/dqn.py`](figures/src/dqn.py) (the full file also records the Q-value estimates plotted in Figure 10.12); `run_dqn_experiments.py` trains the nine runs in parallel (several minutes on a CPU) and `fig_s5_dqn.py` draws the figure. Code 10.5.2 is from `fig_s5_triad.py`.
+The listings below collect the code for this section. Code 10.5.1 is condensed from [`code/10-reinforcement-learning-basics/dqn.py`](../../code/10-reinforcement-learning-basics/dqn.py) (the full file also records the Q-value estimates plotted in Figure 10.12); `run_dqn_experiments.py` trains the nine runs in parallel (several minutes on a CPU) and `fig_s5_dqn.py` draws the figure. Code 10.5.2 is from `fig_s5_triad.py`.
 
 ### Code 10.5.1: A small DQN
 
