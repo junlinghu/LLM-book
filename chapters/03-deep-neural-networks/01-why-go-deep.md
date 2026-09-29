@@ -41,19 +41,7 @@ t(x) = 2\,\mathrm{ReLU}(x) - 4\,\mathrm{ReLU}(x - \tfrac{1}{2}).
 
 Composing the tent map with itself folds the interval again: $`t(t(x))`$ has two teeth, $`t(t(t(x)))`$ has four, and $`k`$ compositions have $`2^{k-1}`$ teeth, that is, $`2^k`$ linear pieces. A network that computes $`k`$ compositions has $`k`$ layers of two ReLUs each: $`2k`$ units in total.
 
-```python
-import numpy as np
-
-relu = lambda z: np.maximum(z, 0)
-tent = lambda x: 2 * relu(x) - 4 * relu(x - 0.5)
-
-x = np.linspace(0, 1, 200_001)
-y = x.copy()
-for k in range(1, 7):
-    y = tent(y)                                    # one more layer
-    slopes = np.sign(np.round(np.diff(y) / np.diff(x), 6))
-    print(k, 1 + np.sum(slopes[1:] != slopes[:-1]))  # linear pieces: 2, 4, 8, ..., 64
-```
+Notebook: [3.1-a-sawtooth-example.ipynb](../../code/03-deep-neural-networks/3.1-a-sawtooth-example.ipynb)
 
 To match the $`2^k`$ pieces of the $`k`$-layer sawtooth, a one-hidden-layer network needs at least $`2^k - 1`$ units. With $`k = 20`$, that is two ReLUs per layer for 20 layers (40 units) against more than a million units in a single layer. Depth multiplies the number of linear regions; width only adds to it. Telgarsky's theorem turns this counting argument into a statement about approximation: a shallow network with too few pieces cannot stay close to a function that oscillates this many times.
 
@@ -107,21 +95,7 @@ for large $`d`$. Roughly, **parameters grow linearly with depth and quadraticall
 
 Here is a tiny counter that makes the scaling concrete:
 
-```python
-def mlp_params(layer_sizes):
-    """Parameter count for an MLP with the given layer widths (input to output)."""
-    total = 0
-    for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:]):
-        total += n_in * n_out + n_out  # weights + biases
-    return total
-
-# One hidden layer, width 4096: input 784 (MNIST) -> 4096 -> 10
-print(mlp_params([784, 4096, 10]))       # about 3.3e6
-
-# Ten hidden layers, width 512: 784 -> [512]*10 -> 10
-sizes = [784] + [512] * 10 + [10]
-print(mlp_params(sizes))                 # about 2.8e6
-```
+Notebook: [3.1-counting-parameters-and-compute-in-a-deep-mlp.ipynb](../../code/03-deep-neural-networks/3.1-counting-parameters-and-compute-in-a-deep-mlp.ipynb)
 
 The deep network has a similar parameter count (about 2.8 million against 3.3 million) but ten nonlinear stages instead of one. The forward FLOPs per example are roughly twice the parameter count in both cases, so the two networks cost about the same to run. Whether the deep one is better depends on the task, and on whether gradients still reach its early layers.
 

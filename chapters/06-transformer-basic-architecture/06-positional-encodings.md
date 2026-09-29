@@ -117,55 +117,11 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Sinusoidal encodings: norm, rotation and offset checks
 
-```python
-import torch
-
-def sinusoidal_pe(n_pos, d):
-    pos = torch.arange(n_pos, dtype=torch.float64)[:, None]
-    omega = 10000 ** (-torch.arange(0, d, 2, dtype=torch.float64) / d)   # (d/2,)
-    pe = torch.zeros(n_pos, d, dtype=torch.float64)
-    pe[:, 0::2] = torch.sin(pos * omega)
-    pe[:, 1::2] = torch.cos(pos * omega)
-    return pe, omega
-
-d = 64
-pe, omega = sinusoidal_pe(200, d)
-print(torch.allclose(pe.norm(dim=1) ** 2, torch.full((200,), d / 2, dtype=torch.float64)))  # equal norms
-
-# PE_{p+k} = R_k PE_p with a block-diagonal rotation R_k independent of p
-k = 7
-R = torch.zeros(d, d, dtype=torch.float64)
-for i, w in enumerate(omega):
-    c, s = torch.cos(w * k), torch.sin(w * k)
-    R[2 * i: 2 * i + 2, 2 * i: 2 * i + 2] = torch.tensor([[c, s], [-s, c]])
-print(torch.allclose(pe[k:] , pe[:-k] @ R.T))                          # True for every p
-
-# The dot product depends only on the offset
-print(torch.allclose(pe[10] @ pe[10 + k], pe[100] @ pe[100 + k]))       # True
-```
+Notebook: [6.6-sinusoidal-encodings-norm-rotation-and-offset-checks.ipynb](../../code/06-transformer-basic-architecture/6.6-sinusoidal-encodings-norm-rotation-and-offset-checks.ipynb)
 
 ### RoPE: the score depends only on the offset
 
-```python
-import torch
-
-def rope(x, pos, base=10000.0):
-    """Rotate pairs of dimensions of x (..., d) by angles pos * omega_i."""
-    d = x.size(-1)
-    omega = base ** (-torch.arange(0, d, 2, dtype=x.dtype) / d)
-    ang = pos * omega
-    x1, x2 = x[..., 0::2], x[..., 1::2]
-    out = torch.empty_like(x)
-    out[..., 0::2] = x1 * torch.cos(ang) - x2 * torch.sin(ang)
-    out[..., 1::2] = x1 * torch.sin(ang) + x2 * torch.cos(ang)
-    return out
-
-torch.manual_seed(0)
-q, k = torch.randn(64, dtype=torch.float64), torch.randn(64, dtype=torch.float64)
-s1 = rope(q, 12.0) @ rope(k, 5.0)       # positions 12 and 5 (offset 7)
-s2 = rope(q, 107.0) @ rope(k, 100.0)    # positions 107 and 100 (offset 7)
-print(torch.allclose(s1, s2))           # True: the score depends only on the offset
-```
+Notebook: [6.6-rope-the-score-depends-only-on-the-offset.ipynb](../../code/06-transformer-basic-architecture/6.6-rope-the-score-depends-only-on-the-offset.ipynb)
 
 ## Further reading
 

@@ -52,19 +52,7 @@ The practical upshot:
 - With Adam-family optimizers, use **AdamW** (decoupled decay), not Adam with an L2 term. In PyTorch, `torch.optim.Adam(..., weight_decay=λ)` implements the L2 version, while `torch.optim.AdamW(..., weight_decay=λ)` implements decoupled decay. The argument has the same name but a different meaning.
 - Common practice excludes **biases and normalization gains** ($`\boldsymbol{\gamma}`$, $`\boldsymbol{\beta}`$) from weight decay. These parameters are few, and shrinking a normalization gain toward zero changes the scale of the whole layer rather than simplifying the function. Embeddings are handled differently across codebases.
 
-```python
-decay, no_decay = [], []
-for name, p in model.named_parameters():
-    if p.ndim < 2 or "norm" in name.lower():   # biases, LayerNorm/RMSNorm gains
-        no_decay.append(p)
-    else:
-        decay.append(p)
-optimizer = torch.optim.AdamW(
-    [{"params": decay, "weight_decay": 0.1},
-     {"params": no_decay, "weight_decay": 0.0}],
-    lr=3e-4,
-)
-```
+Notebook: [3.8-l2-penalty-vs-decoupled-decay.ipynb](../../code/03-deep-neural-networks/3.8-l2-penalty-vs-decoupled-decay.ipynb)
 
 ## Dropout
 
@@ -85,13 +73,7 @@ Typical dropout rates are 0.1 to 0.5. Srivastava et al. used rates around 0.5 fo
 
 Dropout from scratch is two lines:
 
-```python
-def dropout(h, p, training):
-    if not training or p == 0:
-        return h
-    mask = (torch.rand_like(h) > p).float()
-    return mask * h / (1 - p)
-```
+Notebook: [3.8-dropout.ipynb](../../code/03-deep-neural-networks/3.8-dropout.ipynb)
 
 ## Early stopping
 
@@ -129,17 +111,7 @@ Two layers in this chapter behave differently in training and evaluation:
 
 PyTorch tracks which mode each module is in with a flag set by `model.train()` and `model.eval()`. These calls do not start training or evaluation; they only set the flag, which propagates to every submodule.
 
-```python
-model.train()                  # dropout active, BatchNorm uses batch stats
-for x, y in train_loader:
-    ...
-
-model.eval()                   # dropout off, BatchNorm uses running stats
-with torch.no_grad():          # separately: don't build the autograd graph
-    for x, y in val_loader:
-        ...
-model.train()                  # remember to switch back
-```
+Notebook: [3.8-train-mode-vs-evaluation-mode.ipynb](../../code/03-deep-neural-networks/3.8-train-mode-vs-evaluation-mode.ipynb)
 
 `model.eval()` and `torch.no_grad()` are independent and do different things: the first changes layer behavior, the second disables gradient tracking to save memory and time. Evaluation usually needs both.
 

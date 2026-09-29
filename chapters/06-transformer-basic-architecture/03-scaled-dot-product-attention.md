@@ -152,40 +152,7 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Attention from scratch, with three checks
 
-```python
-import math
-import torch
-import torch.nn.functional as F
-
-def attention(Q, K, V, mask=None):
-    """Q: (..., n_q, d_k), K: (..., n_k, d_k), V: (..., n_k, d_v).
-    mask: broadcastable to (..., n_q, n_k); True where attention is allowed."""
-    d_k = Q.size(-1)
-    scores = Q @ K.transpose(-2, -1) / math.sqrt(d_k)          # (..., n_q, n_k)
-    if mask is not None:
-        scores = scores.masked_fill(~mask, float("-inf"))
-    weights = scores.softmax(dim=-1)                            # rows sum to 1
-    return weights @ V, weights                                 # (..., n_q, d_v)
-
-torch.manual_seed(0)
-B, m, n, d_k = 2, 7, 5, 16
-src = torch.randn(B, m, d_k)                  # stand-ins for projected encoder states
-tgt = torch.randn(B, n, d_k)                  # stand-ins for projected decoder states
-
-self_out, self_w = attention(src, src, src)   # self-attention: m x m weights
-cross_out, cross_w = attention(tgt, src, src) # cross-attention: n x m weights
-print(self_w.shape, cross_w.shape)            # (2, 7, 7) and (2, 5, 7)
-print(torch.allclose(self_w.sum(-1), torch.ones(B, m)))   # each row is a distribution
-
-# Check against PyTorch's fused implementation
-ref = F.scaled_dot_product_attention(tgt, src, src)
-print(torch.allclose(cross_out, ref, atol=1e-6))           # True
-
-# Permutation equivariance of self-attention (no positional information)
-perm = torch.randperm(m)
-out_perm, _ = attention(src[:, perm], src[:, perm], src[:, perm])
-print(torch.allclose(out_perm, self_out[:, perm], atol=1e-6))   # True
-```
+Notebook: [6.3-attention-from-scratch-with-three-checks.ipynb](../../code/06-transformer-basic-architecture/6.3-attention-from-scratch-with-three-checks.ipynb)
 
 ## Further reading
 

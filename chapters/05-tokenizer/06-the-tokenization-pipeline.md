@@ -157,222 +157,41 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 List the five components of the BERT and GPT-2 tokenizers.
 
-```python
-from transformers import AutoTokenizer
-
-for name in ["bert-base-uncased", "gpt2"]:
-    t = AutoTokenizer.from_pretrained(name).backend_tokenizer
-    parts = [t.normalizer, t.pre_tokenizer, t.model, t.post_processor, t.decoder]
-    print(name, [type(p).__name__ if p else None for p in parts])
-```
-
-Output:
-
-```
-bert-base-uncased ['BertNormalizer', 'BertPreTokenizer', 'WordPiece', 'TemplateProcessing', 'WordPiece']
-gpt2 [None, 'ByteLevel', 'BPE', 'ByteLevel', 'ByteLevel']
-```
+Notebook: [5.6-A.1-inspecting-pipeline-components.ipynb](../../code/05-tokenizer/5.6-A.1-inspecting-pipeline-components.ipynb)
 
 ### A.2 Normalization
 
 Composed and decomposed "café", NFKC examples, and BERT's normalizer.
 
-```python
-import unicodedata, tiktoken
-
-enc = tiktoken.get_encoding("cl100k_base")
-composed, decomposed = "caf\u00e9", "cafe\u0301"
-print(composed == decomposed, enc.encode(composed), enc.encode(decomposed))
-print(unicodedata.normalize("NFC", decomposed) == composed)
-```
-
-Output:
-
-```
-False [936, 59958] [936, 1897, 54939]
-True
-```
-
-```python
-for s in ["café", "ﬁne", "①②", "ＡＢＣ１２３", "x²"]:
-    print(repr(s), "->", repr(unicodedata.normalize("NFKC", s)))
-```
-
-Output:
-
-```
-'café' -> 'café'
-'ﬁne' -> 'fine'
-'①②' -> '12'
-'ＡＢＣ１２３' -> 'ABC123'
-'x²' -> 'x2'
-```
-
-```python
-bert = AutoTokenizer.from_pretrained("bert-base-uncased").backend_tokenizer
-print(repr(bert.normalizer.normalize_str("Héllo WÖRLD 你好")))
-```
-
-Output:
-
-```
-'hello world  你  好 '
-```
+Notebook: [5.6-A.2-normalization.ipynb](../../code/05-tokenizer/5.6-A.2-normalization.ipynb)
 
 ### A.3 Pre-tokenization
 
 BERT's and GPT-2's pre-tokenizers, and digit grouping in three OpenAI encodings.
 
-```python
-bert_pre = AutoTokenizer.from_pretrained("bert-base-uncased").backend_tokenizer.pre_tokenizer
-gpt2_pre = AutoTokenizer.from_pretrained("gpt2").backend_tokenizer.pre_tokenizer
-print(bert_pre.pre_tokenize_str("Hello, world!  It's"))
-print(gpt2_pre.pre_tokenize_str("Hello, world!  It's"))
-```
-
-Output:
-
-```
-[('Hello', (0, 5)), (',', (5, 6)), ('world', (7, 12)), ('!', (12, 13)), ('It', (15, 17)), ("'", (17, 18)), ('s', (18, 19))]
-[('Hello', (0, 5)), (',', (5, 6)), ('Ġworld', (6, 12)), ('!', (12, 13)), ('Ġ', (13, 14)), ('ĠIt', (14, 17)), ("'s", (17, 19))]
-```
-
-```python
-for name in ["gpt2", "cl100k_base", "o200k_base"]:
-    e = tiktoken.get_encoding(name)
-    print(name, [e.decode([i]) for i in e.encode(" 1234567 and 2024-09-28")])
-```
-
-Output:
-
-```
-gpt2 [' 123', '45', '67', ' and', ' 2024', '-', '09', '-', '28']
-cl100k_base [' ', '123', '456', '7', ' and', ' ', '202', '4', '-', '09', '-', '28']
-o200k_base [' ', '123', '456', '7', ' and', ' ', '202', '4', '-', '09', '-', '28']
-```
+Notebook: [5.6-A.3-pre-tokenization.ipynb](../../code/05-tokenizer/5.6-A.3-pre-tokenization.ipynb)
 
 ### A.4 Special tokens in user text
 
 How `tiktoken` and a Hugging Face tokenizer treat special-token strings in the input.
 
-```python
-enc = tiktoken.get_encoding("gpt2")
-try:
-    enc.encode("hi <|endoftext|>")
-except ValueError as err:
-    print("ValueError:", str(err).splitlines()[0])
-print(enc.encode("hi <|endoftext|>", allowed_special={"<|endoftext|>"}))
-print(enc.encode("hi <|endoftext|>", disallowed_special=()))
-```
-
-Output:
-
-```
-ValueError: Encountered text corresponding to disallowed special token '<|endoftext|>'.
-[5303, 220, 50256]
-[5303, 1279, 91, 437, 1659, 5239, 91, 29]
-```
-
-```python
-qwen = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
-print(qwen("<|im_end|>")["input_ids"])
-print(qwen("<|im_end|>", split_special_tokens=True)["input_ids"])
-```
-
-Output:
-
-```
-[151645]
-[27, 91, 318, 6213, 91, 29]
-```
+Notebook: [5.6-A.4-special-tokens-in-user-text.ipynb](../../code/05-tokenizer/5.6-A.4-special-tokens-in-user-text.ipynb)
 
 ### A.5 Chat templates
 
 Apply Qwen2.5's chat template to a short conversation.
 
-```python
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is a token?"},
-    {"role": "assistant", "content": "A unit of text."},
-    {"role": "user", "content": "Give an example."},
-]
-text = qwen.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-print(text)
-print(qwen.convert_tokens_to_ids(["<|im_start|>", "<|im_end|>"]))
-```
-
-Output:
-
-```
-<|im_start|>system
-You are a helpful assistant.<|im_end|>
-<|im_start|>user
-What is a token?<|im_end|>
-<|im_start|>assistant
-A unit of text.<|im_end|>
-<|im_start|>user
-Give an example.<|im_end|>
-<|im_start|>assistant
-
-[151644, 151645]
-```
+Notebook: [5.6-A.5-chat-templates.ipynb](../../code/05-tokenizer/5.6-A.5-chat-templates.ipynb)
 
 ### A.6 Streaming decoding
 
 Show tokens that split UTF-8 characters, then decode them incrementally.
 
-```python
-enc = tiktoken.get_encoding("gpt2")
-ids = enc.encode("I ❤️ 東京")
-print(ids)
-print([enc.decode_single_token_bytes(i) for i in ids])
-print([enc.decode([i]) for i in ids])
-```
-
-Output:
-
-```
-[40, 43074, 97, 37929, 10545, 251, 109, 12859, 105]
-[b'I', b' \xe2\x9d', b'\xa4', b'\xef\xb8\x8f', b' \xe6', b'\x9d', b'\xb1', b'\xe4\xba', b'\xac']
-['I', ' �', '�', '️', ' �', '�', '�', '�', '�']
-```
-
-```python
-import codecs
-
-def stream_decode(token_ids, enc):
-    """Yield text pieces as tokens arrive, never splitting a UTF-8 character."""
-    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-    for t in token_ids:
-        piece = decoder.decode(enc.decode_single_token_bytes(t))
-        if piece:
-            yield piece
-    tail = decoder.decode(b"", final=True)
-    if tail:
-        yield tail
-
-print(list(stream_decode(ids, enc)))
-```
-
-Output:
-
-```
-['I', ' ', '❤', '️', ' ', '東', '京']
-```
+Notebook: [5.6-A.6-streaming-decoding.ipynb](../../code/05-tokenizer/5.6-A.6-streaming-decoding.ipynb)
 
 ### A.7 Offset mapping
 
 Map each token back to its character span.
 
-```python
-gpt2 = AutoTokenizer.from_pretrained("gpt2")
-out = gpt2("Tokenizers map text to IDs.", return_offsets_mapping=True)
-print(list(zip(gpt2.convert_ids_to_tokens(out["input_ids"]), out["offset_mapping"])))
-```
+Notebook: [5.6-A.7-offset-mapping.ipynb](../../code/05-tokenizer/5.6-A.7-offset-mapping.ipynb)
 
-Output:
-
-```
-[('Token', (0, 5)), ('izers', (5, 10)), ('Ġmap', (10, 14)), ('Ġtext', (14, 19)), ('Ġto', (19, 22)), ('ĠIDs', (22, 26)), ('.', (26, 27))]
-```

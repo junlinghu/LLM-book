@@ -124,84 +124,23 @@ These listings reproduce the measurements in this section. Run them in order in 
 
 Download the corpus, split it 90/10, and count its characters.
 
-```python
-import re, urllib.request
-from collections import Counter
-
-url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-text = urllib.request.urlopen(url).read().decode("utf-8")
-split = int(0.9 * len(text))
-train, held_out = text[:split], text[split:]
-print(len(text), len(set(text)))
-```
-
-Output:
-
-```
-1115394 65
-```
+Notebook: [5.2-A.1-loading-tiny-shakespeare.ipynb](../../code/05-tokenizer/5.2-A.1-loading-tiny-shakespeare.ipynb)
 
 ### A.2 A word-level vocabulary
 
 Build a word vocabulary from the training portion and measure unknown words in the held-out portion.
 
-```python
-words_train = re.findall(r"\w+|[^\w\s]", train)
-words_held = re.findall(r"\w+|[^\w\s]", held_out)
-vocab = set(words_train)
-counts = Counter(words_train)
-oov = [w for w in words_held if w not in vocab]
-print(len(vocab), sum(1 for w in counts if counts[w] == 1))
-print(len(words_held), len(oov), f"{100 * len(oov) / len(words_held):.2f}%")
-print(Counter(oov).most_common(5))
-```
-
-Output:
-
-```
-12569 5753
-26844 1231 4.59%
-[('PROSPERO', 63), ('SEBASTIAN', 42), ('ANTONIO', 38), ('GONZALO', 37), ('MIRANDA', 34)]
-```
+Notebook: [5.2-A.2-a-word-level-vocabulary.ipynb](../../code/05-tokenizer/5.2-A.2-a-word-level-vocabulary.ipynb)
 
 ### A.3 UTF-8 bytes
 
 Show the UTF-8 encoding of characters from different scripts.
 
-```python
-for ch in ["a", "é", "你", "🙂"]:
-    print(ch, list(ch.encode("utf-8")))
-```
-
-Output:
-
-```
-a [97]
-é [195, 169]
-你 [228, 189, 160]
-🙂 [240, 159, 153, 130]
-```
+Notebook: [5.2-A.3-utf-8-bytes.ipynb](../../code/05-tokenizer/5.2-A.3-utf-8-bytes.ipynb)
 
 ### A.4 Subword splits in GPT-2
 
 Tokenize related words with GPT-2's tokenizer.
 
-```python
-import tiktoken
+Notebook: [5.2-A.4-subword-splits-in-gpt-2.ipynb](../../code/05-tokenizer/5.2-A.4-subword-splits-in-gpt-2.ipynb)
 
-enc = tiktoken.get_encoding("gpt2")
-for w in [" run", " running", " runner", " runners", " tokenization", " unhappiness"]:
-    ids = enc.encode(w)
-    print(repr(w), ids, [enc.decode([i]) for i in ids])
-```
-
-Output:
-
-```
-' run' [1057] [' run']
-' running' [2491] [' running']
-' runner' [17490] [' runner']
-' runners' [19323] [' runners']
-' tokenization' [11241, 1634] [' token', 'ization']
-' unhappiness' [14274, 42661] [' unh', 'appiness']
-```

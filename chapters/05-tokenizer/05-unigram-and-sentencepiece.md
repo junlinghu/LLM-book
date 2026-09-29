@@ -141,159 +141,23 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Find the most probable segmentation with dynamic programming, then enumerate all segmentations of a short word to check it.
 
-```python
-import math
-
-def viterbi(text, logp, max_len=10):
-    """Most probable segmentation of `text` under a unigram model."""
-    n = len(text)
-    best = [0.0] + [-math.inf] * n     # best[j]: best log-prob of text[:j]
-    back = [0] * (n + 1)
-    for end in range(1, n + 1):
-        for start in range(max(0, end - max_len), end):
-            piece = text[start:end]
-            if piece in logp and best[start] + logp[piece] > best[end]:
-                best[end] = best[start] + logp[piece]
-                back[end] = start
-    pieces, end = [], n
-    while end > 0:
-        pieces.append(text[back[end]:end])
-        end = back[end]
-    return pieces[::-1], best[n]
-```
-
-```python
-probs = {"h": .05, "u": .05, "g": .05, "s": .10, "hu": .05, "ug": .10,
-         "gs": .05, "hug": .15, "ugs": .05, "b": .05, "un": .10, "bun": .20}
-logp = {k: math.log(v) for k, v in probs.items()}
-pieces, lp = viterbi("hugs", logp)
-print(pieces, f"{math.exp(lp):.6f}")
-```
-
-Output:
-
-```
-['hug', 's'] 0.015000
-```
-
-```python
-def all_segmentations(text, logp):
-    if not text:
-        yield [], 0.0
-        return
-    for i in range(1, len(text) + 1):
-        if text[:i] in logp:
-            for rest, lp in all_segmentations(text[i:], logp):
-                yield [text[:i]] + rest, logp[text[:i]] + lp
-
-segs = sorted(all_segmentations("hugs", logp), key=lambda s: -s[1])
-Z = sum(math.exp(lp) for _, lp in segs)
-for s, lp in segs:
-    print(s, f"{math.exp(lp):.6f}", f"{math.exp(lp) / Z:.3f}")
-```
-
-Output:
-
-```
-['hug', 's'] 0.015000 0.718
-['h', 'ugs'] 0.002500 0.120
-['hu', 'gs'] 0.002500 0.120
-['h', 'ug', 's'] 0.000500 0.024
-['hu', 'g', 's'] 0.000250 0.012
-['h', 'u', 'gs'] 0.000125 0.006
-['h', 'u', 'g', 's'] 0.000013 0.001
-```
+Notebook: [5.5-A.1-viterbi-segmentation-under-a-unigram-model.ipynb](../../code/05-tokenizer/5.5-A.1-viterbi-segmentation-under-a-unigram-model.ipynb)
 
 ### A.2 Training SentencePiece models
 
 Train a unigram and a BPE model on tiny Shakespeare and encode a line that includes characters outside the vocabulary; then list the first vocabulary entries.
 
-```python
-import os, urllib.request
-import sentencepiece as spm
-
-if not os.path.exists("shakespeare.txt"):
-    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    urllib.request.urlretrieve(url, "shakespeare.txt")
-
-for model_type in ["unigram", "bpe"]:
-    spm.SentencePieceTrainer.train(
-        input="shakespeare.txt", model_prefix=f"shakes_{model_type}",
-        vocab_size=2000, model_type=model_type, byte_fallback=True,
-        character_coverage=1.0, minloglevel=2)
-    sp = spm.SentencePieceProcessor(model_file=f"shakes_{model_type}.model")
-    s = "Wherefore art thou Romeo? 你好"
-    ids = sp.encode(s)
-    print(model_type, sp.encode(s, out_type=str), sp.decode(ids) == s)
-```
-
-Output:
-
-```
-unigram ['▁Where', 'for', 'e', '▁art', '▁thou', '▁Romeo', '?', '▁', '<0xE4>', '<0xBD>', '<0xA0>', '<0xE5>', '<0xA5>', '<0xBD>'] True
-bpe ['▁Where', 'fore', '▁art', '▁thou', '▁Romeo', '?', '▁', '<0xE4>', '<0xBD>', '<0xA0>', '<0xE5>', '<0xA5>', '<0xBD>'] True
-```
-
-```python
-sp = spm.SentencePieceProcessor(model_file="shakes_unigram.model")
-print([sp.id_to_piece(i) for i in range(8)])
-```
-
-Output:
-
-```
-['<unk>', '<s>', '</s>', '<0x00>', '<0x01>', '<0x02>', '<0x03>', '<0x04>']
-```
+Notebook: [5.5-A.2-training-sentencepiece-models.ipynb](../../code/05-tokenizer/5.5-A.2-training-sentencepiece-models.ipynb)
 
 ### A.3 Normalization and exact round-tripping
 
 Default normalization changes whitespace and ligatures; the identity rule keeps the text exactly.
 
-```python
-s = "  two  spaces\tand a tab ﬁ"
-print(repr(sp.decode(sp.encode(s))))
-```
-
-Output:
-
-```
-'two spaces and a tab fi'
-```
-
-```python
-spm.SentencePieceTrainer.train(
-    input="shakespeare.txt", model_prefix="shakes_exact",
-    vocab_size=2000, model_type="unigram", byte_fallback=True,
-    character_coverage=1.0, normalization_rule_name="identity",
-    remove_extra_whitespaces=False, minloglevel=2)
-sp_exact = spm.SentencePieceProcessor(model_file="shakes_exact.model")
-print(sp_exact.encode(s, out_type=str))
-print(sp_exact.decode(sp_exact.encode(s)) == s)
-```
-
-Output:
-
-```
-['▁', '▁', '▁two', '▁', '▁sp', 'ace', 's', '<0x09>', 'and', '▁a', '▁ta', 'b', '▁', '<0xEF>', '<0xAC>', '<0x81>']
-True
-```
+Notebook: [5.5-A.3-normalization-and-exact-round-tripping.ipynb](../../code/05-tokenizer/5.5-A.3-normalization-and-exact-round-tripping.ipynb)
 
 ### A.4 Sampling segmentations
 
 Sample segmentations for subword regularization.
 
-```python
-# output varies from run to run
-for _ in range(4):
-    print(sp.encode("Wherefore art thou Romeo?", out_type=str,
-                    enable_sampling=True, alpha=0.1, nbest_size=-1))
-```
+Notebook: [5.5-A.4-sampling-segmentations.ipynb](../../code/05-tokenizer/5.5-A.4-sampling-segmentations.ipynb)
 
-One run printed (the samples change from run to run):
-
-```
-['▁', 'W', 'he', 're', 'for', 'e', '▁', 'art', '▁thou', '▁Romeo', '?']
-['▁Where', 'f', 'o', 're', '▁art', '▁thou', '▁', 'R', 'om', 'e', 'o', '?']
-['▁W', 'he', 're', 'f', 'or', 'e', '▁a', 'rt', '▁thou', '▁Romeo', '?']
-['▁W', 'h', 'er', 'e', 'f', 'or', 'e', '▁', 'art', '▁t', 'h', 'o', 'u', '▁Romeo', '?']
-```

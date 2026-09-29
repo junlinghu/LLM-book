@@ -49,42 +49,7 @@ The rounding error for each value is at most $s/2$. The scale is set by the larg
 
 The following code quantizes a random matrix and measures the error in a matrix-vector product:
 
-```python
-import numpy as np
-
-def quantize_per_channel(W, bits=8):
-    """Symmetric per-output-channel quantization of a weight matrix W [out, in]."""
-    qmax = 2 ** (bits - 1) - 1                      # 127 for INT8, 7 for INT4
-    scale = np.abs(W).max(axis=1, keepdims=True) / qmax
-    Q = np.clip(np.round(W / scale), -qmax, qmax).astype(np.int8)
-    return Q, scale
-
-def dequantize(Q, scale):
-    return Q.astype(np.float32) * scale
-
-rng = np.random.default_rng(0)
-W = rng.standard_normal((4096, 4096)).astype(np.float32) * 0.02
-x = rng.standard_normal(4096).astype(np.float32)
-
-for bits in [8, 4]:
-    Q, s = quantize_per_channel(W, bits)
-    y, y_hat = W @ x, dequantize(Q, s) @ x
-    rel_err = np.linalg.norm(y - y_hat) / np.linalg.norm(y)
-    print(f"INT{bits}: relative output error {rel_err:.4f}")
-
-def quantize_per_group(W, bits=4, group=128):
-    """Symmetric quantization with one scale per group of `group` input weights."""
-    out_dim, in_dim = W.shape
-    Wg = W.reshape(out_dim, in_dim // group, group)
-    qmax = 2 ** (bits - 1) - 1
-    scale = np.abs(Wg).max(axis=2, keepdims=True) / qmax
-    Q = np.clip(np.round(Wg / scale), -qmax, qmax).astype(np.int8)
-    return Q, scale
-
-Q, s = quantize_per_group(W, bits=4, group=128)
-y_hat = (Q.astype(np.float32) * s).reshape(W.shape) @ x
-print(f"INT4, groups of 128: relative output error {np.linalg.norm(W @ x - y_hat) / np.linalg.norm(W @ x):.4f}")
-```
+Notebook: [13.6-uniform-quantization.ipynb](../../code/13-inference/13.6-uniform-quantization.ipynb)
 
 It prints relative output errors of about 0.9 percent for INT8, 16 percent for per-channel INT4, and 12 percent for INT4 with groups of 128. Two lessons follow. Each bit removed doubles the rounding step, so INT4 is far noisier than INT8. And finer groups help; they help much more on real LLM weights, which, unlike this Gaussian toy matrix, contain outliers. Naive 4-bit rounding is therefore not good enough for real models, and better 4-bit methods matter (see below). The fourth suggested code lab asks you to quantize a small real model to INT8 and compare speed, memory, and output quality.
 
@@ -133,19 +98,7 @@ The simplest approach collects a fixed set of requests, pads their prompts to th
 3. Waiting requests are admitted into the freed slots, as long as there is memory for their KV cache.
 4. The engine runs one forward pass over all running sequences, producing one new token for each (and running the prefill for newly admitted requests).
 
-```python
-def serve_loop(engine, waiting_queue, max_batch_tokens):
-    running = []
-    while True:
-        running = [seq for seq in running if not seq.finished]     # free finished slots
-        while waiting_queue and engine.can_admit(waiting_queue[0], running, max_batch_tokens):
-            running.append(waiting_queue.pop(0))                    # admit new requests
-        if not running:
-            engine.wait_for_requests(); continue
-        next_tokens = engine.step(running)      # prefill for new sequences, decode for others
-        for seq, tok in zip(running, next_tokens):
-            seq.append(tok)                     # also streams the token to the client
-```
+Notebook: [13.6-continuous-batching.ipynb](../../code/13-inference/13.6-continuous-batching.ipynb)
 
 The GPU is never held hostage by a long sequence, new requests start almost immediately, and batch sizes stay high. Different sequences in the same iteration have different lengths, which is awkward for attention; Orca's *selective batching* batches the token-wise operations (the linear layers and MLP, which dominate FLOPs) across all sequences while computing attention separately per sequence. Combined with paged KV cache management (Section 4), which lets sequences grow and shrink without fragmentation, continuous batching is the foundation of modern serving engines (Section 8).
 
@@ -195,37 +148,7 @@ The first term equals $\min(q(x), p(x))$. The total rejection probability is $1 
 
 Here is an implementation of the verification step, with a simulation confirming that the first emitted token follows the target distribution:
 
-```python
-import numpy as np
-
-def speculative_step(p_target, q_draft, draft_tokens, rng):
-    """One verification step of speculative sampling.
-    q_draft[i]:  draft distribution used to sample draft_tokens[i]
-    p_target[i]: target distribution at the same position (len(draft_tokens) + 1 rows,
-                 the last row is for the position after all draft tokens)."""
-    out = []
-    for i, x in enumerate(draft_tokens):
-        p, q = p_target[i], q_draft[i]
-        if rng.random() < min(1.0, p[x] / q[x]):     # accept with prob min(1, p/q)
-            out.append(x)
-            continue
-        residual = np.maximum(p - q, 0.0)            # reject: resample from (p - q)+
-        out.append(int(rng.choice(len(p), p=residual / residual.sum())))
-        return out
-    out.append(int(rng.choice(len(p_target[-1]), p=p_target[-1])))   # all accepted: bonus token
-    return out
-
-# Check that the first emitted token follows the target distribution exactly.
-rng = np.random.default_rng(0)
-p = np.array([0.5, 0.3, 0.15, 0.05])
-q = np.array([0.25, 0.25, 0.25, 0.25])
-counts = np.zeros(4)
-for _ in range(200_000):
-    x = int(rng.choice(4, p=q))
-    first = speculative_step([p, p], [q], [x], rng)[0]
-    counts[first] += 1
-print(np.round(counts / counts.sum(), 3))           # close to [0.5, 0.3, 0.15, 0.05]
-```
+Notebook: [13.6-why-the-output-distribution-is-exact.ipynb](../../code/13-inference/13.6-why-the-output-distribution-is-exact.ipynb)
 
 ### How much it helps
 

@@ -81,21 +81,7 @@ For example, with $n = 10$ samples of which $c = 3$ are correct, pass@1 is $1 - 
 
 The binomial coefficients get huge quickly, so it is better to compute the ratio as a product:
 
-```python
-import numpy as np
-
-def pass_at_k(n: int, c: int, k: int) -> float:
-    """Unbiased pass@k for one problem: n samples, c correct."""
-    if n - c < k:
-        return 1.0        # every k-subset must contain a correct sample
-    # C(n-c, k) / C(n, k) = prod_{i=n-c+1}^{n} (1 - k / i)
-    ratio = np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
-    return 1.0 - ratio
-
-results = [(10, 3), (10, 0), (10, 10), (10, 1)]      # (n, c) per problem
-print(np.mean([pass_at_k(n, c, k=1) for n, c in results]))   # 0.35
-print(np.mean([pass_at_k(n, c, k=5) for n, c in results]))
-```
+Notebook: [12.3-humaneval-mbpp-and-the-pass-k-metric.ipynb](../../code/12-evaluation/12.3-humaneval-mbpp-and-the-pass-k-metric.ipynb)
 
 Pass@1 measures the chance of getting it right on the first try, which is what most users experience. Pass@k for larger $k$ measures what is reachable with repeated sampling and a way to pick a working answer (such as running tests), which matters for RL (a problem with pass@k of zero gives no learning signal) and for agent systems that can retry. The HumanEval paper itself showed how much repeated sampling helps: the original Codex model solved 28.8 percent of problems with one sample but 70.2 percent with 100 samples.
 
@@ -157,26 +143,7 @@ where $\sigma$ is the logistic sigmoid. Fitting the $\beta$'s by maximum likelih
 
 A small Bradley-Terry fit takes a few lines:
 
-```python
-import numpy as np
-from sklearn.linear_model import LogisticRegression
-
-models = ["A", "B", "C"]
-# Each vote: (winner, loser)
-votes = [("A", "B")] * 60 + [("B", "A")] * 40 + [("B", "C")] * 55 + \
-        [("C", "B")] * 45 + [("A", "C")] * 70 + [("C", "A")] * 30
-
-idx = {m: i for i, m in enumerate(models)}
-X, y = [], []
-for w, l in votes:
-    row = np.zeros(len(models)); row[idx[w]], row[idx[l]] = 1, -1
-    X.append(row); y.append(1)
-    X.append(-row); y.append(0)          # mirrored copy keeps the problem symmetric
-clf = LogisticRegression(fit_intercept=False, C=1e6).fit(np.array(X), np.array(y))
-beta = clf.coef_[0]
-elo_like = 1000 + 400 / np.log(10) * (beta - beta.mean())   # rescale to an Elo-style scale
-print(dict(zip(models, elo_like.round())))
-```
+Notebook: [12.3-arena-style-ratings-elo-and-bradley-terry.ipynb](../../code/12-evaluation/12.3-arena-style-ratings-elo-and-bradley-terry.ipynb)
 
 The rescaling factor $400/\ln 10$ converts natural-log odds to Elo's base-10, 400-point convention.
 

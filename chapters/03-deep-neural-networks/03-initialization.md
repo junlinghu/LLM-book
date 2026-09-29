@@ -163,24 +163,7 @@ and biases from the same uniform range (see the `nn.Linear` documentation). The 
 
 which is neither Xavier nor He exactly; it is closer to a LeCun-style fan-in uniform. For many shallow nets this default is fine. For deep ReLU stacks without normalization, replacing it with explicit He initialization is a common improvement.
 
-```python
-import math
-import torch
-import torch.nn as nn
-
-def init_he_linear(layer):
-    if isinstance(layer, nn.Linear):
-        nn.init.kaiming_normal_(layer.weight, mode="fan_in", nonlinearity="relu")
-        if layer.bias is not None:
-            nn.init.zeros_(layer.bias)
-
-model = nn.Sequential(
-    nn.Linear(784, 256), nn.ReLU(),
-    nn.Linear(256, 256), nn.ReLU(),
-    nn.Linear(256, 10),
-)
-model.apply(init_he_linear)
-```
+Notebook: [3.3-what-frameworks-do-by-default.ipynb](../../code/03-deep-neural-networks/3.3-what-frameworks-do-by-default.ipynb)
 
 For tanh networks, use `nn.init.xavier_normal_(layer.weight, gain=nn.init.calculate_gain("tanh"))` or the uniform Xavier variant.
 
@@ -195,42 +178,7 @@ For tanh networks, use `nn.init.xavier_normal_(layer.weight, gain=nn.init.calcul
 
 The chapter's suggested code lab initializes the same deep network with small random, Xavier, and He weights and tracks activation variance by depth. A minimal version:
 
-```python
-import torch
-import torch.nn as nn
-
-def track_activation_std(init_fn, depth=30, width=256, activation=nn.ReLU):
-    layers = []
-    for _ in range(depth):
-        lin = nn.Linear(width, width)
-        init_fn(lin)
-        layers += [lin, activation()]
-    net = nn.Sequential(*layers)
-    x = torch.randn(128, width)
-    stds = []
-    with torch.no_grad():
-        for layer in net:
-            x = layer(x)
-            if isinstance(layer, activation):
-                stds.append(x.std().item())
-    return stds
-
-def small_init(lin):
-    nn.init.normal_(lin.weight, std=0.01)
-    nn.init.zeros_(lin.bias)
-
-def xavier_init(lin):
-    nn.init.xavier_normal_(lin.weight)
-    nn.init.zeros_(lin.bias)
-
-def he_init(lin):
-    nn.init.kaiming_normal_(lin.weight, nonlinearity="relu")
-    nn.init.zeros_(lin.bias)
-
-for name, fn in [("small", small_init), ("xavier", xavier_init), ("he", he_init)]:
-    stds = track_activation_std(fn)
-    print(name, "first", round(stds[0], 3), "last", round(stds[-1], 3))
-```
+Notebook: [3.3-a-quick-numerical-check.ipynb](../../code/03-deep-neural-networks/3.3-a-quick-numerical-check.ipynb)
 
 On one run of this code with 30 ReLU layers, the small initialization's activation standard deviation was already about 0.09 after the first layer and had collapsed to zero (at printed precision) by the last. Xavier started at about 0.58 and also collapsed to zero by layer 30: with $`n_{\text{in}} = n_{\text{out}}`$, Xavier's variance is $`1/n_{\text{in}}`$, and each ReLU halves the signal variance, so the standard deviation shrinks by a factor of about $`1/\sqrt{2}`$ per layer, or roughly $`2^{-15}`$ over 30 layers. He initialization stayed near 0.8 from the first layer to the last. Rerun with `activation=nn.Tanh`, Xavier becomes the better match. Running this experiment once builds more intuition than memorizing the formulas.
 

@@ -129,136 +129,23 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Load three encodings and compare "strawberry" with and without a leading space.
 
-```python
-import tiktoken
-
-encs = {n: tiktoken.get_encoding(n) for n in ["gpt2", "cl100k_base", "o200k_base"]}
-enc = encs["gpt2"]
-
-def show(e, s):
-    return [e.decode([i]) for i in e.encode(s)]
-```
-
-```python
-for name, e in encs.items():
-    print(name, [(w, show(e, w)) for w in ["strawberry", " strawberry"]])
-```
-
-Output:
-
-```
-gpt2 [('strawberry', ['st', 'raw', 'berry']), (' strawberry', [' strawberry'])]
-cl100k_base [('strawberry', ['str', 'aw', 'berry']), (' strawberry', [' strawberry'])]
-o200k_base [('strawberry', ['st', 'raw', 'berry']), (' strawberry', [' strawberry'])]
-```
+Notebook: [5.8-A.1-setup-and-spelling.ipynb](../../code/05-tokenizer/5.8-A.1-setup-and-spelling.ipynb)
 
 ### A.2 Numbers
 
 Tokenize a few numbers with GPT-2, then count digit-split patterns for 1 to 10,000.
 
-```python
-for s in [" 1234", " 1235", " 2023", " 2024", " 7777", " 3.14159", " 100000"]:
-    print(repr(s), show(enc, s))
-```
-
-Output:
-
-```
-' 1234' [' 12', '34']
-' 1235' [' 12', '35']
-' 2023' [' 20', '23']
-' 2024' [' 2024']
-' 7777' [' 7', '777']
-' 3.14159' [' 3', '.', '14', '159']
-' 100000' [' 100', '000']
-```
-
-```python
-from collections import Counter
-
-for name, e in encs.items():
-    patterns = Counter()
-    for k in range(1, 10001):
-        pieces = [p.strip() for p in show(e, " " + str(k))]
-        patterns[tuple(len(p) for p in pieces if p)] += 1
-    print(name, len(patterns), patterns.most_common(4))
-```
-
-Output:
-
-```
-gpt2 11 [((2, 2), 4680), ((1, 3), 3417), ((3, 1), 513), ((1, 2), 470)]
-cl100k_base 5 [((3, 1), 9000), ((3,), 900), ((2,), 90), ((1,), 9)]
-o200k_base 5 [((3, 1), 9000), ((3,), 900), ((2,), 90), ((1,), 9)]
-```
+Notebook: [5.8-A.2-numbers.ipynb](../../code/05-tokenizer/5.8-A.2-numbers.ipynb)
 
 ### A.3 Whitespace and capitalization
 
 Variants of "hello" and an indented line of code.
 
-```python
-for w in ["hello", " hello", "Hello", " Hello", " HELLO"]:
-    print(repr(w), enc.encode(w))
-```
-
-Output:
-
-```
-'hello' [31373]
-' hello' [23748]
-'Hello' [15496]
-' Hello' [18435]
-' HELLO' [47899, 46]
-```
-
-```python
-line = "        return x"
-print(show(enc, line))
-print(show(encs["cl100k_base"], line))
-```
-
-Output:
-
-```
-[' ', ' ', ' ', ' ', ' ', ' ', ' ', ' return', ' x']
-['       ', ' return', ' x']
-```
+Notebook: [5.8-A.3-whitespace-and-capitalization.ipynb](../../code/05-tokenizer/5.8-A.3-whitespace-and-capitalization.ipynb)
 
 ### A.4 Prompt boundaries, glitch tokens, and non-canonical sequences
 
 A trailing space, " SolidGoldMagikarp", and two token sequences for " hello".
 
-```python
-for s in ["The capital of France is", "The capital of France is "]:
-    ids = enc.encode(s)
-    print(repr(s), ids[-2:], show(enc, s)[-2:])
-```
+Notebook: [5.8-A.4-prompt-boundaries-glitch-tokens-and-non-canonical-sequences.ipynb](../../code/05-tokenizer/5.8-A.4-prompt-boundaries-glitch-tokens-and-non-canonical-sequences.ipynb)
 
-Output:
-
-```
-'The capital of France is' [4881, 318] [' France', ' is']
-'The capital of France is ' [318, 220] [' is', ' ']
-```
-
-```python
-print(enc.encode(" SolidGoldMagikarp"))
-```
-
-Output:
-
-```
-[43453]
-```
-
-```python
-canonical = enc.encode(" hello")
-alternative = enc.encode(" hel") + enc.encode("lo")
-print(canonical, alternative, enc.decode(alternative) == enc.decode(canonical))
-```
-
-Output:
-
-```
-[23748] [932, 5439] True
-```

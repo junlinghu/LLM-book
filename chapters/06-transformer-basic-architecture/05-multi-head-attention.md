@@ -92,50 +92,7 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Multi-head attention, checked against nn.MultiheadAttention
 
-```python
-import math
-import torch
-import torch.nn as nn
-
-class MultiHeadAttention(nn.Module):
-    def __init__(self, d, h):
-        super().__init__()
-        assert d % h == 0
-        self.h, self.d_k = h, d // h
-        self.W_q, self.W_k, self.W_v, self.W_o = (nn.Linear(d, d) for _ in range(4))
-
-    def split(self, x):                          # (B, n, d) -> (B, h, n, d_k)
-        B, n, _ = x.shape
-        return x.view(B, n, self.h, self.d_k).transpose(1, 2)
-
-    def forward(self, x, z, allowed=None):       # allowed: broadcastable to (B, h, n_q, n_k)
-        Q, K, V = self.split(self.W_q(x)), self.split(self.W_k(z)), self.split(self.W_v(z))
-        scores = Q @ K.transpose(-2, -1) / math.sqrt(self.d_k)
-        if allowed is not None:
-            scores = scores.masked_fill(~allowed, float("-inf"))
-        self.weights = scores.softmax(-1)        # keep for inspection: (B, h, n_q, n_k)
-        out = self.weights @ V                   # (B, h, n_q, d_k)
-        B, _, n_q, _ = out.shape
-        out = out.transpose(1, 2).reshape(B, n_q, self.h * self.d_k)   # concatenate heads
-        return self.W_o(out)
-
-torch.manual_seed(0)
-d, h = 512, 8
-mha = MultiHeadAttention(d, h)
-x, z = torch.randn(2, 5, d), torch.randn(2, 7, d)       # decoder states, encoder output
-print(mha(x, z).shape, mha.weights.shape)               # (2, 5, 512), (2, 8, 5, 7)
-print(sum(p.numel() for p in mha.parameters()), 4 * d * d + 4 * d)   # 1050624 both
-
-# Check against PyTorch by copying weights into nn.MultiheadAttention
-ref = nn.MultiheadAttention(d, h, batch_first=True)
-with torch.no_grad():
-    ref.in_proj_weight.copy_(torch.cat([mha.W_q.weight, mha.W_k.weight, mha.W_v.weight]))
-    ref.in_proj_bias.copy_(torch.cat([mha.W_q.bias, mha.W_k.bias, mha.W_v.bias]))
-    ref.out_proj.weight.copy_(mha.W_o.weight)
-    ref.out_proj.bias.copy_(mha.W_o.bias)
-ref_out, _ = ref(x, z, z)
-print(torch.allclose(mha(x, z), ref_out, atol=1e-5))    # True
-```
+Notebook: [6.5-multi-head-attention-checked-against-nn-multiheadattention.ipynb](../../code/06-transformer-basic-architecture/6.5-multi-head-attention-checked-against-nn-multiheadattention.ipynb)
 
 ## Further reading
 

@@ -70,7 +70,7 @@ Readers who want a clear picture of LLMs without unnecessary jargon: engineers, 
 
 Requirements vary by chapter. A typical setup for the neural-network chapters is Python 3 with **NumPy**, **Matplotlib**, and **PyTorch**.
 
-Section labs live as `.ipynb` files under [`code/<chapter>/`](code/), alongside the figure scripts. Each `### Code X.Y.Z` heading in a chapter links to a notebook named `X.Y.Z-<kebab-title>.ipynb`. Open that notebook and run it from the top. Later listings in a section are self-contained: imports and definitions they reuse are included in the notebook. Printed results from the chapter are kept as an "Expected output" markdown cell.
+Section labs live as `.ipynb` files under [`code/<chapter>/`](code/), alongside the figure scripts. Each `### Code X.Y.Z` heading, each appendix listing (`### A.1`, and so on), and the other multi-line Python examples in the chapter text link to a notebook. Open that notebook and run it from the top. Later listings are self-contained: imports and definitions they reuse are included in the notebook. Printed results from the chapter are kept as an "Expected output" markdown cell.
 
 Example (Chapter 2 figures). From the repository root:
 

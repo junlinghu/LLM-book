@@ -126,289 +126,29 @@ The first listing is the complete tokenizer; save it as `bpe.py`. The remaining 
 
 The whole byte-level BPE tokenizer: pre-tokenization, training, encoding, decoding, and special tokens.
 
-```python
-import regex as re
-from collections import Counter
-
-# GPT-2's pre-tokenization pattern (Radford et al. 2019).
-GPT2_PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-
-
-def merge(ids, pair, new_id):
-    """Replace every occurrence of `pair` in the tuple `ids` with `new_id`."""
-    out, i = [], 0
-    while i < len(ids):
-        if i + 1 < len(ids) and ids[i] == pair[0] and ids[i + 1] == pair[1]:
-            out.append(new_id)
-            i += 2
-        else:
-            out.append(ids[i])
-            i += 1
-    return tuple(out)
-
-
-class ByteBPE:
-    def __init__(self, pattern=GPT2_PATTERN):
-        self.pattern = re.compile(pattern)
-        self.merges = {}                               # (id, id) -> new id
-        self.vocab = {i: bytes([i]) for i in range(256)}  # id -> bytes
-        self.special = {}                              # str -> id
-        self.byte_ids = list(range(256))               # byte value -> id
-
-    # ---- training: Steps 1 and 2 ---------------------------------------
-    def train(self, text, vocab_size):
-        chunks = Counter(self.pattern.findall(text))
-        words = {tuple(c.encode("utf-8")): n for c, n in chunks.items()}
-        for new_id in range(256, vocab_size):
-            stats = Counter()
-            for w, n in words.items():
-                for pair in zip(w, w[1:]):
-                    stats[pair] += n
-            if not stats:
-                break
-            pair = max(stats, key=stats.get)   # ties: first pair seen
-            words = {merge(w, pair, new_id): n for w, n in words.items()}
-            self.merges[pair] = new_id
-            self.vocab[new_id] = self.vocab[pair[0]] + self.vocab[pair[1]]
-
-    # ---- encoding: Step 3 ----------------------------------------------
-    def _encode_chunk(self, ids):
-        while len(ids) >= 2:
-            # Merge the pair that was learned earliest. Merge IDs grow with
-            # rank, so the pair with the smallest merge ID has the lowest rank.
-            pair = min(zip(ids, ids[1:]),
-                       key=lambda p: self.merges.get(p, float("inf")))
-            if pair not in self.merges:
-                break
-            ids = merge(ids, pair, self.merges[pair])
-        return list(ids)
-
-    def encode_ordinary(self, text):
-        ids = []
-        for chunk in self.pattern.findall(text):
-            ids.extend(self._encode_chunk(
-                tuple(self.byte_ids[b] for b in chunk.encode("utf-8"))))
-        return ids
-
-    def encode(self, text, allow_special=False):
-        if not (allow_special and self.special):
-            return self.encode_ordinary(text)
-        split = "(" + "|".join(re.escape(s) for s in self.special) + ")"
-        ids = []
-        for part in re.split(split, text):
-            if part in self.special:
-                ids.append(self.special[part])
-            elif part:
-                ids.extend(self.encode_ordinary(part))
-        return ids
-
-    # ---- special tokens and decoding: Steps 4 and 5 --------------------
-    def add_special_tokens(self, tokens):
-        for t in tokens:
-            if t not in self.special:
-                new_id = len(self.vocab)
-                self.special[t] = new_id
-                self.vocab[new_id] = t.encode("utf-8")
-
-    def decode(self, ids):
-        data = b"".join(self.vocab[i] for i in ids)
-        return data.decode("utf-8", errors="replace")
-```
+Notebook: [5.10-A.1-the-complete-tokenizer-bpe-py.ipynb](../../code/05-tokenizer/5.10-A.1-the-complete-tokenizer-bpe-py.ipynb)
 
 ### A.2 Training on tiny Shakespeare
 
 Train a 512-entry tokenizer on 90 percent of the corpus, show the first and last merges, and encode a line.
 
-```python
-import os, urllib.request
-
-if not os.path.exists("shakespeare.txt"):
-    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    urllib.request.urlretrieve(url, "shakespeare.txt")
-text = open("shakespeare.txt", encoding="utf-8").read()
-split = int(0.9 * len(text))
-train, held_out = text[:split], text[split:]
-
-tok = ByteBPE()
-tok.train(train, vocab_size=512)
-print([tok.vocab[i] for i in range(256, 276)])
-print([tok.vocab[i] for i in range(500, 512)])
-```
-
-Output:
-
-```
-[b' t', b'he', b' a', b'ou', b' s', b' m', b'in', b' w', b're', b'ha', b' the', b'nd', b' b', b'is', b'or', b' f', b'er', b'll', b'it', b'on']
-[b'ond', b' their', b'self', b' there', b' know', b' king', b' if', b'ep', b'ind', b' tr', b' br', b' O']
-```
-
-```python
-line = "To be, or not to be: that is the question."
-ids = tok.encode(line)
-print(len(ids), ids)
-print([tok.vocab[i].decode("utf-8") for i in ids])
-```
-
-Output:
-
-```
-18 [396, 304, 44, 32, 270, 321, 287, 304, 58, 322, 326, 266, 32, 113, 117, 377, 395, 46]
-['To', ' be', ',', ' ', 'or', ' not', ' to', ' be', ':', ' that', ' is', ' the', ' ', 'q', 'u', 'est', 'ion', '.']
-```
+Notebook: [5.10-A.2-training-on-tiny-shakespeare.ipynb](../../code/05-tokenizer/5.10-A.2-training-on-tiny-shakespeare.ipynb)
 
 ### A.3 Testing and comparing
 
 Round-trip tests, special tokens, and compression on held-out text compared with GPT-2.
 
-```python
-tests = ["Hello, world!", "Emoji 🙂🚀 and accents: café, naïve, Zürich",
-         "中文分词很难。日本語のテキスト。한국어 텍스트.",
-         "def f(x):\n    return x ** 2  # square\n", "   spaces\t\ttabs\n\n\nnewlines   "]
-print(all(tok.decode(tok.encode(t)) == t for t in tests))
-print(len("中文分词很难。".encode("utf-8")), len(tok.encode("中文分词很难。")))
-```
-
-Output:
-
-```
-True
-21 21
-```
-
-```python
-tok.add_special_tokens(["<|endoftext|>"])
-eot = tok.special["<|endoftext|>"]
-s = "the end<|endoftext|>A new document"
-print(eot, tok.encode(s, allow_special=True))
-print(tok.encode(s).count(eot), tok.decode(tok.encode(s, allow_special=True)) == s)
-```
-
-Output:
-
-```
-512 [116, 257, 334, 267, 512, 65, 428, 119, 382, 99, 117, 109, 340]
-0 True
-```
-
-```python
-import tiktoken
-
-n_bytes = len(held_out.encode("utf-8"))
-tok_1024 = ByteBPE()
-tok_1024.train(train, vocab_size=1024)
-gpt2 = tiktoken.get_encoding("gpt2")
-for name, n in [("ours, 512", len(tok.encode(held_out))),
-                ("ours, 1024", len(tok_1024.encode(held_out))),
-                ("GPT-2, 50257", len(gpt2.encode_ordinary(held_out)))]:
-    print(name, n, round(n_bytes / n, 2))
-```
-
-Output:
-
-```
-ours, 512 59401 1.88
-ours, 1024 49416 2.26
-GPT-2, 50257 36059 3.09
-```
+Notebook: [5.10-A.3-testing-and-comparing.ipynb](../../code/05-tokenizer/5.10-A.3-testing-and-comparing.ipynb)
 
 ### A.4 Loading GPT-2's vocabulary and merges
 
 Convert GPT-2's published files into the four tables and check that merge IDs grow with rank.
 
-```python
-import json
-
-
-def bytes_to_unicode():
-    """GPT-2's reversible map from the 256 byte values to printable characters."""
-    bs = (list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1))
-          + list(range(ord("®"), ord("ÿ") + 1)))
-    cs = bs[:]
-    n = 0
-    for b in range(256):
-        if b not in bs:
-            bs.append(b)
-            cs.append(256 + n)
-            n += 1
-    return dict(zip(bs, map(chr, cs)))
-
-
-def load_gpt2(tok, vocab_path, merges_path):
-    """Load GPT-2's published vocab.json and merges.txt into a ByteBPE."""
-    byte_decoder = {c: b for b, c in bytes_to_unicode().items()}
-    to_bytes = lambda s: bytes(byte_decoder[c] for c in s)
-    with open(vocab_path, encoding="utf-8") as f:
-        encoder = json.load(f)                        # token string -> id
-    tok.vocab = {i: to_bytes(s) for s, i in encoder.items()}
-    token_to_id = {b: i for i, b in tok.vocab.items()}
-    tok.byte_ids = [token_to_id[bytes([b])] for b in range(256)]
-    tok.merges = {}
-    with open(merges_path, encoding="utf-8") as f:
-        lines = f.read().split("\n")[1:]              # skip the version line
-    for line in lines:
-        if not line:
-            continue
-        a, b = line.split(" ")
-        a, b = to_bytes(a), to_bytes(b)
-        tok.merges[(token_to_id[a], token_to_id[b])] = token_to_id[a + b]
-    # The merge dict maps pairs to ids; GPT-2's ids grow with merge rank,
-    # so "lowest id" and "earliest merge" pick the same pair.
-    tok.special = {"<|endoftext|>": encoder["<|endoftext|>"]}
-    return tok
-```
-
-```python
-from huggingface_hub import hf_hub_download
-
-vocab_path = hf_hub_download("openai-community/gpt2", "vocab.json")
-merges_path = hf_hub_download("openai-community/gpt2", "merges.txt")
-gpt2_tok = load_gpt2(ByteBPE(), vocab_path, merges_path)
-
-with open(merges_path, encoding="utf-8") as f:
-    ranked = [line for line in f.read().split("\n")[1:] if line]
-ok = all(gpt2_tok.merges[pair] == 256 + r
-         for r, pair in enumerate(gpt2_tok.merges))
-print(len(ranked), len(gpt2_tok.merges), len(gpt2_tok.vocab), ok)
-```
-
-Output:
-
-```
-50000 50000 50257 True
-```
+Notebook: [5.10-A.4-loading-gpt-2-vocabulary-and-merges.ipynb](../../code/05-tokenizer/5.10-A.4-loading-gpt-2-vocabulary-and-merges.ipynb)
 
 ### A.5 Matching tiktoken
 
 Compare IDs with `tiktoken` on awkward strings and on the whole corpus.
 
-```python
-tests = [
-    "Hello, world!",
-    "Tokenization isn't magic: it's just bytes and merges.",
-    "   leading spaces\tand\ttabs\n\n\nnewlines   ",
-    "Numbers: 1234567 + 89 = 1234656",
-    "Emoji 🙂🚀 and accents: café, naïve, Zürich",
-    "中文分词很难。日本語のテキスト。한국어 텍스트.",
-    "def f(x):\n    return x ** 2  # square\n",
-    "<|endoftext|> is special only when allowed",
-]
-for t in tests:
-    ours, ref = gpt2_tok.encode_ordinary(t), gpt2.encode_ordinary(t)
-    assert ours == ref, (t, ours, ref)
-    assert gpt2_tok.decode(ours) == t
-print("all", len(tests), "test strings match")
-print(gpt2_tok.encode("<|endoftext|> hi", allow_special=True),
-      gpt2.encode("<|endoftext|> hi", allowed_special={"<|endoftext|>"}))
+Notebook: [5.10-A.5-matching-tiktoken.ipynb](../../code/05-tokenizer/5.10-A.5-matching-tiktoken.ipynb)
 
-ours = gpt2_tok.encode_ordinary(text)
-ref = gpt2.encode_ordinary(text)
-print(len(text), len(ours), ours == ref)
-```
-
-Output:
-
-```
-all 8 test strings match
-[50256, 23105] [50256, 23105]
-1115394 338025 True
-```

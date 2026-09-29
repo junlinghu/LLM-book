@@ -26,17 +26,7 @@ $$
 
 Generation runs this model in a loop. Starting from a prompt $x_1, \dots, x_m$, we compute the distribution for position $m+1$, choose a token from it, append that token, and repeat until a stop condition is met:
 
-```python
-def generate(model, prompt_ids, choose_token, max_new_tokens=256, eos_id=None):
-    ids = list(prompt_ids)
-    for _ in range(max_new_tokens):
-        logits = model(ids)[-1]          # logits for the next position only
-        next_id = choose_token(logits)   # greedy, sampling, ... (this section)
-        ids.append(next_id)
-        if next_id == eos_id:
-            break
-    return ids[len(prompt_ids):]
-```
+Notebook: [13.1-autoregressive-generation-one-token-at-a-time.ipynb](../../code/13-inference/13.1-autoregressive-generation-one-token-at-a-time.ipynb)
 
 Two properties of this loop drive almost everything else in the chapter.
 
@@ -104,38 +94,7 @@ Other truncation rules follow the same pattern. *Min-p* sampling, for example, k
 
 Implementations apply these transformations in a fixed order, usually: penalties on the raw logits, then temperature, then top-k, then top-p, then sampling. The order matters. Applying temperature before top-p means a high temperature enlarges the nucleus; applying it after does not. Here is a compact NumPy implementation:
 
-```python
-import numpy as np
-
-def softmax(z):
-    z = z - z.max()                      # subtract max for numerical stability
-    e = np.exp(z)
-    return e / e.sum()
-
-def sample_next(logits, temperature=1.0, top_k=None, top_p=None, rng=np.random.default_rng()):
-    z = np.asarray(logits, dtype=np.float64)
-    if temperature == 0:                 # convention: temperature 0 means greedy
-        return int(np.argmax(z))
-    z = z / temperature
-    if top_k is not None:                # keep the k largest logits
-        kth = np.sort(z)[-top_k]
-        z = np.where(z < kth, -np.inf, z)
-    probs = softmax(z)
-    if top_p is not None:                # keep the smallest set with mass >= top_p
-        order = np.argsort(-probs)
-        cum = np.cumsum(probs[order])
-        cutoff = np.searchsorted(cum, top_p) + 1
-        keep = order[:cutoff]
-        mask = np.zeros_like(probs, dtype=bool)
-        mask[keep] = True
-        probs = np.where(mask, probs, 0.0)
-        probs = probs / probs.sum()
-    return int(rng.choice(len(probs), p=probs))
-
-logits = np.array([4.0, 3.5, 2.0, 0.5, -1.0])
-print(sample_next(logits, temperature=0))                  # always 0
-print(sample_next(logits, temperature=0.7, top_p=0.9))     # 0 or 1, occasionally 2
-```
+Notebook: [13.1-putting-the-knobs-together.ipynb](../../code/13-inference/13.1-putting-the-knobs-together.ipynb)
 
 The first suggested code lab for this chapter asks you to wire a function like this to a real model's logits and compare the outputs of greedy decoding, several temperatures, and several values of $p$ on the same prompt.
 
@@ -183,30 +142,7 @@ and the $B$ highest-scoring extensions become the new beam. Finished hypotheses 
 
 Because every additional token multiplies in a probability less than one, raw log-probability favors short outputs. Implementations therefore usually apply *length normalization*, for example dividing the score by $t^\alpha$ for some $\alpha$ between 0 and 1, before comparing finished hypotheses.
 
-```python
-import numpy as np
-
-def beam_search(step_logprobs, bos, eos, beam_size=4, max_len=20, alpha=0.7):
-    """step_logprobs(prefix) -> array of log-probabilities over the vocabulary."""
-    beams = [([bos], 0.0)]
-    finished = []
-    for _ in range(max_len):
-        candidates = []
-        for prefix, score in beams:
-            lp = step_logprobs(prefix)
-            for tok in np.argsort(-lp)[:beam_size]:        # only the best few per beam
-                candidates.append((prefix + [int(tok)], score + float(lp[tok])))
-        candidates.sort(key=lambda c: c[1], reverse=True)
-        beams = []
-        for prefix, score in candidates:
-            (finished if prefix[-1] == eos else beams).append((prefix, score))
-            if len(beams) == beam_size:
-                break
-        if not beams:
-            break
-    finished.extend(beams)
-    return max(finished, key=lambda c: c[1] / (len(c[0]) ** alpha))
-```
+Notebook: [13.1-beam-search.ipynb](../../code/13-inference/13.1-beam-search.ipynb)
 
 Beam search was the workhorse of neural machine translation and summarization, where the output is tightly determined by the input and "the most probable output" is a reasonable target. For open-ended generation it works poorly. It amplifies exactly the problems of greedy decoding: high-likelihood text is generic and repetitive, and larger beams can make this worse rather than better. Meister et al. argued that beam search works well in translation *because* of the specific biases it introduces, not because it finds the most probable sequence. Beam search also costs roughly $B$ times the compute and $B$ times the KV-cache memory of greedy decoding (though hypotheses share a common prefix, which systems like PagedAttention in Section 4 exploit).
 

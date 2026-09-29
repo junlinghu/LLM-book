@@ -25,22 +25,7 @@ Two equivalent ways to read the equation:
 
 A minimal residual MLP block in code:
 
-```python
-import torch
-import torch.nn as nn
-
-class ResidualMLPBlock(nn.Module):
-    def __init__(self, width):
-        super().__init__()
-        self.f = nn.Sequential(
-            nn.Linear(width, width),
-            nn.ReLU(),
-            nn.Linear(width, width),
-        )
-
-    def forward(self, x):
-        return x + self.f(x)
-```
+Notebook: [3.4-the-residual-block.ipynb](../../code/03-deep-neural-networks/3.4-the-residual-block.ipynb)
 
 Stacking many such blocks gives a deep residual MLP. The chapter's suggested code lab trains plain vs. residual MLPs of increasing depth on the same task: plain nets degrade; residual nets keep fitting.
 
@@ -125,38 +110,9 @@ Large language models combine both habits: pre-norm (or RMSNorm) residual blocks
 
 A simple illustration for an MLP residual stack:
 
-```python
-class ScaledResidualBlock(nn.Module):
-    def __init__(self, width, depth_hint):
-        super().__init__()
-        self.f = nn.Sequential(
-            nn.Linear(width, width),
-            nn.ReLU(),
-            nn.Linear(width, width),
-        )
-        nn.init.kaiming_normal_(self.f[0].weight, nonlinearity="relu")
-        nn.init.zeros_(self.f[0].bias)
-        # Scale the last layer down so L blocks add O(1) variance at init.
-        nn.init.kaiming_normal_(self.f[-1].weight, nonlinearity="linear")
-        self.f[-1].weight.data *= depth_hint ** -0.5
-        nn.init.zeros_(self.f[-1].bias)
-
-    def forward(self, x):
-        return x + self.f(x)
-```
+Notebook: [3.4-initializing-residual-branches.ipynb](../../code/03-deep-neural-networks/3.4-initializing-residual-branches.ipynb)
 
 Exact scaling conventions differ across codebases; the principle is to keep the residual stream from exploding as depth increases *at initialization*, then let learning grow the updates as needed. You can check the numbers quoted above by stacking these blocks with and without the scaling line and printing the standard deviation of the stream on random inputs:
-
-```python
-torch.manual_seed(0)
-for L in [4, 16, 64]:
-    x = torch.randn(512, 256)
-    blocks = [ScaledResidualBlock(256, depth_hint=L) for _ in range(L)]
-    with torch.no_grad():
-        for b in blocks:
-            x = b(x)
-    print(L, round(x.std().item(), 2))   # stays near 1.5-1.7 for every depth
-```
 
 Deleting the line that multiplies by `depth_hint ** -0.5` reproduces the explosive growth.
 

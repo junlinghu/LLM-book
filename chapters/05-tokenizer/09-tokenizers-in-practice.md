@@ -119,76 +119,13 @@ These listings reproduce the examples in this section. Run the Python listings i
 
 Map model names to encodings and count the tokens in a prompt.
 
-```python
-import tiktoken
-
-for model in ["gpt2", "gpt-4", "gpt-4o"]:
-    print(model, tiktoken.encoding_for_model(model).name)
-```
-
-Output:
-
-```
-gpt2 gpt2
-gpt-4 cl100k_base
-gpt-4o o200k_base
-```
-
-```python
-enc = tiktoken.get_encoding("o200k_base")
-prompt = "Summarize the following report in three sentences."
-print(len(enc.encode(prompt)), enc.n_vocab)
-```
-
-Output:
-
-```
-10 200019
-```
+Notebook: [5.9-A.1-tiktoken-basics.ipynb](../../code/05-tokenizer/5.9-A.1-tiktoken-basics.ipynb)
 
 ### A.2 Loading and training Hugging Face tokenizers
 
 Load GPT-2's tokenizer, then train a 4,000-entry tokenizer on tiny Shakespeare with the same pipeline.
 
-```python
-from transformers import AutoTokenizer
-
-tok = AutoTokenizer.from_pretrained("gpt2")
-enc_out = tok("Hello world")
-print(enc_out["input_ids"], tok.decode(enc_out["input_ids"]), tok.is_fast)
-```
-
-Output:
-
-```
-[15496, 995] Hello world True
-```
-
-```python
-import os, urllib.request
-
-if not os.path.exists("shakespeare.txt"):
-    url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-    urllib.request.urlretrieve(url, "shakespeare.txt")
-corpus = open("shakespeare.txt", encoding="utf-8").read().split("\n\n")
-
-new_tok = tok.train_new_from_iterator(corpus, vocab_size=4000)
-for s in ["GLOUCESTER: Now is the winter of our discontent", "def f(x): return x"]:
-    print(len(tok.tokenize(s)), tok.tokenize(s))
-    print(len(new_tok.tokenize(s)), new_tok.tokenize(s))
-new_tok.save_pretrained("shakes-tokenizer")
-print(sorted(os.listdir("shakes-tokenizer")))
-```
-
-Output:
-
-```
-13 ['GL', 'OU', 'C', 'ES', 'TER', ':', 'ĠNow', 'Ġis', 'Ġthe', 'Ġwinter', 'Ġof', 'Ġour', 'Ġdiscontent']
-10 ['GLOUCESTER', ':', 'ĠNow', 'Ġis', 'Ġthe', 'Ġwinter', 'Ġof', 'Ġour', 'Ġdisc', 'ontent']
-7 ['def', 'Ġf', '(', 'x', '):', 'Ġreturn', 'Ġx']
-10 ['de', 'f', 'Ġf', '(', 'x', ')', ':', 'Ġreturn', 'Ġ', 'x']
-['tokenizer.json', 'tokenizer_config.json']
-```
+Notebook: [5.9-A.2-loading-and-training-hugging-face-tokenizers.ipynb](../../code/05-tokenizer/5.9-A.2-loading-and-training-hugging-face-tokenizers.ipynb)
 
 ### A.3 Training with the SentencePiece command line
 
@@ -203,157 +140,23 @@ spm_train --input=shakespeare.txt --model_prefix=shakes --vocab_size=2000 \
 
 Round-trip unusual strings, add special tokens twice, and truncate a long input.
 
-```python
-tests = ["🙂🚀 and café", "中文 日本語 한국어", "x\u0301\u0302", "\t\t  indented\n\n\n",
-         "3.14159265358979323846", "a\x00b"]
-for name in ["gpt2", "o200k_base"]:
-    e = tiktoken.get_encoding(name)
-    print(name, all(e.decode(e.encode(t)) == t for t in tests))
-bert = AutoTokenizer.from_pretrained("bert-base-uncased")
-for t in tests[:3]:
-    print(repr(t), "->", repr(bert.decode(bert(t, add_special_tokens=False)["input_ids"])))
-```
-
-Output:
-
-```
-gpt2 True
-o200k_base True
-'🙂🚀 and café' -> '[UNK] and cafe'
-'中文 日本語 한국어' -> '中 文 日 本 語 한국어'
-'x́̂' -> 'x'
-```
-
-```python
-print(bert.convert_ids_to_tokens(bert("[CLS] hello world [SEP]")["input_ids"]))
-print(bert.convert_ids_to_tokens(bert("hello world")["input_ids"]))
-```
-
-Output:
-
-```
-['[CLS]', '[CLS]', 'hello', 'world', '[SEP]', '[SEP]']
-['[CLS]', 'hello', 'world', '[SEP]']
-```
-
-```python
-print(tok.model_max_length, len(tok("word " * 2000, truncation=True)["input_ids"]))
-```
-
-Output:
-
-```
-1024 1024
-```
+Notebook: [5.9-A.4-round-trip-tests-and-common-bugs.ipynb](../../code/05-tokenizer/5.9-A.4-round-trip-tests-and-common-bugs.ipynb)
 
 ### A.5 Packing a corpus into training blocks
 
 Join documents with end-of-text tokens, save the stream as 16-bit integers, and draw input and target blocks.
 
-```python
-import numpy as np
-import torch
-
-enc = tiktoken.get_encoding("gpt2")
-docs = ["First document.", "Second, slightly longer document.", "Third."]
-stream = []
-for d in docs:
-    stream.extend(enc.encode_ordinary(d))
-    stream.append(enc.eot_token)                 # <|endoftext|>, ID 50256
-print(len(stream), stream)
-
-np.array(stream, dtype=np.uint16).tofile("corpus.bin")   # GPT-2 IDs fit in 16 bits
-data = torch.from_numpy(np.fromfile("corpus.bin", dtype=np.uint16).astype(np.int64))
-
-def get_batch(data, batch_size, block_size, generator=None):
-    starts = torch.randint(len(data) - block_size, (batch_size,), generator=generator)
-    x = torch.stack([data[s:s + block_size] for s in starts])
-    y = torch.stack([data[s + 1:s + block_size + 1] for s in starts])
-    return x, y
-
-g = torch.Generator().manual_seed(0)
-x, y = get_batch(data, batch_size=2, block_size=8, generator=g)
-print(x)
-print(y)
-print(repr(enc.decode(x[0].tolist())), "->", repr(enc.decode(y[0].tolist())))
-```
-
-Output:
-
-```
-14 [5962, 3188, 13, 50256, 12211, 11, 4622, 2392, 3188, 13, 50256, 22747, 13, 50256]
-tensor([[   13, 50256, 12211,    11,  4622,  2392,  3188,    13],
-        [50256, 12211,    11,  4622,  2392,  3188,    13, 50256]])
-tensor([[50256, 12211,    11,  4622,  2392,  3188,    13, 50256],
-        [12211,    11,  4622,  2392,  3188,    13, 50256, 22747]])
-'.<|endoftext|>Second, slightly longer document.' -> '<|endoftext|>Second, slightly longer document.<|endoftext|>'
-```
+Notebook: [5.9-A.5-packing-a-corpus-into-training-blocks.ipynb](../../code/05-tokenizer/5.9-A.5-packing-a-corpus-into-training-blocks.ipynb)
 
 ### A.6 Padding and embedding
 
 Pad a batch on the right and on the left, then look up embeddings.
 
-```python
-tok.pad_token = tok.eos_token
-prompts = ["Hello there", "A much longer prompt than the first"]
-for side in ["right", "left"]:
-    tok.padding_side = side
-    batch = tok(prompts, padding=True, return_tensors="pt")
-    print(side, batch["input_ids"].tolist(), batch["attention_mask"].tolist())
-```
-
-Output:
-
-```
-right [[15496, 612, 50256, 50256, 50256, 50256, 50256], [32, 881, 2392, 6152, 621, 262, 717]] [[1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1]]
-left [[50256, 50256, 50256, 50256, 50256, 15496, 612], [32, 881, 2392, 6152, 621, 262, 717]] [[0, 0, 0, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1, 1]]
-```
-
-```python
-torch.manual_seed(0)
-emb = torch.nn.Embedding(num_embeddings=enc.n_vocab, embedding_dim=64)
-h = emb(x)
-print(emb.weight.shape, h.shape)
-```
-
-Output:
-
-```
-torch.Size([50257, 64]) torch.Size([2, 8, 64])
-```
+Notebook: [5.9-A.6-padding-and-embedding.ipynb](../../code/05-tokenizer/5.9-A.6-padding-and-embedding.ipynb)
 
 ### A.7 Adding a token
 
 Add " tokenizer" to GPT-2's vocabulary and initialize its embedding from the pieces it replaces.
 
-```python
-tok = AutoTokenizer.from_pretrained("gpt2")
-old_vocab = len(tok)
-pieces = tok(" tokenizer")["input_ids"]
-print(pieces, tok.convert_ids_to_tokens(pieces))
-tok.add_tokens([" tokenizer"])
-print(len(tok), tok.convert_ids_to_tokens(tok(" my tokenizer works")["input_ids"]))
-```
+Notebook: [5.9-A.7-adding-a-token.ipynb](../../code/05-tokenizer/5.9-A.7-adding-a-token.ipynb)
 
-Output:
-
-```
-[11241, 7509] ['Ġtoken', 'izer']
-50258 ['Ġmy', ' tokenizer', 'Ġworks']
-```
-
-```python
-torch.manual_seed(0)
-old_emb = torch.nn.Embedding(old_vocab, 64)      # stands in for a trained embedding table
-new_emb = torch.nn.Embedding(len(tok), 64)
-with torch.no_grad():
-    new_emb.weight[:old_vocab] = old_emb.weight
-    new_emb.weight[old_vocab] = old_emb.weight[pieces].mean(dim=0)
-print(new_emb.weight.shape)
-```
-
-Output:
-
-```
-torch.Size([50258, 64])
-```

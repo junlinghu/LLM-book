@@ -126,47 +126,7 @@ AdamW is the default optimizer for training transformers and LLMs. Typical LLM s
 
 The chapter's suggested code lab implements each optimizer and verifies it against `torch.optim`. Here is a compact version for Adam and AdamW, operating on a list of parameter tensors:
 
-```python
-import torch
-
-class MyAdamW:
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0):
-        self.params = list(params)
-        self.lr, self.eps, self.wd = lr, eps, weight_decay
-        self.b1, self.b2 = betas
-        self.m = [torch.zeros_like(p) for p in self.params]
-        self.v = [torch.zeros_like(p) for p in self.params]
-        self.t = 0
-
-    @torch.no_grad()
-    def step(self):
-        self.t += 1
-        for p, m, v in zip(self.params, self.m, self.v):
-            if p.grad is None:
-                continue
-            g = p.grad
-            p.mul_(1 - self.lr * self.wd)                 # decoupled weight decay
-            m.mul_(self.b1).add_(g, alpha=1 - self.b1)    # first moment
-            v.mul_(self.b2).addcmul_(g, g, value=1 - self.b2)  # second moment
-            m_hat = m / (1 - self.b1 ** self.t)
-            v_hat = v / (1 - self.b2 ** self.t)
-            p.add_(-self.lr * m_hat / (v_hat.sqrt() + self.eps))
-
-# Check against PyTorch step for step
-torch.manual_seed(0)
-w1 = torch.randn(5, 3, requires_grad=True)
-w2 = w1.detach().clone().requires_grad_(True)
-mine = MyAdamW([w1], lr=1e-2, weight_decay=0.1)
-ref = torch.optim.AdamW([w2], lr=1e-2, weight_decay=0.1)
-x = torch.randn(16, 5)
-for _ in range(20):
-    for w, opt in [(w1, mine), (w2, ref)]:
-        w.grad = None
-        loss = (x @ w).pow(2).mean()
-        loss.backward()
-        opt.step()
-print(torch.allclose(w1, w2, atol=1e-6))   # True
-```
+Notebook: [3.6-optimizers-from-scratch.ipynb](../../code/03-deep-neural-networks/3.6-optimizers-from-scratch.ipynb)
 
 Setting `weight_decay=0` gives Adam. Dropping the second moment gives momentum SGD (with the $`1 - \beta_1`$ scaling), and dropping the first moment gives RMSProp. Plotting each optimizer's path on a 2-D function with a long, narrow valley, such as the Rosenbrock function $`f(x, y) = (1 - x)^2 + 100\,(y - x^2)^2`$, shows the behaviors described above: SGD zigzags across the valley, momentum overshoots and then speeds along the floor, and RMSProp and Adam take more balanced steps.
 

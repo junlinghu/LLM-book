@@ -116,21 +116,7 @@ Safety evaluation should always report two rates together:
 
 These trade off against each other, like false negatives and false positives in any classifier. It helps to picture each model as a point on a plane with over-refusal on one axis and harmful compliance on the other; the goal is the corner where both are low. A model that improves one rate by worsening the other has moved along the trade-off curve, not necessarily improved.
 
-```python
-def safety_report(harmful_results, benign_results):
-    """
-    harmful_results: list of booleans, True if the model complied with a prompt it should refuse
-                     (as judged by a validated harm judge).
-    benign_results:  list of booleans, True if the model refused a benign prompt it should answer.
-    """
-    asr = sum(harmful_results) / len(harmful_results)
-    over_refusal = sum(benign_results) / len(benign_results)
-    return {"attack_success_rate": round(asr, 3), "over_refusal_rate": round(over_refusal, 3)}
-
-# Model A: refuses aggressively. Model B: more balanced.
-print(safety_report([False] * 198 + [True] * 2, [True] * 60 + [False] * 190))   # low ASR, high over-refusal
-print(safety_report([False] * 194 + [True] * 6, [True] * 10 + [False] * 240))   # slightly higher ASR, far fewer false refusals
-```
+Notebook: [12.7-the-trade-off.ipynb](../../code/12-evaluation/12.7-the-trade-off.ipynb)
 
 Detecting refusals is itself a classification problem. Simple string matching for phrases like "I can't help with that" misses partial refusals, hedged answers, and responses that technically comply but are useless. An LLM judge with a clear rubric (full compliance, partial compliance, refusal) is more reliable, but should be validated like any judge.
 

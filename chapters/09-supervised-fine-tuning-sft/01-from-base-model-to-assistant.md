@@ -108,96 +108,11 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Load SmolLM2-135M and its instruction-tuned version, and answer three requests with greedy decoding.
 
-```python
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-torch.set_num_threads(4)
-BASE, INSTRUCT = "HuggingFaceTB/SmolLM2-135M", "HuggingFaceTB/SmolLM2-135M-Instruct"
-tok = AutoTokenizer.from_pretrained(INSTRUCT)
-base = AutoModelForCausalLM.from_pretrained(BASE, dtype=torch.float32).eval()
-inst = AutoModelForCausalLM.from_pretrained(INSTRUCT, dtype=torch.float32).eval()
-
-def generate(model, text, max_new_tokens=40):
-    ids = tok(text, return_tensors="pt").input_ids
-    with torch.no_grad():
-        out = model.generate(ids, max_new_tokens=max_new_tokens, do_sample=False,
-                             pad_token_id=tok.eos_token_id)
-    return tok.decode(out[0, ids.shape[1]:], skip_special_tokens=False)
-
-def chat(messages):
-    return tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-
-requests = ["What is the capital of France?",
-            "Give me three tips for staying focused while studying.",
-            "Translate 'good morning' into Spanish."]
-for r in requests:
-    print("REQUEST:", r)
-    print("  base:    ", repr(generate(base, r)))
-    print("  instruct:", repr(generate(inst, chat([{"role": "user", "content": r}]))))
-```
-
-Output:
-
-```
-REQUEST: What is the capital of France?
-  base:     '\n\nThe capital of France is Paris.\n\nWhat is the capital of France?\n\nThe capital of France is Paris.\n\nWhat is the capital of France?\n\nThe capital'
-  instruct: 'The capital of France is Paris.<|im_end|>'
-REQUEST: Give me three tips for staying focused while studying.
-  base:     '\n\nFirst, try to focus on one thing at a time. If you are studying for a test, try to focus on one question at a time. If you are studying for a presentation,'
-  instruct: '1. Create a Dedicated Study Space: Choose a quiet and comfortable place where you can focus without distractions. This could be a library, a coffee shop, or even a peaceful garden.\n\n2'
-REQUEST: Translate 'good morning' into Spanish.
-  base:     "\n\nThe Spanish word for good morning is 'morir'.\n\nThe word for good night is 'suena'.\n\nThe word for bad morning is 'morir'.\n\nThe"
-  instruct: "'Good morning' es 'Hola' in español.<|im_end|>"
-```
-
-```python
-for model, name in [(base, "base"), (inst, "instruct")]:
-    ids = tok(chat([{"role": "user", "content": requests[0]}]), return_tensors="pt").input_ids
-    with torch.no_grad():
-        out = model.generate(ids, max_new_tokens=60, do_sample=False, pad_token_id=tok.eos_token_id)
-    new = out[0, ids.shape[1]:].tolist()
-    stop = tok.convert_tokens_to_ids("<|im_end|>")
-    print(name, "emitted <|im_end|> after", new.index(stop) + 1 if stop in new else None, "tokens")
-```
-
-Output:
-
-```
-base emitted <|im_end|> after None tokens
-instruct emitted <|im_end|> after 8 tokens
-```
+Notebook: [9.1-A.1-base-and-instruction-tuned-models-on-the-same-requests.ipynb](../../code/09-supervised-fine-tuning-sft/9.1-A.1-base-and-instruction-tuned-models-on-the-same-requests.ipynb)
 
 ### A.2 Few-shot prompting the base model
 
 Turn the base model into a question answerer with examples in the prompt, and count what the examples cost.
 
-```python
-few_shot = ("Q: What is the capital of Italy?\nA: Rome.\n\n"
-            "Q: What is the capital of Germany?\nA: Berlin.\n\n"
-            "Q: What is the capital of Spain?\nA: Madrid.\n\n")
-for q in ["What is the capital of France?", "What is the capital of Japan?"]:
-    prompt = few_shot + f"Q: {q}\nA:"
-    print(repr(q), "->", repr(generate(base, prompt, max_new_tokens=12)))
-print("tokens in the examples:", len(tok(few_shot).input_ids),
-      "| tokens in the question alone:", len(tok("Q: What is the capital of France?\nA:").input_ids))
-```
+Notebook: [9.1-A.2-few-shot-prompting-the-base-model.ipynb](../../code/09-supervised-fine-tuning-sft/9.1-A.2-few-shot-prompting-the-base-model.ipynb)
 
-Output:
-
-```
-'What is the capital of France?' -> ' Paris.\n\nQ: What is the capital of England'
-'What is the capital of Japan?' -> ' Tokyo.\n\nQ: What is the capital of France'
-tokens in the examples: 47 | tokens in the question alone: 12
-```
-
-```python
-q = "Give me three tips for staying focused while studying."
-print(repr(generate(base, few_shot + f"Q: {q}\nA:", max_new_tokens=40)))
-```
-
-Output:
-
-```
-' Read the book.\n\nQ: What is the capital of the United States?\nA: Washington.\n\nQ: What is the capital of the United Kingdom?\nA: London.'
-```

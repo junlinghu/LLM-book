@@ -125,278 +125,35 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Six tasks with checkable answers, each with three training phrasings and one held-out phrasing.
 
-```python
-import random, math, time
-import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-torch.set_num_threads(4)
-WORDS = ("apple river stone cloud garden window candle forest pencil mirror ocean silver "
-         "basket rocket island winter summer planet dragon castle butter meadow violin "
-         "tiger lemon piano wallet bridge jacket carpet rabbit button harbor lantern "
-         "orange parrot saddle ticket valley wizard anchor bottle circle desert engine "
-         "feather guitar hammer jungle kettle ladder marble needle pepper puzzle ribbon "
-         "shadow thunder tunnel velvet walnut yellow zipper blanket cactus dolphin").split()
-
-def sentence(rng):
-    return " ".join(rng.sample(WORDS, rng.randint(3, 6)))
-
-TASKS = {  # name: (phrasings; the last one is held out, answer function, input maker)
-    "upper": (["Convert to uppercase: {x}", "Write {x} in capital letters.",
-               "Uppercase this word: {x}", "Rewrite the word {x} using only capital letters."],
-              lambda x: x.upper(), lambda r: r.choice(WORDS)),
-    "first": (["What is the first letter of '{x}'?", "Give the first letter of the word {x}.",
-               "Which letter does '{x}' start with?", "Tell me the initial letter of {x}."],
-              lambda x: x[0], lambda r: r.choice(WORDS)),
-    "repeat": (["Repeat the word {x} three times.", "Say {x} three times, separated by spaces.",
-                "Write '{x}' 3 times.", "Output the word {x} thrice."],
-               lambda x: " ".join([x] * 3), lambda r: r.choice(WORDS)),
-    "count": (["How many words are in this text: {x}", "Count the words: {x}",
-               "Number of words in '{x}'?", "Tell me how many words this has: {x}"],
-              lambda x: str(len(x.split())), sentence),
-    "last": (["What is the last word of: {x}", "Give the final word of '{x}'.",
-              "Which word comes last in: {x}", "Name the word at the end of: {x}"],
-             lambda x: x.split()[-1], sentence),
-    "add": (["What is {a} + {b}?", "Add {a} and {b}.", "Compute {a} plus {b}.",
-             "What do you get when you add {a} to {b}?"],
-            None, lambda r: (r.randint(10, 49), r.randint(1, 9))),
-}
-
-def make_example(task, rng, held_out=False):
-    phrasings, answer, make = TASKS[task]
-    p = phrasings[-1] if held_out else rng.choice(phrasings[:-1])
-    x = make(rng)
-    if task == "add":
-        return p.format(a=x[0], b=x[1]), str(x[0] + x[1])
-    return p.format(x=x), answer(x)
-
-rng = random.Random(0)
-train = [make_example(t, rng) for _ in range(100) for t in TASKS]
-test_seen = [make_example(t, rng) for _ in range(5) for t in TASKS]
-test_new = [make_example(t, rng, held_out=True) for _ in range(5) for t in TASKS]
-print(len(train), "training examples,", len(test_seen), "test (seen phrasings),",
-      len(test_new), "test (held-out phrasings)")
-print("seen-phrasing test examples that also occur in the training set:",
-      sum(ex in set(train) for ex in test_seen))
-for q, a in train[:6]:
-    print(f"  {q!r} -> {a!r}")
-```
-
-Output:
-
-```
-600 training examples, 30 test (seen phrasings), 30 test (held-out phrasings)
-seen-phrasing test examples that also occur in the training set: 6
-  'Write pepper in capital letters.' -> 'PEPPER'
-  "What is the first letter of 'lantern'?" -> 'l'
-  "Write 'zipper' 3 times." -> 'zipper zipper zipper'
-  'Count the words: yellow feather bridge cactus planet' -> '5'
-  "Give the final word of 'basket harbor dragon wizard'." -> 'wizard'
-  'What is 14 + 6?' -> '20'
-```
+Notebook: [9.5-A.1-a-synthetic-instruction-dataset.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.1-a-synthetic-instruction-dataset.ipynb)
 
 ### A.2 Tokenizing with loss masks and padding
 
 Format every example with the ChatML template and mask everything except the answer and its end-of-turn token.
 
-```python
-tok = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
-IM_START, IM_END = "<|im_start|>", "<|im_end|>"
-
-def prompt_text(q):
-    return f"{IM_START}user\n{q}{IM_END}\n{IM_START}assistant\n"
-
-def encode(q, a, mask_prompt=True):
-    p = tok(prompt_text(q), add_special_tokens=False).input_ids
-    r = tok(a + IM_END, add_special_tokens=False).input_ids
-    labels = ([-100] * len(p) if mask_prompt else p) + r
-    return p + r, labels
-
-def collate(batch):
-    n = max(len(ids) for ids, _ in batch)
-    ids = torch.full((len(batch), n), tok.pad_token_id or 0)
-    labels = torch.full((len(batch), n), -100)
-    attn = torch.zeros((len(batch), n), dtype=torch.long)
-    for i, (x, y) in enumerate(batch):
-        ids[i, :len(x)], labels[i, :len(y)], attn[i, :len(x)] = torch.tensor(x), torch.tensor(y), 1
-    return ids, labels, attn
-
-ids, labels = encode(*train[0])
-print("prompt + answer tokens:", len(ids), "| trained:", sum(l != -100 for l in labels))
-print("trained:", [tok.decode([t]) for t, l in zip(ids, labels) if l != -100])
-```
-
-Output:
-
-```
-prompt + answer tokens: 19 | trained: 4
-trained: ['P', 'EP', 'PER', '<|im_end|>']
-```
+Notebook: [9.5-A.2-tokenizing-with-loss-masks-and-padding.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.2-tokenizing-with-loss-masks-and-padding.ipynb)
 
 ### A.3 Packing with a block-diagonal mask
 
 Check that two packed examples give exactly the same logits as the examples run separately.
 
-```python
-model = AutoModelForCausalLM.from_pretrained("HuggingFaceTB/SmolLM2-135M", dtype=torch.float32).eval()
-a, _ = encode(*train[0]); b, _ = encode(*train[1])
-with torch.no_grad():
-    la = model(torch.tensor([a])).logits[0]
-    lb = model(torch.tensor([b])).logits[0]
-    n, L = len(a) + len(b), len(a)
-    allowed = torch.zeros(n, n, dtype=torch.bool)
-    allowed[:L, :L] = torch.tril(torch.ones(L, L, dtype=torch.bool))
-    allowed[L:, L:] = torch.tril(torch.ones(n - L, n - L, dtype=torch.bool))
-    mask = torch.zeros(1, 1, n, n).masked_fill(~allowed, float("-inf"))
-    pos = torch.tensor([list(range(L)) + list(range(n - L))])
-    packed = model(torch.tensor([a + b]), attention_mask=mask, position_ids=pos).logits[0]
-    naive = model(torch.tensor([a + b])).logits[0]
-same = torch.allclose(packed[:L], la, atol=1e-3) and torch.allclose(packed[L:], lb, atol=1e-3)
-print("block-diagonal mask, same logits as separate runs (within 1e-3):", same)
-print("plain causal mask, max logit difference on the second example:",
-      round((naive[L:] - lb).abs().max().item(), 2))
-```
-
-Output:
-
-```
-block-diagonal mask, same logits as separate runs (within 1e-3): True
-plain causal mask, max logit difference on the second example: 24.18
-```
+Notebook: [9.5-A.3-packing-with-a-block-diagonal-mask.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.3-packing-with-a-block-diagonal-mask.ipynb)
 
 ### A.4 Evaluation: exact match and forgetting
 
 Greedy answers scored by exact match, and perplexity on held-out Shakespeare as a measure of forgetting.
 
-```python
-import os, urllib.request
-URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-if not os.path.exists("shakespeare.txt"):
-    urllib.request.urlretrieve(URL, "shakespeare.txt")
-text = open("shakespeare.txt", encoding="utf-8").read()
-held = tok(text[-20000:], add_special_tokens=False).input_ids
-blocks = [held[i:i + 128] for i in range(0, 20 * 128, 128)]
-
-@torch.no_grad()
-def accuracy(model, data):
-    model.eval()
-    correct = 0
-    for q, a in data:
-        ids = torch.tensor([tok(prompt_text(q), add_special_tokens=False).input_ids])
-        out = model.generate(ids, max_new_tokens=12, do_sample=False,
-                             eos_token_id=tok.convert_tokens_to_ids(IM_END),
-                             pad_token_id=tok.convert_tokens_to_ids(IM_END))
-        pred = tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True).strip()
-        correct += pred == a
-    return correct / len(data)
-
-@torch.no_grad()
-def perplexity(model):
-    model.eval()
-    x = torch.tensor(blocks)
-    return math.exp(model(x, labels=x).loss.item())
-
-def report(name, model):
-    print(f"{name:34s} seen {accuracy(model, test_seen):.2f}  held-out phrasing "
-          f"{accuracy(model, test_new):.2f}  Shakespeare ppl {perplexity(model):.1f}")
-
-report("base, no fine-tuning", model)
-instruct = AutoModelForCausalLM.from_pretrained("HuggingFaceTB/SmolLM2-135M-Instruct",
-                                                dtype=torch.float32)
-report("SmolLM2-135M-Instruct (reference)", instruct)
-del instruct
-```
-
-Output:
-
-```
-base, no fine-tuning               seen 0.00  held-out phrasing 0.00  Shakespeare ppl 41.7
-SmolLM2-135M-Instruct (reference)  seen 0.00  held-out phrasing 0.00  Shakespeare ppl 56.5
-```
+Notebook: [9.5-A.4-evaluation-exact-match-and-forgetting.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.4-evaluation-exact-match-and-forgetting.ipynb)
 
 ### A.5 Full fine-tuning
 
 Train the base model on the synthetic data with AdamW, warmup, and linear decay, with and without the prompt mask.
 
-```python
-def finetune(mask_prompt, steps=120, batch_size=8, lr=5e-5, warmup=10, seed=0):
-    torch.manual_seed(seed)
-    model = AutoModelForCausalLM.from_pretrained("HuggingFaceTB/SmolLM2-135M", dtype=torch.float32)
-    data = [encode(q, a, mask_prompt) for q, a in train]
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)
-    sched = torch.optim.lr_scheduler.LambdaLR(
-        opt, lambda s: min((s + 1) / warmup, (steps - s) / (steps - warmup)))
-    order = random.Random(seed)
-    model.train()
-    for step in range(steps):
-        batch = order.sample(data, batch_size)
-        ids, labels, attn = collate(batch)
-        loss = model(input_ids=ids, attention_mask=attn, labels=labels).loss
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        opt.step(); sched.step(); opt.zero_grad()
-        if (step + 1) % 40 == 0:
-            print(f"  step {step + 1}: training loss {loss.item():.3f}")
-    return model
-
-start = time.time()
-masked = finetune(mask_prompt=True)
-report("fine-tuned, prompt masked", masked)
-unmasked = finetune(mask_prompt=False)
-report("fine-tuned, loss on all tokens", unmasked)
-print(f"(both runs: {(time.time() - start) / 60:.0f} minutes on 4 CPU threads)")
-```
-
-Output:
-
-```
-  step 40: training loss 1.738
-  step 80: training loss 0.312
-  step 120: training loss 0.222
-fine-tuned, prompt masked          seen 0.63  held-out phrasing 0.60  Shakespeare ppl 47.0
-  step 40: training loss 1.343
-  step 80: training loss 0.744
-  step 120: training loss 0.658
-fine-tuned, loss on all tokens     seen 0.67  held-out phrasing 0.57  Shakespeare ppl 53.0
-(both runs: 12 minutes on 4 CPU threads)
-```
-
-```python
-for q, a in test_new[::5]:
-    ids = torch.tensor([tok(prompt_text(q), add_special_tokens=False).input_ids])
-    with torch.no_grad():
-        out = masked.generate(ids, max_new_tokens=12, do_sample=False,
-                              eos_token_id=tok.convert_tokens_to_ids(IM_END),
-                              pad_token_id=tok.convert_tokens_to_ids(IM_END))
-    print(f"{q!r}: {tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True)!r} (target {a!r})")
-```
-
-Output:
-
-```
-'Rewrite the word river using only capital letters.': 'RULE OF FORCE' (target 'RIVER')
-'What do you get when you add 47 to 4?': '51' (target '51')
-'Name the word at the end of: wizard circle lemon feather cloud meadow': 'meadow' (target 'meadow')
-'Tell me how many words this has: orange mirror tunnel butter rocket': '5' (target '5')
-'Output the word ticket thrice.': 'ticket ticket' (target 'ticket ticket ticket')
-'Tell me the initial letter of planet.': 'p' (target 'p')
-```
+Notebook: [9.5-A.5-full-fine-tuning.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.5-full-fine-tuning.ipynb)
 
 ### A.6 The memory bill for full fine-tuning
 
 Count the bytes for weights, gradients, and Adam state under mixed precision.
 
-```python
-P = sum(p.numel() for p in masked.parameters())
-for name, n in [("SmolLM2-135M", P), ("a 7-billion-parameter model", 7e9)]:
-    print(f"{name}: {n / 1e6:,.0f}M parameters x 16 bytes = {16 * n / 1e9:.1f} GB "
-          f"(weights 2, gradients 2, FP32 master weights 4, Adam moments 8)")
-```
+Notebook: [9.5-A.6-the-memory-bill-for-full-fine-tuning.ipynb](../../code/09-supervised-fine-tuning-sft/9.5-A.6-the-memory-bill-for-full-fine-tuning.ipynb)
 
-Output:
-
-```
-SmolLM2-135M: 135M parameters x 16 bytes = 2.2 GB (weights 2, gradients 2, FP32 master weights 4, Adam moments 8)
-a 7-billion-parameter model: 7,000M parameters x 16 bytes = 112.0 GB (weights 2, gradients 2, FP32 master weights 4, Adam moments 8)
-```

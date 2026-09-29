@@ -62,25 +62,7 @@ Cosine decay was popularized by Loshchilov and Hutter (2017) in SGDR ("stochasti
 
 Most LLM pretraining runs use **linear warmup followed by cosine decay** (or linear decay) to a small final learning rate, often around 10% of the peak or lower. In code:
 
-```python
-import math
-
-def lr_at(step, peak_lr, warmup_steps, total_steps, min_lr_ratio=0.1):
-    min_lr = peak_lr * min_lr_ratio
-    if step < warmup_steps:
-        return peak_lr * (step + 1) / warmup_steps
-    progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
-    progress = min(progress, 1.0)
-    return min_lr + 0.5 * (peak_lr - min_lr) * (1 + math.cos(math.pi * progress))
-
-# PyTorch: apply via LambdaLR, which multiplies the optimizer's base lr
-import torch
-model = torch.nn.Linear(10, 10)
-opt = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
-sched = torch.optim.lr_scheduler.LambdaLR(
-    opt, lambda step: lr_at(step, 1.0, warmup_steps=1000, total_steps=100_000))
-# In the training loop: loss.backward(); opt.step(); sched.step(); opt.zero_grad()
-```
+Notebook: [3.7-warmup-plus-decay-for-llm-pretraining.ipynb](../../code/03-deep-neural-networks/3.7-warmup-plus-decay-for-llm-pretraining.ipynb)
 
 A consequence of cosine decay is that the schedule depends on the total number of steps $`T`$. The learning rate at step 50,000 is different in a 100,000-step run than in a 200,000-step run. So a model trained with a cosine schedule to $`T`$ steps cannot simply be "trained longer" without re-warming or re-planning the schedule, and a checkpoint taken mid-run is not equivalent to a finished shorter run. This has motivated schedules that hold the learning rate constant for most of training and then decay quickly at the end (sometimes called warmup-stable-decay), so that a run can be extended or branched from any point in the constant phase. The underlying principle is the same as above: large steps for progress, then a decay phase to settle.
 
@@ -98,23 +80,7 @@ A **learning-rate range test**, popularized by Smith (2017), trains the model br
 
 A reasonable peak learning rate lies somewhat below the point where the loss is lowest, often about an order of magnitude below where divergence begins. The test is cheap, costing a few hundred steps, and gives a principled starting point.
 
-```python
-def lr_range_test(model, loss_fn, data_iter, opt, lr_min=1e-7, lr_max=10.0, steps=200):
-    lrs, losses = [], []
-    factor = (lr_max / lr_min) ** (1 / steps)
-    lr = lr_min
-    for _ in range(steps):
-        for g in opt.param_groups:
-            g["lr"] = lr
-        x, y = next(data_iter)
-        loss = loss_fn(model(x), y)
-        opt.zero_grad(); loss.backward(); opt.step()
-        lrs.append(lr); losses.append(loss.item())
-        if loss.item() > 4 * min(losses):     # stop once clearly diverging
-            break
-        lr *= factor
-    return lrs, losses
-```
+Notebook: [3.7-the-learning-rate-range-test.ipynb](../../code/03-deep-neural-networks/3.7-the-learning-rate-range-test.ipynb)
 
 Remember to reinitialize the model after the test; it has been trained, and at the end damaged, by the sweep.
 

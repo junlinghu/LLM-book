@@ -80,20 +80,7 @@ for a total of about 6.7 billion, in line with the published size. (The MLP has 
 
 Llama 3 8B has the same $L$ and $d$ but uses grouped-query attention with 8 key-value heads, a wider MLP ($d_{\text{ff}} = 14336$), and a much larger vocabulary (128,256 tokens). Counting exactly is easy in code:
 
-```python
-def param_count(L, d, n_heads, n_kv_heads, d_ff, vocab, tied_embeddings=False, gated_mlp=True):
-    d_head = d // n_heads
-    attn = 2 * d * d + 2 * d * (n_kv_heads * d_head)       # W_Q, W_O, W_K, W_V
-    mlp = (3 if gated_mlp else 2) * d * d_ff
-    norms = 2 * d                                            # two RMSNorm weight vectors
-    blocks = L * (attn + mlp + norms)
-    emb = vocab * d * (1 if tied_embeddings else 2)
-    return blocks, emb, blocks + emb
-
-blocks, emb, total = param_count(L=32, d=4096, n_heads=32, n_kv_heads=8, d_ff=14336, vocab=128256)
-print(f"blocks {blocks/1e9:.2f}B, embeddings {emb/1e9:.2f}B, total {total/1e9:.2f}B")
-# blocks 6.98B, embeddings 1.05B, total 8.03B
-```
+Notebook: [13.2-a-worked-example-llama-2-7b-and-llama-3-8b.ipynb](../../code/13-inference/13.2-a-worked-example-llama-2-7b-and-llama-3-8b.ipynb)
 
 Per layer, Llama 3 8B has about 42M attention parameters and 176M MLP parameters, so its MLP share is even larger than two thirds. Note also that its embeddings account for more than 1 billion parameters. The input embedding costs no FLOPs, but the output projection to 128,256 logits costs $2 \cdot 128256 \cdot 4096 \approx 1.05$ GFLOPs per token, more than the $\approx 0.44$ GFLOPs of a single block's attention projections.
 
@@ -157,24 +144,7 @@ Each of these trades some modeling flexibility for cost. Standard full attention
 
 The following function estimates the forward FLOPs to generate one token at a given context length, and the FLOPs of a full prefill:
 
-```python
-def flops_per_token(n_params_nonembed, L, d, vocab, context):
-    weights = 2 * n_params_nonembed           # attention projections + MLP
-    lm_head = 2 * vocab * d                   # output projection to logits
-    attention = 4 * L * context * d           # q.K and a.V over the context
-    return weights + lm_head + attention
-
-def prefill_flops(n_params_nonembed, L, d, vocab, prompt_len):
-    weights = 2 * n_params_nonembed * prompt_len
-    lm_head = 2 * vocab * d                   # logits are needed only for the last position
-    attention = 2 * L * d * prompt_len ** 2   # causal: sum over t of 4*L*t*d
-    return weights + lm_head + attention
-
-# Llama 3 8B: about 6.98e9 parameters in the blocks
-for ctx in [1_000, 8_000, 32_000, 128_000]:
-    f = flops_per_token(6.98e9, L=32, d=4096, vocab=128256, context=ctx)
-    print(f"context {ctx:>7,}: {f/1e9:6.1f} GFLOPs per generated token")
-```
+Notebook: [13.2-putting-numbers-together.ipynb](../../code/13-inference/13.2-putting-numbers-together.ipynb)
 
 For Llama 3 8B, this gives about 15 GFLOPs per token at short context and roughly 82 GFLOPs at 128,000 tokens, where attention dominates. The third suggested code lab asks you to extend this function with the KV cache size from Section 4 for a model configuration of your choice.
 

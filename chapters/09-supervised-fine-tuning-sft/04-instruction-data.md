@@ -135,168 +135,23 @@ These listings reproduce the examples in this section. Run them in order in one 
 
 Turn four labeled sentiment examples into instruction-response pairs with three templates, in the style of FLAN.
 
-```python
-import random, re, hashlib
-from collections import Counter
-
-labeled = [("The food was wonderful and the staff were friendly.", "positive"),
-           ("I waited an hour and my order was wrong.", "negative"),
-           ("Best concert I have been to in years!", "positive"),
-           ("The battery died after two days.", "negative")]
-templates = [
-    ("Is the sentiment of this review positive or negative?\n\n{text}", "{label}"),
-    ("{text}\n\nDid the writer like the experience? Answer yes or no.", "{yesno}"),
-    ("Classify the review as positive or negative.\nReview: {text}\nSentiment:", "{label}"),
-]
-random.seed(0)
-examples = []
-for text, label in labeled:
-    for prompt_t, answer_t in templates:
-        fields = {"text": text, "label": label, "yesno": "yes" if label == "positive" else "no"}
-        examples.append({"prompt": prompt_t.format(**fields), "response": answer_t.format(**fields)})
-print(len(examples), "instruction examples from", len(labeled), "labeled examples")
-for ex in random.sample(examples, 2):
-    print("---\nPROMPT:", ex["prompt"], "\nRESPONSE:", ex["response"])
-```
-
-Output:
-
-```
-12 instruction examples from 4 labeled examples
----
-PROMPT: Is the sentiment of this review positive or negative?
-
-Best concert I have been to in years! 
-RESPONSE: positive
----
-PROMPT: Classify the review as positive or negative.
-Review: The battery died after two days.
-Sentiment: 
-RESPONSE: negative
-```
+Notebook: [9.4-A.1-instruction-templates-for-a-labeled-dataset.ipynb](../../code/09-supervised-fine-tuning-sft/9.4-A.1-instruction-templates-for-a-labeled-dataset.ipynb)
 
 ### A.2 Exact and near-duplicate detection
 
 Find exact duplicates after normalization, and near duplicates by the Jaccard similarity of word 3-grams.
 
-```python
-pool = [
-    "Write a short poem about the ocean.",
-    "Write a short poem about the ocean!",
-    "write a short  poem about the ocean.",
-    "Write a short poem about the sea at night.",
-    "Explain how a rainbow forms.",
-    "Explain how rainbows form in the sky.",
-    "List three uses of baking soda.",
-    "Give me three ways to use baking soda around the house.",
-]
-
-def normalize(s):
-    return re.sub(r"[^a-z0-9 ]", "", re.sub(r"\s+", " ", s.lower())).strip()
-
-seen, unique = {}, []
-for s in pool:
-    h = hashlib.sha1(normalize(s).encode()).hexdigest()
-    if h in seen:
-        print(f"exact duplicate: {s!r} of {seen[h]!r}")
-    else:
-        seen[h] = s
-        unique.append(s)
-
-def shingles(s, n=3):
-    w = normalize(s).split()
-    return {tuple(w[i:i + n]) for i in range(len(w) - n + 1)}
-
-def jaccard(a, b):
-    A, B = shingles(a), shingles(b)
-    return len(A & B) / len(A | B) if A | B else 0.0
-
-pairs = [(jaccard(a, b), a, b) for i, a in enumerate(unique) for b in unique[i + 1:]]
-for score, a, b in sorted(p for p in pairs if p[0] > 0):
-    print(f"{score:.2f}  {a!r} vs {b!r}")
-print(len(pairs), "pairs checked;", sum(s > 0 for s, _, _ in pairs), "share any word 3-gram")
-```
-
-Output:
-
-```
-exact duplicate: 'Write a short poem about the ocean!' of 'Write a short poem about the ocean.'
-exact duplicate: 'write a short  poem about the ocean.' of 'Write a short poem about the ocean.'
-0.50  'Write a short poem about the ocean.' vs 'Write a short poem about the sea at night.'
-15 pairs checked; 1 share any word 3-gram
-```
+Notebook: [9.4-A.2-exact-and-near-duplicate-detection.ipynb](../../code/09-supervised-fine-tuning-sft/9.4-A.2-exact-and-near-duplicate-detection.ipynb)
 
 ### A.3 The Self-Instruct similarity filter
 
 Keep a generated instruction only if its ROUGE-L similarity to every instruction already in the pool is below 0.7.
 
-```python
-def lcs(a, b):
-    dp = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
-    for i, x in enumerate(a):
-        for j, y in enumerate(b):
-            dp[i + 1][j + 1] = dp[i][j] + 1 if x == y else max(dp[i][j + 1], dp[i + 1][j])
-    return dp[-1][-1]
-
-def rouge_l(a, b):
-    a, b = normalize(a).split(), normalize(b).split()
-    l = lcs(a, b)
-    if l == 0:
-        return 0.0
-    p, r = l / len(b), l / len(a)
-    return 2 * p * r / (p + r)
-
-task_pool = ["Write a short poem about the ocean.", "Explain how a rainbow forms.",
-             "List three uses of baking soda."]
-candidates = ["Write a short poem about the moon.",
-              "Explain how a volcano forms.",
-              "Describe the rules of chess in simple terms.",
-              "List three uses of vinegar."]
-for c in candidates:
-    score = max(rouge_l(c, t) for t in task_pool)
-    keep = score < 0.7
-    print(f"{score:.2f} {'keep' if keep else 'drop'}  {c!r}")
-    if keep:
-        task_pool.append(c)
-```
-
-Output:
-
-```
-0.86 drop  'Write a short poem about the moon.'
-0.80 drop  'Explain how a volcano forms.'
-0.14 keep  'Describe the rules of chess in simple terms.'
-0.73 drop  'List three uses of vinegar.'
-```
+Notebook: [9.4-A.3-the-self-instruct-similarity-filter.ipynb](../../code/09-supervised-fine-tuning-sft/9.4-A.3-the-self-instruct-similarity-filter.ipynb)
 
 ### A.4 Decontamination by 13-gram overlap
 
 Flag training examples that share any 13-word sequence with a benchmark question.
 
-```python
-def ngrams(s, n=13):
-    w = normalize(s).split()
-    return {tuple(w[i:i + n]) for i in range(len(w) - n + 1)}
+Notebook: [9.4-A.4-decontamination-by-13-gram-overlap.ipynb](../../code/09-supervised-fine-tuning-sft/9.4-A.4-decontamination-by-13-gram-overlap.ipynb)
 
-benchmark = ["A train leaves the station at 3 pm traveling at 60 miles per hour toward a "
-             "city 180 miles away. At what time does it arrive?"]
-train = [
-    "Solve this: a train leaves the station at 3 pm traveling at 60 miles per hour toward a "
-    "city 180 miles away. At what time does it arrive? Show your work.",
-    "A bus leaves at 9 am traveling at 40 miles per hour toward a town 120 miles away. "
-    "When does it arrive?",
-    "Explain why the sky is blue in two sentences.",
-]
-bench_grams = set().union(*(ngrams(b) for b in benchmark))
-for t in train:
-    hits = len(ngrams(t) & bench_grams)
-    print(f"{hits:2d} shared 13-grams  {'CONTAMINATED' if hits else 'clean':12s} {t[:50]!r}...")
-```
-
-Output:
-
-```
-14 shared 13-grams  CONTAMINATED 'Solve this: a train leaves the station at 3 pm tra'...
- 0 shared 13-grams  clean        'A bus leaves at 9 am traveling at 40 miles per hou'...
- 0 shared 13-grams  clean        'Explain why the sky is blue in two sentences.'...
-```

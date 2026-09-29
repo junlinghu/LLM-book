@@ -126,78 +126,11 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Label smoothing in nn.CrossEntropyLoss matches the formula
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-torch.manual_seed(0)
-V, eps = 10, 0.1
-logits = torch.randn(4, V)
-labels = torch.tensor([3, 0, 7, 3])
-
-q = torch.full((4, V), eps / V)
-q[torch.arange(4), labels] += 1 - eps                        # smoothed targets
-manual = -(q * F.log_softmax(logits, dim=-1)).sum(-1).mean()
-builtin = nn.CrossEntropyLoss(label_smoothing=eps)(logits, labels)
-print(torch.allclose(manual, builtin))                       # True
-```
+Notebook: [7.3-label-smoothing-in-nn-crossentropyloss-matches-the-formula.ipynb](../../code/07-training-a-transformer/7.3-label-smoothing-in-nn-crossentropyloss-matches-the-formula.ipynb)
 
 ### A small training run with the warmup schedule
 
-```python
-import math
-import torch
-import torch.nn as nn
-
-PAD, BOS, EOS, V = 0, 1, 2, 13          # tokens 3..12 are the digits 0..9
-
-class Seq2Seq(nn.Module):
-    def __init__(self, d=64, h=4, N=2, max_len=32):
-        super().__init__()
-        self.emb = nn.Embedding(V, d)
-        nn.init.normal_(self.emb.weight, std=d ** -0.5)     # see note below
-        pos = torch.arange(max_len)[:, None]
-        omega = 10000 ** (-torch.arange(0, d, 2) / d)
-        pe = torch.zeros(max_len, d)
-        pe[:, 0::2], pe[:, 1::2] = torch.sin(pos * omega), torch.cos(pos * omega)
-        self.register_buffer("pe", pe)
-        self.tf = nn.Transformer(d, h, N, N, 4 * d, dropout=0.1, batch_first=True)
-        self.d = d
-    def embed(self, x):
-        return self.emb(x) * math.sqrt(self.d) + self.pe[: x.size(1)]
-    def forward(self, src, tgt_in):
-        n = tgt_in.size(1)
-        causal = torch.triu(torch.ones(n, n, dtype=torch.bool), 1)   # True = blocked
-        out = self.tf(self.embed(src), self.embed(tgt_in), tgt_mask=causal,
-                      src_key_padding_mask=src == PAD, memory_key_padding_mask=src == PAD,
-                      tgt_key_padding_mask=tgt_in == PAD)
-        return out @ self.emb.weight.T                     # tied output projection
-
-def batch(B=64, length=8):                                   # task: reverse a digit sequence
-    src = torch.randint(3, V, (B, length))
-    tgt = src.flip(1)
-    tgt_in = torch.cat([torch.full((B, 1), BOS), tgt], 1)   # shifted right
-    labels = torch.cat([tgt, torch.full((B, 1), EOS)], 1)
-    return src, tgt_in, labels
-
-torch.manual_seed(0)
-model = Seq2Seq()
-opt = torch.optim.Adam(model.parameters(), lr=1.0, betas=(0.9, 0.98), eps=1e-9)
-d, warmup = model.d, 200                                     # short warmup for a short run
-sched = torch.optim.lr_scheduler.LambdaLR(
-    opt, lambda s: d ** -0.5 * min((s + 1) ** -0.5, (s + 1) * warmup ** -1.5))
-loss_fn = nn.CrossEntropyLoss(ignore_index=PAD, label_smoothing=0.1)
-
-print(f"initial loss {loss_fn(model(*batch()[:2]).reshape(-1, V), batch()[2].reshape(-1)).item():.2f}"
-      f" vs ln V = {math.log(V):.2f}")
-for step in range(400):
-    src, tgt_in, labels = batch()
-    loss = loss_fn(model(src, tgt_in).reshape(-1, V), labels.reshape(-1))
-    opt.zero_grad(); loss.backward(); opt.step(); sched.step()
-    if step % 100 == 99:
-        print(f"step {step + 1}: loss {loss.item():.3f}, lr {sched.get_last_lr()[0]:.2e}")
-```
+Notebook: [7.3-a-small-training-run-with-the-warmup-schedule.ipynb](../../code/07-training-a-transformer/7.3-a-small-training-run-with-the-warmup-schedule.ipynb)
 
 ## Further reading
 

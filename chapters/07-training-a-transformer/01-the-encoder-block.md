@@ -125,47 +125,7 @@ The snippets below reproduce the checks and results described in this section. T
 
 ### Encoder block, checked against nn.TransformerEncoderLayer
 
-```python
-import torch
-import torch.nn as nn
-
-class EncoderBlock(nn.Module):
-    def __init__(self, d, h, d_ff, dropout=0.1, pre_norm=False):
-        super().__init__()
-        self.attn = nn.MultiheadAttention(d, h, dropout=dropout, batch_first=True)
-        self.ffn = nn.Sequential(nn.Linear(d, d_ff), nn.ReLU(), nn.Dropout(dropout), nn.Linear(d_ff, d))
-        self.norm1, self.norm2 = nn.LayerNorm(d), nn.LayerNorm(d)
-        self.drop1, self.drop2 = nn.Dropout(dropout), nn.Dropout(dropout)
-        self.pre_norm = pre_norm
-
-    def _sa(self, x, pad):
-        return self.attn(x, x, x, key_padding_mask=pad, need_weights=False)[0]
-
-    def forward(self, x, src_pad=None):          # src_pad: (B, m), True at padding
-        if self.pre_norm:
-            x = x + self.drop1(self._sa(self.norm1(x), src_pad))
-            x = x + self.drop2(self.ffn(self.norm2(x)))
-        else:
-            x = self.norm1(x + self.drop1(self._sa(x, src_pad)))
-            x = self.norm2(x + self.drop2(self.ffn(x)))
-        return x
-
-torch.manual_seed(0)
-d, h, d_ff = 512, 8, 2048
-block = EncoderBlock(d, h, d_ff).eval()          # eval(): dropout off for the comparison
-ref = nn.TransformerEncoderLayer(d, h, d_ff, dropout=0.1, batch_first=True).eval()
-with torch.no_grad():
-    ref.self_attn.load_state_dict(block.attn.state_dict())
-    ref.linear1.load_state_dict(block.ffn[0].state_dict())
-    ref.linear2.load_state_dict(block.ffn[3].state_dict())
-    ref.norm1.load_state_dict(block.norm1.state_dict())
-    ref.norm2.load_state_dict(block.norm2.state_dict())
-
-x = torch.randn(2, 6, d)
-pad = torch.tensor([[False] * 4 + [True] * 2, [False] * 6])    # first sequence has 2 padding tokens
-print(torch.allclose(block(x, pad)[:, :4], ref(x, src_key_padding_mask=pad)[:, :4], atol=1e-5))  # True
-print(sum(p.numel() for p in block.parameters()))   # 3152384 = 12 d^2 + biases and LayerNorm
-```
+Notebook: [7.1-encoder-block-checked-against-nn-transformerencoderlayer.ipynb](../../code/07-training-a-transformer/7.1-encoder-block-checked-against-nn-transformerencoderlayer.ipynb)
 
 The comparison is restricted to non-padding positions because PyTorch may skip computing outputs at padding positions in evaluation mode; those outputs are never used.
 

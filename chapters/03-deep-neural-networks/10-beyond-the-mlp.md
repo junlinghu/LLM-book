@@ -34,21 +34,7 @@ LeCun et al. (1998) used networks of exactly this kind, trained by backpropagati
 
 All the techniques from this chapter apply directly to convolutional networks, and several were developed for them. He initialization (Section 3) was derived for deep ReLU convolutional networks; residual connections (Section 4) and batch normalization (Section 5) made very deep convolutional networks trainable, and ResNets combine both. The training recipe of Section 9 carries over almost unchanged.
 
-```python
-import torch.nn as nn
-
-class ConvBlock(nn.Module):
-    """A residual convolutional block: conv-BN-ReLU-conv-BN, plus identity."""
-    def __init__(self, c):
-        super().__init__()
-        self.f = nn.Sequential(
-            nn.Conv2d(c, c, 3, padding=1, bias=False), nn.BatchNorm2d(c), nn.ReLU(),
-            nn.Conv2d(c, c, 3, padding=1, bias=False), nn.BatchNorm2d(c),
-        )
-        self.act = nn.ReLU()
-    def forward(self, x):
-        return self.act(x + self.f(x))
-```
+Notebook: [3.10-convolutional-networks-in-brief.ipynb](../../code/03-deep-neural-networks/3.10-convolutional-networks-in-brief.ipynb)
 
 This block has $`2 \times 9c^2`$ convolution weights (plus normalization parameters), whether the image is $`32 \times 32`$ or $`1024 \times 1024`$.
 
@@ -63,16 +49,7 @@ Text, speech, and time series are **sequences**: ordered lists $`\mathbf{x}_1, \
 
 The key design choice is weight sharing **across time**: the same matrices $`W_{hh}`$, $`W_{xh}`$, and $`W_{hy}`$ are used at every time step. So an RNN has a fixed number of parameters regardless of sequence length, can process sequences of any length, and applies the same rules at every position. For language modeling, $`\mathbf{x}_t`$ is the embedding of token $`t`$ and $`\mathbf{y}_t`$ gives logits for token $`t+1`$, trained with the cross-entropy loss of Chapter 2 summed over positions.
 
-```python
-import torch
-
-def rnn_forward(xs, h0, W_hh, W_xh, W_hy, b):
-    h, ys = h0, []
-    for x in xs:                                  # one step at a time
-        h = torch.tanh(W_hh @ h + W_xh @ x + b)
-        ys.append(W_hy @ h)
-    return ys, h
-```
+Notebook: [3.10-recurrent-networks-for-sequences.ipynb](../../code/03-deep-neural-networks/3.10-recurrent-networks-for-sequences.ipynb)
 
 ### Backpropagation through time
 

@@ -103,20 +103,7 @@ Observed agreement is $p_o = (70 + 15) / 100 = 0.85$. Annotator 1 says "acceptab
 
 An 85 percent agreement rate sounds high, but after correcting for the fact that most responses are acceptable, agreement is only moderate.
 
-```python
-import numpy as np
-
-def cohens_kappa(labels_a, labels_b) -> float:
-    labels_a, labels_b = np.asarray(labels_a), np.asarray(labels_b)
-    cats = np.union1d(labels_a, labels_b)
-    p_o = np.mean(labels_a == labels_b)
-    p_e = sum(np.mean(labels_a == c) * np.mean(labels_b == c) for c in cats)
-    return (p_o - p_e) / (1 - p_e)
-
-a = ["ok"] * 70 + ["ok"] * 10 + ["bad"] * 5 + ["bad"] * 15
-b = ["ok"] * 70 + ["bad"] * 10 + ["ok"] * 5 + ["bad"] * 15
-print(round(cohens_kappa(a, b), 2))   # 0.57
-```
+Notebook: [12.5-cohen-kappa.ipynb](../../code/12-evaluation/12.5-cohen-kappa.ipynb)
 
 How high should kappa be? A widely cited convention from Landis and Koch labels values of 0.41 to 0.60 "moderate," 0.61 to 0.80 "substantial," and above 0.80 "almost perfect." These labels are rough guides, not laws; what counts as acceptable depends on the task. Subjective judgments like "which response is more helpful" often have only moderate agreement even among careful annotators, and that is itself informative: it tells you how much any single label can be trusted.
 

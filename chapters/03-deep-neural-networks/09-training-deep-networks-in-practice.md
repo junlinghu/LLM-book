@@ -20,63 +20,7 @@ For a new deep network, the following choices are a strong starting point. Each 
 
 Here is the recipe as a compact PyTorch training loop for a residual MLP classifier. It is deliberately minimal but contains every ingredient:
 
-```python
-import math, torch, torch.nn as nn, torch.nn.functional as F
-
-class Block(nn.Module):
-    def __init__(self, d, p_drop=0.1):
-        super().__init__()
-        self.norm = nn.LayerNorm(d)
-        self.fc1, self.fc2 = nn.Linear(d, 4 * d), nn.Linear(4 * d, d)
-        self.drop = nn.Dropout(p_drop)
-    def forward(self, x):                       # pre-norm residual block
-        return x + self.drop(self.fc2(F.gelu(self.fc1(self.norm(x)))))
-
-class ResMLP(nn.Module):
-    def __init__(self, d_in, d, n_blocks, n_classes):
-        super().__init__()
-        self.inp = nn.Linear(d_in, d)
-        self.blocks = nn.ModuleList(Block(d) for _ in range(n_blocks))
-        self.norm = nn.LayerNorm(d)
-        self.head = nn.Linear(d, n_classes)
-        for b in self.blocks:                   # small init for residual outputs
-            nn.init.normal_(b.fc2.weight, std=0.02 / math.sqrt(2 * n_blocks))
-            nn.init.zeros_(b.fc2.bias)
-    def forward(self, x):
-        x = self.inp(x.flatten(1))
-        for b in self.blocks:
-            x = b(x)
-        return self.head(self.norm(x))
-
-def train(model, train_loader, total_steps, peak_lr=1e-3, warmup=500, device="cuda"):
-    model.to(device).train()
-    decay = [p for n, p in model.named_parameters() if p.ndim >= 2]
-    no_decay = [p for n, p in model.named_parameters() if p.ndim < 2]
-    opt = torch.optim.AdamW([{"params": decay, "weight_decay": 0.05},
-                             {"params": no_decay, "weight_decay": 0.0}], lr=peak_lr)
-    def lr_lambda(step):
-        if step < warmup:
-            return (step + 1) / warmup
-        s = min(1.0, (step - warmup) / max(1, total_steps - warmup))
-        return 0.1 + 0.9 * 0.5 * (1 + math.cos(math.pi * s))
-    sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
-
-    step = 0
-    while step < total_steps:
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
-            with torch.autocast(device_type=device, dtype=torch.bfloat16):
-                loss = F.cross_entropy(model(x), y)
-            opt.zero_grad(set_to_none=True)
-            loss.backward()
-            gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step(); sched.step(); step += 1
-            if step % 100 == 0:
-                print(f"step {step} loss {loss.item():.4f} gnorm {gnorm:.2f} "
-                      f"lr {sched.get_last_lr()[0]:.2e}")
-            if step >= total_steps:
-                break
-```
+Notebook: [3.9-a-baseline-recipe.ipynb](../../code/03-deep-neural-networks/3.9-a-baseline-recipe.ipynb)
 
 The chapter's final suggested code lab trains a model like this on Fashion-MNIST, then runs an **ablation**: remove one ingredient at a time (no residuals, no normalization, plain SGD instead of AdamW, no warmup, no clipping) and compare the loss curves. Ablations are the most reliable way to learn which ingredients matter for a given problem; the answer varies with depth, data, and scale.
 
@@ -105,16 +49,7 @@ Micikevicius et al. (2018) described the standard approach:
 
 With **BF16**, the range matches FP32's, so gradient underflow is rarely a problem and loss scaling is usually unnecessary. Kalamkar et al. (2019) studied BF16 training across image classification, speech recognition, language modeling, and other workloads, and emphasized that because BF16 keeps FP32's range, no hyperparameter tuning is required for convergence, unlike FP16. This simplicity is why BF16 is the common choice for training large models on hardware that supports it. In PyTorch, `torch.autocast` handles the casting (keeping sensitive operations in FP32 automatically), and for FP16 a `torch.amp.GradScaler` handles dynamic loss scaling:
 
-```python
-scaler = torch.amp.GradScaler("cuda")         # only needed for FP16
-with torch.autocast(device_type="cuda", dtype=torch.float16):
-    loss = loss_fn(model(x), y)
-scaler.scale(loss).backward()
-scaler.unscale_(opt)                           # so clipping sees true gradients
-torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-scaler.step(opt)                               # skips the step if grads overflowed
-scaler.update()
-```
+Notebook: [3.9-the-recipe.ipynb](../../code/03-deep-neural-networks/3.9-the-recipe.ipynb)
 
 Note the `unscale_` call before clipping: clipping must operate on the true gradients, not the scaled ones.
 
@@ -142,16 +77,7 @@ For 10 classes, that is about 2.30; for a language model with a vocabulary of 50
 
 This ratio says how much each step changes the layer in relative terms. A commonly cited rule of thumb is that it should be somewhere around $`10^{-3}`$ per step: much larger suggests the learning rate is too high for that layer, and much smaller suggests the layer is barely learning. It is a rough heuristic, not a law, but plotting it per layer quickly reveals layers that are frozen or thrashing.
 
-```python
-@torch.no_grad()
-def update_ratios(model, prev_params):
-    out = {}
-    for name, p in model.named_parameters():
-        if p.ndim >= 2:
-            out[name] = ((p - prev_params[name]).norm() / (prev_params[name].norm() + 1e-12)).item()
-    return out
-# usage: prev = {n: p.detach().clone() for n, p in model.named_parameters()}; opt.step(); update_ratios(model, prev)
-```
+Notebook: [3.9-a-debugging-checklist.ipynb](../../code/03-deep-neural-networks/3.9-a-debugging-checklist.ipynb)
 
 **5. Watch for loss spikes and NaN values.** A loss spike is a sudden jump in the training loss. Small spikes that recover quickly are common; large ones that do not recover indicate instability. NaN losses are fatal. Common causes and fixes:
 
@@ -172,12 +98,7 @@ Deep learning experiments are noisy: two runs that differ only in their random s
 
 **Seeds.** Set the random seeds for Python, NumPy, and PyTorch at the start of each run, and record them:
 
-```python
-import random, numpy as np, torch
-def set_seed(seed):
-    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-```
+Notebook: [3.9-reproducibility.ipynb](../../code/03-deep-neural-networks/3.9-reproducibility.ipynb)
 
 Seeds control initialization, data shuffling, dropout masks, and augmentation. Even with fixed seeds, results on GPUs may not be bit-for-bit identical, because some operations are nondeterministic for speed (such as some atomic additions in parallel reductions). PyTorch's `torch.use_deterministic_algorithms(True)` forces deterministic implementations where available, at some cost in speed. For comparing methods, the more important practice is to run **several seeds** and report the spread, rather than one run each.
 
@@ -185,11 +106,7 @@ Seeds control initialization, data shuffling, dropout masks, and augmentation. E
 
 **Checkpointing.** Save checkpoints periodically, including not only the model weights but also the **optimizer state** (Adam's moments), the **learning-rate scheduler state**, the step count, and the random number generator states. Resuming from weights alone restarts Adam's moment estimates from zero and resets the schedule, which can cause a loss spike and changes the run. For long runs, checkpoints are also insurance against hardware failures.
 
-```python
-torch.save({"model": model.state_dict(), "opt": opt.state_dict(),
-            "sched": sched.state_dict(), "step": step,
-            "rng": torch.get_rng_state()}, "ckpt.pt")
-```
+Notebook: [3.9-reproducibility-2.ipynb](../../code/03-deep-neural-networks/3.9-reproducibility-2.ipynb)
 
 ## Scaling up the recipe
 

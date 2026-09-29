@@ -1,5 +1,5 @@
 # code: Deep Neural Networks
 
-Labs and figure scripts for this chapter will appear here as the chapter is written.
+Notebooks for the worked examples in Chapter 3 (Sections 3.1–3.10). Each listing in [`chapters/03-deep-neural-networks/`](../../chapters/03-deep-neural-networks/) links to a notebook in this folder.
 
-Prose and rendered figures stay in [`chapters/03-deep-neural-networks/`](../../chapters/03-deep-neural-networks/).
+Prose stays in the chapter. These notebooks use PyTorch.

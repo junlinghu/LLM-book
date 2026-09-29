@@ -46,25 +46,7 @@ $$
 
 The intuition is that there are many ways to reason to a correct answer but errors tend to scatter across different wrong answers, so the correct answer is often the plurality even if no single chain is reliable. Self-consistency needs no extra model, and the vote share also serves as a confidence signal (Chapter 12 uses the same idea to flag likely hallucinations). It requires answers that can be compared, such as numbers, multiple-choice letters, or short strings; for free-form text, a model can be asked to pick the most consistent response.
 
-```python
-import re
-from collections import Counter
-
-def extract_answer(text):
-    """Take the last number in the response as its final answer."""
-    nums = re.findall(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
-    return nums[-1] if nums else None
-
-def self_consistency(generate, question, n=8, temperature=0.8):
-    """generate(prompt, temperature) -> str. Returns the majority answer and its vote share."""
-    prompt = f"{question}\nThink step by step, then give the final answer as a number."
-    answers = [extract_answer(generate(prompt, temperature)) for _ in range(n)]
-    votes = Counter(a for a in answers if a is not None)
-    if not votes:
-        return None, 0.0
-    answer, count = votes.most_common(1)[0]
-    return answer, count / n
-```
+Notebook: [13.9-self-consistency.ipynb](../../code/13-inference/13.9-self-consistency.ipynb)
 
 In a serving system the $N$ samples share the same prompt, so a paged KV cache (Section 4) stores the prompt's cache once and the samples can run in the same batch, making parallel sampling cheaper than $N$ separate requests.
 

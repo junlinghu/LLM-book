@@ -111,61 +111,11 @@ These listings reproduce the results quoted in this section. Run them in order i
 
 Encode a sentence with GPT-2's tokenizer, show each ID's piece, and decode the IDs back to text.
 
-```python
-import tiktoken
-
-enc = tiktoken.get_encoding("gpt2")
-ids = enc.encode("Tokenization is the first step.")
-print(ids)
-print([enc.decode([i]) for i in ids])
-print(enc.decode(ids))
-```
-
-Output:
-
-```
-[30642, 1634, 318, 262, 717, 2239, 13]
-['Token', 'ization', ' is', ' the', ' first', ' step', '.']
-Tokenization is the first step.
-```
+Notebook: [5.1-A.1-encoding-and-decoding-with-tiktoken.ipynb](../../code/05-tokenizer/5.1-A.1-encoding-and-decoding-with-tiktoken.ipynb)
 
 ### A.2 One sentence, five tokenizers
 
 Encode the same sentence with three `tiktoken` encodings, then with BERT's and T5's tokenizers. The printed lines are wrapped here.
 
-```python
-s = "Tokenizers don't see words; they see 1,234 bytes of ünïcödé."
-for name in ["gpt2", "cl100k_base", "o200k_base"]:
-    enc = tiktoken.get_encoding(name)
-    ids = enc.encode(s)
-    print(name, len(ids), [enc.decode([i]) for i in ids])
-```
+Notebook: [5.1-A.2-one-sentence-five-tokenizers.ipynb](../../code/05-tokenizer/5.1-A.2-one-sentence-five-tokenizers.ipynb)
 
-Output:
-
-```
-gpt2 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
-  ' 1', ',', '234', ' bytes', ' of', ' �', '�', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
-cl100k_base 23 ['Token', 'izers', ' don', "'t", ' see', ' words', ';', ' they', ' see',
-  ' ', '1', ',', '234', ' bytes', ' of', ' ü', 'n', 'ï', 'c', 'ö', 'd', 'é', '.']
-o200k_base 19 ['Token', 'izers', " don't", ' see', ' words', ';', ' they', ' see',
-  ' ', '1', ',', '234', ' bytes', ' of', ' ün', 'ïc', 'öd', 'é', '.']
-```
-
-```python
-from transformers import AutoTokenizer
-
-for name in ["bert-base-uncased", "google-t5/t5-small"]:
-    tok = AutoTokenizer.from_pretrained(name)
-    pieces = tok.tokenize(s)
-    print(name, len(pieces), pieces)
-```
-
-Output:
-
-```
-bert-base-uncased 18 ['token', '##izer', '##s', 'don', "'", 't', 'see', 'words', ';', 'they',
-  'see', '1', ',', '234', 'bytes', 'of', 'unicode', '.']
-google-t5/t5-small 26 ['▁To', 'ken', 'izer', 's', '▁don', "'", 't', '▁see', '▁words', ';',
-  '▁they', '▁see', '▁1,', '2', '34', '▁by', 'tes', '▁of', '▁', 'ü', 'n', 'ï', 'c', 'ö', 'dé', '.']
-```
