@@ -1,4 +1,4 @@
-# Chapter 13: More RL Methods for LLMs (PPO Variants, DPO, etc.)
+# Chapter 13: More RL Methods for LLMs
 
 Chapter 10 covered the classic RLHF pipeline (a reward model and PPO) and the models it produced. This chapter starts with that pipeline's limitations and then surveys the methods that came after it: variants that make PPO cheaper or more stable, methods that learn directly from preferences without a separate reward model or RL loop, and methods that use verifiable rewards to train reasoning.
 
