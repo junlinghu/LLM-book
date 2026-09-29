@@ -1,6 +1,6 @@
 # 8.2 The GPT Architecture
 
-Section 1 reduced the Chapter 6 Transformer to a decoder-only model. This section makes that model concrete, and almost nothing in it is new: a GPT is token embeddings, learned position embeddings, a stack of decoder blocks without cross-attention, a final LayerNorm, and an output projection tied to the embedding, all parts built in Chapter 6. We follow the arrangement of GPT-2 (Radford et al. 2019), count its parameters with the rules of Section 7.5 and check the count against the released GPT-2 and GPT-3 models, and then look at three substitutions that most recent models make inside the same block: RMSNorm, rotary position embeddings, and a SwiGLU feed-forward network.
+Section 1 reduced the Chapter 6 Transformer to a decoder-only model. This section makes that model concrete, and almost nothing in it is new: a GPT is token embeddings, learned position embeddings, a stack of decoder blocks without cross-attention, a final LayerNorm, and an output projection tied to the embedding, all parts built in Chapters 6 and 7. We follow the arrangement of GPT-2 (Radford et al. 2019), count its parameters with the rules of Section 7.5 and check the count against the released GPT-2 and GPT-3 models, and then look at three substitutions that most recent models make inside the same block: RMSNorm, rotary position embeddings, and a SwiGLU feed-forward network.
 
 ## The model
 
@@ -364,7 +364,7 @@ print(f"{(12 * N * d**2 + V * d + n_max * d) / 1e9:.1f}B")
 - Each block has masked multi-head self-attention and a GELU FFN, each on a residual branch; GPT-2 moved LayerNorm to the input of each sublayer (pre-norm) and scaled the residual branches' output weights by $`1/\sqrt{2N}`$ at initialization.
 - A block has about $`12d^2`$ weights, so $`P \approx 12Nd^2 + Vd + n_{\max} d`$: 124.3 million for GPT-2 small (124,439,808 with biases and LayerNorms, the released checkpoint's size, although the paper reported 117 million) and 174.6 billion for GPT-3.
 - Recent models swap in RMSNorm, rotary position embeddings, and a SwiGLU FFN with $`d_{\text{ff}} = \tfrac{8}{3} d`$, which keeps the FFN at $`8d^2`$ weights and the block at $`12d^2`$.
-- The whole model is about a hundred lines of PyTorch built from Chapter 6's parts, and released GPT-2 weights load into it directly.
+- The whole model is about a hundred lines of PyTorch built from the parts of Chapters 6 and 7, and released GPT-2 weights load into it directly.
 
 ## Further reading
 

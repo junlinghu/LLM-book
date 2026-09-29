@@ -109,7 +109,7 @@ The training loss, computed with teacher forcing, measures how well the model pr
 
 The two usually move together early in training and can diverge later; when choosing checkpoints or hyperparameters, prefer the decoded-output metric.
 
-With training in place, the model of this chapter is complete. Token embeddings and positional encodings feed a stack of encoder blocks, each pairing self-attention with a feed-forward network; a stack of decoder blocks adds masked self-attention over the target prefix and cross-attention to the encoder's output; and teacher forcing, label smoothing and a warmup schedule train the whole network end to end on sentence pairs. Every piece serves the idea that opened the chapter: instead of passing information step by step through a recurrent state, let each position gather what it needs from every other position, by content and all at once.
+With training in place, the encoder-decoder model is complete: teacher forcing, label smoothing and a warmup schedule train it end to end on sentence pairs. But teacher forcing always hands the decoder the reference prefix, and at test time there is no reference; the model must build its output from its own predictions. How do we turn its next-token distributions into an output sequence?
 
 ## Key takeaways
 

@@ -98,7 +98,7 @@ It was proposed by Elfwing and colleagues for reinforcement learning, and it was
 
 GELU and SiLU look nearly identical at a glance. Both are smooth everywhere, both approach $z$ for large positive $z$ and 0 for large negative $z$, and both are *non-monotonic*: they dip slightly below zero for moderately negative inputs. Figure 2.5 below shows that GELU reaches a minimum of about $-0.17$ near $z = -0.75$, and SiLU a minimum of about $-0.28$ near $z = -1.28$. Unlike ReLU, their derivatives are nonzero for small negative inputs, so a unit that is "slightly off" still receives some gradient.
 
-Modern LLMs such as LLaMA go one step further and use *gated* feed-forward layers, in which one linear projection is passed through SiLU and multiplied elementwise by a second linear projection. This combination, called SwiGLU, comes back in Chapter 6 when we build the transformer block.
+Modern LLMs such as LLaMA go one step further and use *gated* feed-forward layers, in which one linear projection is passed through SiLU and multiplied elementwise by a second linear projection. This combination, called SwiGLU, comes back in Section 8.2 as the feed-forward network of modern GPT blocks.
 
 ## Plotting each function and its derivative
 
@@ -180,7 +180,7 @@ silu     g(z):   [-0.033 -0.142 -0.269  0.     0.731  2.858  4.967]
 - Without a nonlinear activation, any stack of linear layers collapses into a single linear layer, so depth adds nothing.
 - Sigmoid and tanh saturate: for large inputs their derivatives are close to zero, which starves the weights of gradient. Tanh is zero-centered and has a larger peak derivative, but saturates just the same.
 - ReLU is cheap and does not saturate for positive inputs, which made deep networks much easier to train; its weakness is dead units that never activate.
-- GELU and SiLU/Swish are smooth, non-monotonic cousins of ReLU used in transformers; the gated variant SwiGLU appears in Chapter 6.
+- GELU and SiLU/Swish are smooth, non-monotonic cousins of ReLU used in transformers; the gated variant SwiGLU appears in Section 8.2.
 - Always look at the derivative, not just the function: the derivative is what backpropagation multiplies by.
 
 ## Further reading

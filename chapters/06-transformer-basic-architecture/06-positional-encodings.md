@@ -101,6 +101,8 @@ A model trained on sentences of up to, say, 50 tokens may be given a 100-token s
 
 A formula that *can* be evaluated at a new position does not guarantee that the model has learned to *use* it. Press et al. (2022) measured this directly and found that sinusoidal encodings extrapolated poorly beyond the training length in their language-modeling experiments, which motivated ALiBi. Testing on sequences longer than those in training, as the third code lab does, is the only way to know.
 
+Attention, masks, multiple heads, and positional encodings are now all in place. How are these pieces assembled into a block that can be stacked and trained, the question Chapter 7 opens with?
+
 ## Key takeaways
 
 - Self-attention ignores order, so the Transformer adds a positional encoding to each token embedding before the first block.
