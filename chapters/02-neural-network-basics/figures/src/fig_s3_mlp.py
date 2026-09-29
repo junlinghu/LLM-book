@@ -8,7 +8,7 @@ from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, BROWN, save, scatter_c
 from mlp_common import mlp_train, predict_proba, mlp_forward
 
 
-# ---------------------------------------------------------------- Figure 2.6: network diagram
+# ---------------------------------------------------------------- Figure 2.5: network diagram
 fig, ax = plt.subplots(figsize=(8.5, 5.2))
 ax.set_xlim(-0.5, 8.5)
 ax.set_ylim(-0.8, 5.5)
@@ -58,7 +58,7 @@ ax.annotate(r"$W^{(2)}\in\mathbb{R}^{4\times 1}$", xy=(5.5, 4.2), fontsize=11, h
             bbox=dict(fc="white", ec=GRAY, alpha=0.9))
 save(fig, "fig2-09-mlp-architecture.png")
 
-# ---------------------------------------------------------------- Figure 2.8: XOR solved
+# ---------------------------------------------------------------- Figure 2.7: XOR solved
 X_xor = np.array([[0., 0.], [0., 1.], [1., 0.], [1., 1.]])
 y_xor = np.array([0., 1., 1., 0.])
 params = mlp_train(X_xor, y_xor, n_hidden=2, act="tanh", lr=1.5, epochs=3000, seed=30, l2=0)
@@ -114,7 +114,7 @@ if abs(w[1]) > 1e-8:
 ax.legend(loc="lower right", fontsize=9)
 save(fig, "fig2-11-xor-mlp.png")
 
-# ---------------------------------------------------------------- Figure 2.9: two moons
+# ---------------------------------------------------------------- Figure 2.8: two moons
 X, y = make_moons(n=300, noise=0.18, seed=1)
 params_m = mlp_train(X, y.astype(float), n_hidden=16, act="relu", lr=0.8, epochs=600, seed=0)
 print("moons final loss", params_m["losses"][-1], "acc",
@@ -138,7 +138,7 @@ ax.set_xlabel("$x_1$")
 ax.set_aspect("equal")
 save(fig, "fig2-12-two-moons.png")
 
-# ---------------------------------------------------------------- Figure 2.10: universal approx
+# ---------------------------------------------------------------- Figure 2.9: universal approx
 rng = np.random.default_rng(0)
 def target(x):
     return np.sin(2 * np.pi * x) + 0.3 * np.cos(6 * np.pi * x)

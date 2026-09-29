@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, BROWN, save
 
-# ---------------------------------------------------------------- Figure 2.12: MSE vs CE
+# ---------------------------------------------------------------- Figure 2.11: MSE vs CE
 p = np.linspace(1e-4, 1 - 1e-4, 500)
 # target y=1
 mse_1 = (1 - p) ** 2
@@ -30,7 +30,7 @@ ax.legend()
 ax.set_ylim(0, 4)
 save(fig, "fig2-15-mse-vs-ce.png")
 
-# ---------------------------------------------------------------- Figure 2.11: softmax
+# ---------------------------------------------------------------- Figure 2.10: softmax
 logits_a = np.array([2.0, 0.5, -1.0])
 logits_b = logits_a - logits_a.max()  # numerically stable (same probs)
 logits_c = np.array([10.0, 8.5, 7.0])  # shifted by +8 → identical probs
@@ -58,7 +58,7 @@ fig.suptitle("Softmax turns logits into a probability distribution", y=1.05)
 print("probs a", soft(logits_a).round(4), "probs c", soft(logits_c).round(4))
 save(fig, "fig2-14-softmax.png")
 
-# ---------------------------------------------------------------- Figure 2.13: CE gradient intuition
+# ---------------------------------------------------------------- Figure 2.12: CE gradient intuition
 # Plot ∂L/∂z = p-y for a binary logistic classifier as a function of logit z
 z = np.linspace(-6, 6, 400)
 y_true = 1.0
@@ -90,7 +90,7 @@ ax.annotate("CE keeps pushing", xy=(-4, grad_ce[np.argmin(np.abs(z + 4))]),
             xytext=(-5.5, -0.85), fontsize=9, arrowprops=dict(arrowstyle="->", color=RED), color=RED)
 save(fig, "fig2-16-ce-vs-mse-grad.png")
 
-# ---------------------------------------------------------------- Figure 2.14: next-token
+# ---------------------------------------------------------------- Figure 2.13: next-token
 # Tiny illustration: vocabulary of 5 tokens, one position
 vocab = ["the", "cat", "sat", "on", "mat"]
 true_idx = 1  # "cat"

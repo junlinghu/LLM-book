@@ -24,7 +24,7 @@ def run_gd(w0, lr, steps=40):
     return np.array(path)
 
 
-# ---------------------------------------------------------------- Figure 2.15: learning rates on 1-D
+# ---------------------------------------------------------------- Figure 2.14: learning rates on 1-D
 xs = np.linspace(-3, 3, 400)
 f = 0.5 * a * xs ** 2  # 1-D slice along w1
 
@@ -59,7 +59,7 @@ for ax in axes:
 fig.suptitle(r"Gradient descent on $L(w)=\frac{1}{2}\cdot 4\,w^2$", y=1.05)
 save(fig, "fig2-18-lr-1d.png")
 
-# ---------------------------------------------------------------- Figure 2.16: 2-D paths
+# ---------------------------------------------------------------- Figure 2.15: 2-D paths
 w1 = np.linspace(-3, 3, 200)
 w2 = np.linspace(-3, 3, 200)
 W1, W2 = np.meshgrid(w1, w2)
@@ -95,7 +95,7 @@ fig.suptitle(r"Paths on $L(w)=\frac{1}{2}(4w_1^2 + w_2^2)$; ★ = optimum", y=1.
 save(fig, "fig2-19-lr-2d.png")
 print("final positions", [run_gd(start, lr, 25)[-1] for lr, *_ in configs])
 
-# ---------------------------------------------------------------- Figure 2.17: SGD vs batch
+# ---------------------------------------------------------------- Figure 2.16: SGD vs batch
 # Fit 1-D linear regression y = 2x + noise with batch vs SGD vs minibatch
 rng = np.random.default_rng(0)
 N = 200
@@ -163,7 +163,7 @@ fig.suptitle(r"Fitting $y \approx wx$ with the same learning rate ($\eta=0.1$) a
 print("w* =", w_star, "final w:", {k: round(v[0][-1], 3) for k, v in paths.items()})
 save(fig, "fig2-20-sgd-vs-batch.png")
 
-# ---------------------------------------------------------------- Figure 2.18: epochs vs iterations schematic is a bar/timeline
+# ---------------------------------------------------------------- Figure 2.17: epochs vs iterations schematic is a bar/timeline
 fig, ax = plt.subplots(figsize=(10, 2.8))
 ax.set_xlim(0, 12)
 ax.set_ylim(0.5, 2.6)

@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from style import BLUE, ORANGE, GREEN, RED, PURPLE, GRAY, save
 
-# ---------------------------------------------------------------- Figure 2.25: scalar vs vectorized timing
+# ---------------------------------------------------------------- Figure 2.24: scalar vs vectorized timing
 rng = np.random.default_rng(0)
 sizes = [50, 100, 200, 400, 800]
 t_scalar, t_vec = [], []
@@ -41,7 +41,7 @@ ax.set_title("Why we vectorize: same math, orders-of-magnitude less time")
 ax.legend()
 save(fig, "fig2-28-scalar-vs-vectorized.png")
 
-# ---------------------------------------------------------------- Figure 2.26: shape diagram for a minibatch forward pass
+# ---------------------------------------------------------------- Figure 2.25: shape diagram for a minibatch forward pass
 fig, ax = plt.subplots(figsize=(13, 3.4))
 ax.set_xlim(0, 17)
 ax.set_ylim(0.2, 3.6)
@@ -76,7 +76,7 @@ ax.text(8.5, 0.55, "each bias vector is broadcast (copied) across all 32 rows of
         ha="center", fontsize=10, color=GRAY)
 save(fig, "fig2-29-shapes.png")
 
-# ---------------------------------------------------------------- Figure 2.27: transpose pattern
+# ---------------------------------------------------------------- Figure 2.26: transpose pattern
 fig, ax = plt.subplots(figsize=(11, 3.4))
 ax.set_xlim(0, 12)
 ax.set_ylim(0.0, 3.1)
