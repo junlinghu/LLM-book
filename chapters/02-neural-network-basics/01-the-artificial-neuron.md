@@ -32,16 +32,6 @@ z = 0.4 \cdot 2 + 0.3 \cdot (-1) + (-1.0) \cdot 0.5 + 0.1 = 0.8 - 0.3 - 0.5 + 0.
 
 With a step activation (output 1 if $`z \gt 0`$, else 0), the neuron outputs 1. With a sigmoid activation $`\sigma(z) = 1/(1+e^{-z})`$, it outputs $`\sigma(0.1) \approx 0.525`$, a probability-like number just above one half. Section 2.2 surveys the choices of $g$ in detail.
 
-## The perceptron learning rule
-
-The *perceptron* is a neuron with a step activation used as a binary classifier. With labels $y = +1$ and $y = -1$, it predicts $`\hat{y} = \mathrm{sign}(\mathbf{w}^\top \mathbf{x} + b)`$. Training starts with all weights and the bias at zero and visits the examples one at a time. Whenever an example is misclassified, meaning $`y\,(\mathbf{w}^\top \mathbf{x} + b) \le 0`$, the weights are nudged toward the correct answer:
-
-```math
-\mathbf{w} \leftarrow \mathbf{w} + \eta\, y\, \mathbf{x}, \qquad b \leftarrow b + \eta\, y,
-```
-
-where $`\eta \gt 0`$ is the *learning rate*. Correctly classified examples cause no change. Each update moves the score on the offending example toward its true label, and training stops when a full pass through the data, an *epoch*, produces no mistakes. On the AND function, the perceptron finds $`\mathbf{w} = (2, 2)`$ and $b = -3$: the score $`2x_1 + 2x_2 - 3`$ is positive only for the input $(1, 1)$. The *perceptron convergence theorem* guarantees this success whenever some line (or hyperplane) separates the two classes. When none exists, the rule never settles down.
-
 ## The geometric view: a neuron draws a hyperplane
 
 The inputs where the score is exactly zero, $`\mathbf{w}^\top \mathbf{x} + b = 0`$, form a line in two dimensions and a *hyperplane* in general. The weight vector is perpendicular to this boundary, and the bias slides it away from the origin. The neuron assigns one class to every point on one side and the other class to every point on the other side, so it can solve exactly the **linearly separable** problems.
