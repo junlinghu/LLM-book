@@ -10,7 +10,7 @@ At heart, large language models are neural networks: layered systems that map in
 
 ![An LLM as a neural network](figures/fig1-01-llm-as-neural-network.png)
 
-*Figure 1.1: An LLM as a neural network. An input vector $\vec{x}$ (for example, a question) is transformed through successive hidden layers $\vec{h}_1, \vec{h}_2, \vec{h}_3$ into an output vector $\vec{y}$ (for example, a response).*
+*Figure 1.1: An LLM as a neural network. An input vector* $\vec{x}$ *(for example, a question) is transformed through successive hidden layers* $\vec{h}_1, \vec{h}_2, \vec{h}_3$ *into an output vector* $\vec{y}$ *(for example, a response).*
 
 A neural network is a collection of units organized in layers. The input layer represents outside data—an image, a sentence, speech, or clinical measurements. The output layer produces a prediction or generated result. Between them, hidden layers apply learned transformations again and again, so the final representation is a complex function of the first. You can think of the whole network as one large function that turns raw input into something useful.
 
