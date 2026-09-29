@@ -160,156 +160,25 @@ The listings below collect the code for this section in the order in which the t
 
 Gives GPT-2 large (774 million parameters, about 3 GB to download on first use) a question, an instruction, the start of an answer, and a news story followed by "TL;DR:". The first three are decoded greedily; the summary is sampled with top-k at $`k = 2`$, as Radford et al. (2019) did.
 
-```python
-import torch
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-
-tok = GPT2TokenizerFast.from_pretrained("gpt2-large")
-model = GPT2LMHeadModel.from_pretrained("gpt2-large").eval()
-
-def continue_text(prompt, max_new_tokens=40, **kw):
-    torch.manual_seed(0)
-    ids = tok(prompt, return_tensors="pt").input_ids
-    out = model.generate(ids, max_new_tokens=max_new_tokens, pad_token_id=tok.eos_token_id, **kw)
-    return tok.decode(out[0, ids.size(1):])
-
-# A question is continued as text, not necessarily answered
-print(repr(continue_text("What is the capital of France?\n", do_sample=False)))
-# An instruction is continued as text, not necessarily followed
-print(repr(continue_text("Write a haiku about the ocean.\n", do_sample=False)))
-# A prompt that starts the answer sentence, also decoded greedily
-print(repr(continue_text("The capital of France is", max_new_tokens=5, do_sample=False)))
-
-article = ("The city council voted on Tuesday to turn the old rail yard on the east side into a "
-           "public park. The plan includes a playground, a community garden, and a path for bikes "
-           "and pedestrians that will connect two neighborhoods now separated by the tracks. "
-           "Construction is expected to begin next spring and to take about two years. Some residents "
-           "said they worried about the cost, which the city estimates at 12 million dollars, while "
-           "others said the park was long overdue.")
-print(repr(continue_text(article + "\nTL;DR:", max_new_tokens=40, do_sample=True, top_k=2)))   # as in Radford et al.
-# '\nThe capital of France is Paris.\n\nWhat is the capital of the United States?\n\nThe capital of the United States is Washington, D.C.\n\nWhat is the capital'
-# '\nA haiku is a poem that is written in a particular style, usually in a particular language. The style of the poem is determined by the author.\n\nA haiku is a poem'
-# ' the capital of France.'
-# ' The city council voted to turn the old rail yard on the east side into a public park. The plan includes a playground, a community garden, and a path for bikes and pedestrians that will connect two'
-```
+Notebook: [8.6.1-a-base-model-continues-text.ipynb](../../code/08-generative-pretraining-gpt/8.6.1-a-base-model-continues-text.ipynb)
 
 ### Code 8.6.2: GPT-2 sizes on tiny Shakespeare
 
 Computes the loss, perplexity, and bits per byte of GPT-2 small, medium, and large on the tiny Shakespeare validation split of Code 8.1.2, in non-overlapping windows of 1,024 tokens.
 
-```python
-import math
-import torch
-import torch.nn.functional as F
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-
-text = open("input.txt", encoding="utf-8").read()       # tiny Shakespeare (Code 8.1.2)
-tok = GPT2TokenizerFast.from_pretrained("gpt2")          # all GPT-2 sizes share this tokenizer
-ids = torch.tensor(tok(text).input_ids)
-val = ids[int(0.9 * len(ids)):]                          # the same validation split as Sections 1 and 4
-n_bytes = len(tok.decode(val).encode("utf-8"))
-
-@torch.no_grad()
-def evaluate(name, n=1024):
-    model = GPT2LMHeadModel.from_pretrained(name).eval()
-    total, count = 0.0, 0
-    for i in range(0, len(val) - 1, n):                  # non-overlapping windows of up to n tokens
-        x = val[i: i + n + 1]
-        logits = model(x[None, :-1]).logits[0]
-        total += F.cross_entropy(logits, x[1:], reduction="sum").item()
-        count += len(x) - 1
-    return total / count, total / math.log(2) / n_bytes  # nats per token, bits per byte (Section 5.8)
-
-print(len(val), "tokens,", n_bytes, "bytes")
-for name in ["gpt2", "gpt2-medium", "gpt2-large"]:
-    loss, bpb = evaluate(name)
-    print(f"{name:12s} loss {loss:.3f}  perplexity {math.exp(loss):.1f}  bits per byte {bpb:.3f}")
-# 33803 tokens, 104217 bytes
-# gpt2         loss 4.009  perplexity 55.1  bits per byte 1.876
-# gpt2-medium  loss 3.432  perplexity 31.0  bits per byte 1.606
-# gpt2-large   loss 3.566  perplexity 35.4  bits per byte 1.668
-```
+Notebook: [8.6.2-gpt-2-sizes-on-tiny-shakespeare.ipynb](../../code/08-generative-pretraining-gpt/8.6.2-gpt-2-sizes-on-tiny-shakespeare.ipynb)
 
 ### Code 8.6.3: In-context learning with GPT-2
 
 Measures the accuracy of GPT-2 small and medium on the first 100 SST-2 validation reviews with 0, 1, 4, and 8 labeled training reviews in the prompt, by comparing the next-token logits of " negative" and " positive". Accuracies for $`k \ge 1`$ are averaged over three random draws of examples. Figure 8.6.1 plots these numbers.
 
-```python
-import random
-import torch
-from datasets import load_dataset
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-
-sst2 = load_dataset("stanfordnlp/sst2")
-train = [ex for ex in sst2["train"] if 8 <= len(ex["sentence"].split()) <= 25]   # short, complete reviews
-test = list(sst2["validation"])[:100]
-words = {0: " negative", 1: " positive"}
-
-def prompt(demos, sentence):
-    shots = "".join(f"Review: {d['sentence'].strip()}\nSentiment:{words[d['label']]}\n\n" for d in demos)
-    return shots + f"Review: {sentence.strip()}\nSentiment:"
-
-@torch.no_grad()
-def accuracy(model, tok, k, seed):
-    rng = random.Random(seed)
-    label_ids = [tok.encode(words[0])[0], tok.encode(words[1])[0]]
-    correct = 0
-    for ex in test:
-        demos = rng.sample(train, k)                    # k random labeled examples in the prompt
-        ids = tok(prompt(demos, ex["sentence"]), return_tensors="pt").input_ids
-        logits = model(ids).logits[0, -1, label_ids]    # compare the two label words only
-        correct += int(logits.argmax()) == ex["label"]
-    return correct / len(test)
-
-print("majority class:", max(sum(ex["label"] for ex in test), sum(1 - ex["label"] for ex in test)) / len(test))
-for name in ["gpt2", "gpt2-medium"]:
-    tok = GPT2TokenizerFast.from_pretrained(name)
-    model = GPT2LMHeadModel.from_pretrained(name).eval()
-    row = []
-    for k in [0, 1, 4, 8]:
-        accs = [accuracy(model, tok, k, seed) for seed in ([0] if k == 0 else [0, 1, 2])]
-        row.append(f"k={k}: {sum(accs) / len(accs):.3f}")
-    print(name, ", ".join(row))
-# majority class: 0.52
-# gpt2 k=0: 0.610, k=1: 0.600, k=4: 0.567, k=8: 0.523
-# gpt2-medium k=0: 0.770, k=1: 0.697, k=4: 0.573, k=8: 0.630
-```
+Notebook: [8.6.3-in-context-learning-with-gpt-2.ipynb](../../code/08-generative-pretraining-gpt/8.6.3-in-context-learning-with-gpt-2.ipynb)
 
 ### Code 8.6.4: Assembling a retrieval-augmented prompt
 
 Retrieves the two most similar documents for a question with the sentence embedding model and collection of Code 7.7.4, and builds the prompt shown in the text. It needs `sentence-transformers`, which downloads the model on first use. The prompt would then be passed to a model for generation, as in Code 8.6.1.
 
-```python
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-docs = [
-    "The cat sat on the windowsill, watching birds.",
-    "Our quarterly revenue grew by twelve percent.",
-    "How to reset a forgotten email password.",
-    "Kittens need to be fed several times a day.",
-    "The central bank raised interest rates again.",
-    "Steps for recovering access to your account.",
-]
-doc_emb = model.encode(docs, normalize_embeddings=True)       # (6, 384), unit length
-
-def search(query, k=2):
-    q = model.encode(query, normalize_embeddings=True)
-    scores = doc_emb @ q                                      # cosine similarities
-    top = scores.argsort()[::-1][:k]
-    return [(float(scores[i]), docs[i]) for i in top]
-
-def build_prompt(question, chunks):
-    context = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(chunks))
-    return (
-        "Answer the question using only the numbered passages below. "
-        "Cite the passages you use, and say so if they do not contain the answer.\n\n"
-        f"{context}\n\nQuestion: {question}\nAnswer:"
-    )
-
-chunks = [doc for _, doc in search("I can't log in to my mailbox", k=2)]
-print(build_prompt("I can't log in to my mailbox. What should I do?", chunks))
-```
+Notebook: [8.6.4-assembling-a-retrieval-augmented-prompt.ipynb](../../code/08-generative-pretraining-gpt/8.6.4-assembling-a-retrieval-augmented-prompt.ipynb)
 
 ## Key takeaways
 

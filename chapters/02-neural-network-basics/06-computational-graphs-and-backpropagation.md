@@ -239,245 +239,38 @@ The listings below collect the code for this section in the order in which the t
 
 The complete `Scalar` class described in [Designing a scalar autograd engine](#designing-a-scalar-autograd-engine). Each operation stores its inputs together with their local derivatives, and `backward()` walks a topological order in reverse.
 
-```python
-import math
-
-
-class Scalar:
-    __slots__ = ("value", "grad", "inputs", "op")
-
-    def __init__(self, value, inputs=(), op=""):
-        self.value = float(value)
-        self.grad = 0.0
-        self.inputs = inputs      # tuple of (parent Scalar, d self / d parent)
-        self.op = op              # operation name, for printing and debugging
-
-    def __repr__(self):
-        return f"Scalar({self.value:.4f}, grad={self.grad:.4f}, op='{self.op}')"
-
-    # ---- building blocks -------------------------------------------------
-    @staticmethod
-    def lift(x):
-        return x if isinstance(x, Scalar) else Scalar(x)
-
-    def __add__(self, other):
-        other = Scalar.lift(other)
-        return Scalar(self.value + other.value, ((self, 1.0), (other, 1.0)), "+")
-
-    def __mul__(self, other):
-        other = Scalar.lift(other)
-        return Scalar(self.value * other.value,
-                      ((self, other.value), (other, self.value)), "*")
-
-    def __pow__(self, k):
-        assert isinstance(k, (int, float)), "only constant exponents"
-        return Scalar(self.value ** k, ((self, k * self.value ** (k - 1)),), f"^{k}")
-
-    def exp(self):
-        e = math.exp(self.value)
-        return Scalar(e, ((self, e),), "exp")
-
-    def log(self):
-        return Scalar(math.log(self.value), ((self, 1.0 / self.value),), "log")
-
-    def tanh(self):
-        t = math.tanh(self.value)
-        return Scalar(t, ((self, 1.0 - t * t),), "tanh")
-
-    def relu(self):
-        return Scalar(max(0.0, self.value), ((self, float(self.value > 0)),), "relu")
-
-    # ---- derived operations (built from the ones above) ------------------
-    def __neg__(self):
-        return self * -1.0
-
-    def __sub__(self, other):
-        return self + (-Scalar.lift(other))
-
-    def __truediv__(self, other):
-        return self * Scalar.lift(other) ** -1
-
-    __radd__ = __add__
-    __rmul__ = __mul__
-
-    def __rsub__(self, other):
-        return Scalar.lift(other) - self
-
-    def __rtruediv__(self, other):
-        return Scalar.lift(other) / self
-
-    # ---- reverse pass -------------------------------------------------------
-    def backward(self):
-        """Fill in .grad for every Scalar that this one depends on."""
-        order, visited = [], set()
-        stack = [(self, False)]
-        while stack:                       # iterative depth-first topological sort
-            node, children_done = stack.pop()
-            if children_done:
-                order.append(node)
-                continue
-            if id(node) in visited:
-                continue
-            visited.add(id(node))
-            stack.append((node, True))
-            for parent, _ in node.inputs:
-                if id(parent) not in visited:
-                    stack.append((parent, False))
-        self.grad = 1.0
-        for node in reversed(order):       # outputs before inputs
-            for parent, local in node.inputs:
-                parent.grad += local * node.grad
-```
+Notebook: [2.6.1-the-scalar-autograd-engine.ipynb](../../code/02-neural-network-basics/2.6.1-the-scalar-autograd-engine.ipynb)
 
 ### Code 2.6.2: Testing the engine on small expressions
 
 The fan-out example $f = a^2 + 3a$ at $a = 3$ and the single-neuron graph of Figure 2.18. The expected output is shown in the comments.
 
-```python
-a = Scalar(3.0)
-f = a * a + 3 * a
-f.backward()
-print(f"f = {f.value}, df/da = {a.grad}")          # f = 18.0, df/da = 9.0
-
-x, w, b = Scalar(0.5), Scalar(1.2), Scalar(-0.3)
-L = ((w * x + b).tanh() - 0.8) ** 2
-L.backward()
-print(f"L = {L.value:.4f}, dL/dw = {w.grad:.4f}, dL/db = {b.grad:.4f}")
-# L = 0.2588, dL/dw = -0.4655, dL/db = -0.9310
-```
+Notebook: [2.6.2-testing-the-engine-on-small-expressions.ipynb](../../code/02-neural-network-basics/2.6.2-testing-the-engine-on-small-expressions.ipynb)
 
 ### Code 2.6.3: Backpropagating through the 2-2-1 worked example
 
 The worked MLP example of Section 2.3 written with `Scalar` operations. The sigmoid is built from `exp`, addition, and division, and the loss from `log`.
 
-```python
-x = [1.0, 0.5]
-W1 = [[Scalar(0.5), Scalar(-0.3)],
-      [Scalar(0.8), Scalar(0.2)]]
-b1 = [Scalar(0.0), Scalar(0.1)]
-W2 = [Scalar(1.0), Scalar(-1.5)]
-b2 = Scalar(0.2)
-
-h = [(x[0] * W1[0][j] + x[1] * W1[1][j] + b1[j]).tanh() for j in range(2)]
-z2 = h[0] * W2[0] + h[1] * W2[1] + b2
-p = 1 / (1 + (-z2).exp())                       # sigmoid built from exp, add, divide
-loss = -(p.log())                               # binary cross-entropy with y = 1
-loss.backward()
-
-print(f"loss = {loss.value:.4f}")
-print("dW1 =", [[round(W1[i][j].grad, 4) for j in range(2)] for i in range(2)])
-print("db1 =", [round(v.grad, 4) for v in b1])
-print("dW2 =", [round(v.grad, 4) for v in W2], " db2 =", round(b2.grad, 4))
-```
-
-Output:
-
-```text
-loss = 0.2960
-dW1 = [[-0.1247, 0.3805], [-0.0624, 0.1902]]
-db1 = [-0.1247, 0.3805]
-dW2 = [-0.1835, 0.0255]  db2 = -0.2562
-```
+Notebook: [2.6.3-backpropagating-through-the-2-2-1-worked-example.ipynb](../../code/02-neural-network-basics/2.6.3-backpropagating-through-the-2-2-1-worked-example.ipynb)
 
 ### Code 2.6.4: A training loop built on the engine
 
 Parameter initialization, the forward pass, a numerically stable binary cross-entropy, and full-batch gradient descent for a one-hidden-layer tanh network made of `Scalar` objects.
 
-```python
-import random
-
-def make_params(n_in, n_hidden, seed=0):
-    rng = random.Random(seed)
-    W1 = [[Scalar(rng.gauss(0, 1 / math.sqrt(n_in))) for _ in range(n_hidden)] for _ in range(n_in)]
-    b1 = [Scalar(0.0) for _ in range(n_hidden)]
-    W2 = [Scalar(rng.gauss(0, 1 / math.sqrt(n_hidden))) for _ in range(n_hidden)]
-    b2 = Scalar(0.0)
-    return W1, b1, W2, b2
-
-
-def all_params(params):
-    W1, b1, W2, b2 = params
-    return [w for row in W1 for w in row] + b1 + W2 + [b2]
-
-
-def logit(params, x):
-    """Forward pass for one example x (a list of floats); returns a Scalar logit."""
-    W1, b1, W2, b2 = params
-    h = []
-    for j in range(len(b1)):
-        z = b1[j]
-        for i in range(len(x)):
-            z = z + x[i] * W1[i][j]
-        h.append(z.tanh())
-    out = b2
-    for j in range(len(h)):
-        out = out + h[j] * W2[j]
-    return out
-
-
-def bce_from_logit(z, y):
-    """Binary cross-entropy -[y log σ(z) + (1-y) log(1-σ(z))], computed stably.
-
-    Uses log(1 + e^z) - y z, rewritten as z + log(1 + e^-z) - y z when z > 0
-    so that exp never receives a large positive argument.
-    """
-    if z.value > 0:
-        return z + ((-z).exp() + 1).log() - y * z
-    return (z.exp() + 1).log() - y * z
-
-
-def train(X, Y, n_hidden=8, lr=0.5, steps=200, seed=0, log=None):
-    params = make_params(len(X[0]), n_hidden, seed)
-    history = []
-    for step in range(steps):
-        loss = sum((bce_from_logit(logit(params, x), y) for x, y in zip(X, Y)), Scalar(0.0))
-        loss = loss * (1.0 / len(X))
-        for p in all_params(params):
-            p.grad = 0.0                 # 1. zero old gradients
-        loss.backward()                  # 2. backpropagate
-        for p in all_params(params):
-            p.value -= lr * p.grad       # 3. gradient-descent step
-        history.append(loss.value)
-        if log and step % log == 0:
-            print(f"step {step:4d}  loss {loss.value:.4f}")
-    return params, history
-```
+Notebook: [2.6.4-a-training-loop-built-on-the-engine.ipynb](../../code/02-neural-network-basics/2.6.4-a-training-loop-built-on-the-engine.ipynb)
 
 ### Code 2.6.5: Training on XOR
 
 Trains a network with four hidden units on the four XOR points using the functions of Code 2.6.4, logging the loss every 100 steps.
 
-```python
-X_xor = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-Y_xor = [0, 1, 1, 0]
-params, history = train(X_xor, Y_xor, n_hidden=4, lr=1.0, steps=300, seed=3, log=100)
-probs = [1 / (1 + math.exp(-logit(params, x).value)) for x in X_xor]
-print("predicted P(y=1):", [round(q, 3) for q in probs])
-```
-
-Output:
-
-```text
-step    0  loss 0.7330
-step  100  loss 0.0592
-step  200  loss 0.0155
-predicted P(y=1): [0.003, 0.988, 0.991, 0.011]
-```
+Notebook: [2.6.5-training-on-xor.ipynb](../../code/02-neural-network-basics/2.6.5-training-on-xor.ipynb)
 
 ### Code 2.6.6: Forgetting to zero gradients
 
 Three backward passes without resetting `w.grad`. The gradient accumulates instead of staying at 30; the output is shown in the comments.
 
-```python
-w = Scalar(2.0)
-for step in range(3):
-    loss = (w * 3.0 - 1.0) ** 2        # d loss / dw = 6 (3w - 1) = 30 at w = 2
-    loss.backward()                    # no zeroing!
-    print(f"step {step}: w.grad = {w.grad}")
-# step 0: w.grad = 30.0
-# step 1: w.grad = 60.0
-# step 2: w.grad = 90.0
-```
+Notebook: [2.6.6-forgetting-to-zero-gradients.ipynb](../../code/02-neural-network-basics/2.6.6-forgetting-to-zero-gradients.ipynb)
+
 ## Key takeaways
 
 - Any computation can be written as a graph of elementary operations with simple local derivatives. The forward pass evaluates the graph; the backward pass applies the chain rule node by node, multiplying each local derivative by the upstream gradient.

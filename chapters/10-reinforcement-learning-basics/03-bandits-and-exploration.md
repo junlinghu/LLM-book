@@ -93,56 +93,5 @@ The listing below is taken from [`figures/src/bandit.py`](figures/src/bandit.py)
 
 Runs one agent on 2,000 random bandit problems at once. Row $i$ of every array belongs to problem $i$, so a single pass through the loop advances all problems by one step. The agent is ε-greedy (with optional optimistic initial values and constant step size) or UCB. It reuses nothing from earlier sections.
 
-```python
-import numpy as np
+Notebook: [10.3.1-a-vectorized-10-armed-testbed.ipynb](../../code/10-reinforcement-learning-basics/10.3.1-a-vectorized-10-armed-testbed.ipynb)
 
-def argmax_random_ties(Q, rng):
-    """Row-wise argmax that breaks ties uniformly at random."""
-    noise = rng.random(Q.shape) * 1e-9
-    return np.argmax(np.where(Q == Q.max(axis=1, keepdims=True), 1.0 + noise, 0.0), axis=1)
-
-def run_testbed(agent, n_problems=2000, n_arms=10, steps=1000, seed=0,
-                eps=0.0, c=None, q0=0.0, alpha=None):
-    rng = np.random.default_rng(seed)
-    q_true = rng.normal(0.0, 1.0, (n_problems, n_arms))     # true arm values
-    best = q_true.argmax(axis=1)
-    Q = np.full((n_problems, n_arms), q0, dtype=float)      # estimates
-    N = np.zeros((n_problems, n_arms))                      # pull counts
-    rows = np.arange(n_problems)
-    avg_reward, frac_optimal = np.zeros(steps), np.zeros(steps)
-    for t in range(steps):
-        if agent == "eps":
-            greedy = argmax_random_ties(Q, rng)
-            explore = rng.random(n_problems) < eps
-            a = np.where(explore, rng.integers(n_arms, size=n_problems), greedy)
-        else:  # UCB: try every arm once, then add an exploration bonus
-            bonus = c * np.sqrt(np.log(t + 1) / np.maximum(N, 1e-12))
-            a = argmax_random_ties(np.where(N == 0, np.inf, Q + bonus), rng)
-        r = rng.normal(q_true[rows, a], 1.0)                 # noisy reward
-        N[rows, a] += 1
-        step = 1.0 / N[rows, a] if alpha is None else alpha
-        Q[rows, a] += step * (r - Q[rows, a])                 # incremental update
-        avg_reward[t] = r.mean()
-        frac_optimal[t] = (a == best).mean()
-    return avg_reward, frac_optimal
-
-agents = {"greedy": dict(agent="eps", eps=0.0),
-          "eps=0.01": dict(agent="eps", eps=0.01),
-          "eps=0.1": dict(agent="eps", eps=0.1),
-          "optimistic": dict(agent="eps", eps=0.0, q0=5.0, alpha=0.1),
-          "UCB c=2": dict(agent="ucb", c=2.0)}
-for name, kw in agents.items():
-    r, opt = run_testbed(**kw, seed=1)
-    print(f"{name:10s} mean reward (all steps) {r.mean():.3f}   last 100 steps: "
-          f"reward {r[-100:].mean():.3f}, optimal {100 * opt[-100:].mean():.1f}%")
-```
-
-Output:
-
-```text
-greedy     mean reward (all steps) 1.009   last 100 steps: reward 1.022, optimal 34.7%
-eps=0.01   mean reward (all steps) 1.178   last 100 steps: reward 1.295, optimal 59.0%
-eps=0.1    mean reward (all steps) 1.297   last 100 steps: reward 1.363, optimal 80.0%
-optimistic mean reward (all steps) 1.292   last 100 steps: reward 1.501, optimal 86.4%
-UCB c=2    mean reward (all steps) 1.384   last 100 steps: reward 1.485, optimal 86.1%
-```

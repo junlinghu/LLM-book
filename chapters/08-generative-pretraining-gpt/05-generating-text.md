@@ -160,188 +160,25 @@ The listings below collect the code for this section in the order in which the t
 
 Defines `sample_next`, which applies temperature, top-k, and top-p to a vector of logits and samples one token (temperature 0 means greedy decoding), and checks it on a toy vocabulary of five tokens. Save it as `sampling.py`; the other listings import it.
 
-```python
-import torch
-
-def sample_next(logits, temperature=1.0, top_k=None, top_p=None, generator=None):
-    """Choose the next token from a (V,) vector of logits.
-    temperature=0 means greedy; otherwise rescale, truncate, renormalize, and sample."""
-    if temperature == 0:
-        return int(logits.argmax())
-    logits = logits / temperature                           # a new tensor; the caller's is untouched
-    if top_k is not None:                                   # keep the k largest logits
-        kth = torch.topk(logits, top_k).values[-1]
-        logits = logits.masked_fill(logits < kth, float("-inf"))
-    if top_p is not None:                                   # keep the smallest set with mass >= p
-        probs, order = logits.softmax(-1).sort(descending=True)
-        drop = probs.cumsum(-1) - probs >= top_p            # the mass before this token already reaches p
-        logits[order[drop]] = float("-inf")
-    return int(torch.multinomial(logits.softmax(-1), 1, generator=generator))
-
-if __name__ == "__main__":
-    logits = torch.tensor([3.0, 2.0, 1.0, 0.5, -1.0])       # a toy vocabulary of five tokens
-    for tau in [0.5, 1.0, 2.0]:
-        print(f"tau={tau}:", (logits / tau).softmax(-1).numpy().round(3))
-    g = torch.Generator().manual_seed(0)
-    for name, kw in [("top-k 2", dict(top_k=2)), ("top-p 0.9", dict(top_p=0.9))]:
-        draws = torch.tensor([sample_next(logits, generator=g, **kw) for _ in range(10000)])
-        print(f"{name}: sampled frequencies", (torch.bincount(draws, minlength=5) / 10000).numpy().round(3))
-# tau=0.5: [0.862 0.117 0.016 0.006 0.   ]
-# tau=1.0: [0.624 0.229 0.084 0.051 0.011]
-# tau=2.0: [0.417 0.253 0.154 0.12  0.056]
-# top-k 2: sampled frequencies [0.734 0.266 0.    0.    0.   ]
-# top-p 0.9: sampled frequencies [0.666 0.246 0.088 0.    0.   ]
-```
+Notebook: [8.5.1-temperature-top-k-and-top-p.ipynb](../../code/08-generative-pretraining-gpt/8.5.1-temperature-top-k-and-top-p.ipynb)
 
 ### Code 8.5.2: Greedy, beam search, and sampling with GPT-2
 
 Generates 60-token continuations of the city-council prompt from GPT-2 small with a key-value cache, checks the greedy loop against Hugging Face's `generate` and the top-p filter against Hugging Face's `TopPLogitsWarper`, and measures repetition and diversity for each decoding setting.
 
-```python
-import torch
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-from transformers.generation.logits_process import TopPLogitsWarper
-from sampling import sample_next                       # Code 8.5.1
-
-tok = GPT2TokenizerFast.from_pretrained("gpt2")
-model = GPT2LMHeadModel.from_pretrained("gpt2").eval()
-prompt = "The city council met on Tuesday night to discuss the plan for the new park."
-ids = tok(prompt, return_tensors="pt").input_ids
-
-@torch.no_grad()
-def generate(ids, max_new=60, seed=0, **kw):
-    """The autoregressive loop with a key-value cache: the prompt once, then one token per step."""
-    g = torch.Generator().manual_seed(seed)
-    out = model(ids, use_cache=True)
-    past, logits, new = out.past_key_values, out.logits[0, -1], []
-    for _ in range(max_new):
-        t = sample_next(logits.clone(), generator=g, **kw)
-        if t == tok.eos_token_id:
-            break
-        new.append(t)
-        out = model(torch.tensor([[t]]), past_key_values=past, use_cache=True)
-        past, logits = out.past_key_values, out.logits[0, -1]
-    return new
-
-def repeated_4grams(t):                  # fraction of 4-grams that already occurred earlier in the text
-    grams = [tuple(t[i:i + 4]) for i in range(len(t) - 3)]
-    return sum(g in set(grams[:i]) for i, g in enumerate(grams)) / len(grams)
-
-def distinct_2(samples):                 # distinct bigrams / total bigrams, pooled over samples
-    grams = [tuple(s[i:i + 2]) for s in samples for i in range(len(s) - 1)]
-    return len(set(grams)) / len(grams)
-
-# Our greedy loop matches Hugging Face's greedy generate
-greedy = generate(ids, temperature=0)
-hf_greedy = model.generate(ids, max_new_tokens=60, do_sample=False, pad_token_id=tok.eos_token_id)
-print(greedy == hf_greedy[0, ids.size(1):].tolist())
-print(repr(tok.decode(greedy)))
-beam = model.generate(ids, max_new_tokens=60, num_beams=5, do_sample=False,
-                      pad_token_id=tok.eos_token_id)[0, ids.size(1):].tolist()
-print(repr(tok.decode(beam)))
-
-settings = {"pure sampling": dict(), "temperature 0.7": dict(temperature=0.7),
-            "top-k 40": dict(top_k=40), "top-p 0.95": dict(top_p=0.95)}
-print(f"{'greedy':16s} repeated 4-grams {repeated_4grams(greedy):.2f}")
-print(f"{'beam 5':16s} repeated 4-grams {repeated_4grams(beam):.2f}")
-for name, kw in settings.items():
-    samples = [generate(ids, seed=s, **kw) for s in range(10)]
-    rep = sum(repeated_4grams(s) for s in samples) / len(samples)
-    print(f"{name:16s} repeated 4-grams {rep:.2f}, distinct-2 {distinct_2(samples):.2f}")
-for s in range(2):
-    print(repr(tok.decode(generate(ids, seed=s, top_p=0.95))))
-print(repr(tok.decode(generate(ids, seed=0))))                   # pure sampling
-
-# Our top-p filter keeps the same tokens as Hugging Face's TopPLogitsWarper
-logits = model(ids).logits[0, -1].detach()
-warped = TopPLogitsWarper(top_p=0.9)(ids, logits[None].clone())[0]
-probs, order = logits.softmax(-1).sort(descending=True)
-ours = order[: int(((probs.cumsum(-1) - probs) < 0.9).sum())]
-print(torch.equal(ours.sort().values, torch.isfinite(warped).nonzero().flatten()))
-# True
-# '\n\nThe city council voted to approve the plan for the new park on Tuesday night. (CBC)\n\nThe city council voted to approve the plan for the new park on Tuesday night.\n\nThe city council voted to approve the plan for the new park on Tuesday night.\n\nThe'
-# '\n\n"I think it\'s a good idea, and I think it\'s a good idea for the future of the park," Councillor Doug Ford said.\n\n"I think it\'s a good idea, and I think it\'s a good idea for the future of the park."\n'
-# greedy           repeated 4-grams 0.58
-# beam 5           repeated 4-grams 0.44
-# pure sampling    repeated 4-grams 0.00, distinct-2 0.91
-# temperature 0.7  repeated 4-grams 0.00, distinct-2 0.81
-# top-k 40         repeated 4-grams 0.00, distinct-2 0.87
-# top-p 0.95       repeated 4-grams 0.00, distinct-2 0.88
-# ' The existing seven-story building has been "tree-lined" on both sides, and new condos would include retail and restaurants.\n\nThe change would lower parking in a large downtown area which currently pays for gas and a key component of the new park.\n\nKitchener said the city'
-# "\n\nAs the news broke, the controversy over the lack of funding for the park soared into the air from the park's website, where outraged members of the park community flooded and demanded more land after the proposed structure had been rejected.\n\nCouncil spokesman Mike Diaz said the council had therefore agreed to"
-# ' The existing seven-story building has been "tree-lined" on both sides, and new condos would include retail and restaurants.\n\nThe change would lower parking in a large downtown spike zone.'
-# True
-```
+Notebook: [8.5.2-greedy-beam-search-and-sampling-with-gpt-2.ipynb](../../code/08-generative-pretraining-gpt/8.5.2-greedy-beam-search-and-sampling-with-gpt-2.ipynb)
 
 ### Code 8.5.3: Generating from the mini GPT
 
 Loads the mini GPT saved by Code 8.4.2 and generates from the prompt "ROMEO:" with greedy decoding, top-p sampling, and temperature 1.5. The loop has no cache and feeds at most the last $`n_{\max}`$ tokens.
 
-```python
-import tiktoken
-import torch
-from gpt import GPT                                      # Code 8.2.1
-from sampling import sample_next                        # Code 8.5.1
-
-ckpt = torch.load("mini_gpt.pt", weights_only=False)   # saved by Code 8.4.2
-mini = GPT(ckpt["cfg"]).eval()
-mini.load_state_dict(ckpt["model"])
-vocab, enc = ckpt["vocab"], tiktoken.get_encoding("gpt2")
-
-@torch.no_grad()
-def generate_mini(prompt, max_new=40, seed=0, **kw):
-    g = torch.Generator().manual_seed(seed)
-    x = torch.searchsorted(vocab, torch.tensor(enc.encode(prompt)))[None]   # GPT-2 IDs -> model IDs
-    for _ in range(max_new):
-        logits = mini(x[:, -mini.cfg.n_max:])[0, -1]   # no cache: rerun the last n_max tokens
-        x = torch.cat([x, torch.tensor([[sample_next(logits, generator=g, **kw)]])], dim=1)
-    return enc.decode(vocab[x[0]].tolist())
-
-for name, kw in [("greedy", dict(temperature=0)), ("top-p 0.9", dict(top_p=0.9)),
-                 ("temperature 1.5", dict(temperature=1.5))]:
-    print(f"--- {name}")
-    print(generate_mini("ROMEO:\n", **kw))
-# --- greedy
-# ROMEO:
-# I'll be a man,
-# And I have not,
-# And I have not the king,
-# And I have not the king,
-# And I have not the king,
-# And I have
-# --- top-p 0.9
-# ROMEO:
-# KING HENRY VI:
-# I so Clifford! and be what I say he's the prince.
-# Let me too is sir; but pity?
-# How, is ourost that speak's
-# --- temperature 1.5
-# ROMEO:
-# KINGSound trumpet for the raised together from soguby and be ancestors laceBR treasury dram nothing? yet would scared poison
-# But sir on him pity thy wordsVill sh guess figure of that speak's
-```
+Notebook: [8.5.3-generating-from-the-mini-gpt.ipynb](../../code/08-generative-pretraining-gpt/8.5.3-generating-from-the-mini-gpt.ipynb)
 
 ### Code 8.5.4: Where the pure sample left the nucleus
 
 Finds the rank and probability of the token at which the pure sample of Code 8.5.2 diverged from the top-p sample, and the size of the top-p set ($`p = 0.95`$) at that step.
 
-```python
-# Where the pure sample of Code 8.5.2 left the top-p set: rank and probability of its token
-import torch
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-tok = GPT2TokenizerFast.from_pretrained("gpt2"); model = GPT2LMHeadModel.from_pretrained("gpt2").eval()
-prompt = "The city council met on Tuesday night to discuss the plan for the new park."
-cont = ' The existing seven-story building has been "tree-lined" on both sides, and new condos would include retail and restaurants.\n\nThe change would lower parking in a large downtown'
-ids = tok(prompt + cont, return_tensors="pt").input_ids
-with torch.no_grad(): p = model(ids).logits[0, -1].softmax(-1)
-probs, order = p.sort(descending=True)
-nuc = int(((probs.cumsum(-1) - probs) < 0.95).sum())
-for w in [" spike", " area"]:
-    t = tok.encode(w)[0]; rank = int((order == t).nonzero())
-    print(repr(w), f"p={p[t]:.2e} rank={rank + 1} nucleus size={nuc}")
-# ' spike' p=4.40e-06 rank=2444 nucleus size=317
-# ' area' p=2.20e-01 rank=1 nucleus size=317
-```
+Notebook: [8.5.4-where-the-pure-sample-left-the-nucleus.ipynb](../../code/08-generative-pretraining-gpt/8.5.4-where-the-pure-sample-left-the-nucleus.ipynb)
 
 ## Key takeaways
 

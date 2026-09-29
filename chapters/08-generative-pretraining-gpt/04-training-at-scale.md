@@ -104,162 +104,25 @@ The listings below collect the code for this section in the order in which the t
 
 Applies $`C \approx 6PD`$ to GPT-3, computes the context length $`6d`$ above which attention's FLOPs exceed the weight FLOPs (Section 7.5), and counts the memory for mixed-precision training with Adam at 16 bytes per parameter.
 
-```python
-# Training compute C = 6PD, and where attention's extra cost starts to matter (Section 7.5)
-P, D = 175e9, 300e9                                     # GPT-3
-print(f"GPT-3: 6PD = {6 * P * D:.3g} FLOPs")
-for name, d in [("GPT-2 small", 768), ("GPT-3", 12288)]:
-    print(f"{name}: attention FLOPs exceed weight FLOPs only for n > 6d = {6 * d:,}")
-
-# Memory for mixed-precision training with Adam, in bytes per parameter:
-# BF16 weights (2) + BF16 gradients (2) + FP32 master weights (4) + two FP32 Adam moments (8)
-bytes_per_param = 2 + 2 + 4 + 8
-for name, P in [("GPT-2 small", 124e6), ("7B model", 7e9), ("GPT-3", 175e9)]:
-    print(f"{name}: {P * bytes_per_param / 1e9:,.0f} GB before activations")
-# GPT-3: 6PD = 3.15e+23 FLOPs
-# GPT-2 small: attention FLOPs exceed weight FLOPs only for n > 6d = 4,608
-# GPT-3: attention FLOPs exceed weight FLOPs only for n > 6d = 73,728
-# GPT-2 small: 2 GB before activations
-# 7B model: 112 GB before activations
-# GPT-3: 2,800 GB before activations
-```
+Notebook: [8.4.1-compute-and-memory-estimates.ipynb](../../code/08-generative-pretraining-gpt/8.4.1-compute-and-memory-estimates.ipynb)
 
 ### Code 8.4.2: Pretraining a mini GPT on tiny Shakespeare
 
-Trains the GPT of Code 8.2.1 (saved as `gpt.py`) on tiny Shakespeare with AdamW, warmup plus cosine decay, and gradient clipping, printing training and validation loss every 200 steps and the run's $`6PD`$ compute and achieved throughput. The embedding table is restricted to the GPT-2 tokens that occur in the corpus. The final model is saved as `mini_gpt.pt` for Section 5. The timing depends on the machine; ours was a shared 8-core CPU.
+Trains the GPT of Code 8.2.1 (saved as `gpt.py`) on tiny Shakespeare with AdamW, warmup plus cosine decay, and gradient clipping, printing training and validation loss every 200 steps and the run's $`6PD`$ compute and achieved throughput.
 
-```python
-import math, time
-import tiktoken
-import torch
-from gpt import GPT, GPTConfig
-
-text = open("input.txt", encoding="utf-8").read()       # tiny Shakespeare (Code 8.1.2)
-enc = tiktoken.get_encoding("gpt2")
-ids = torch.tensor(enc.encode(text))
-vocab = ids.unique()                                    # the GPT-2 tokens that occur in this corpus
-data = torch.searchsorted(vocab, ids)                   # renumber them 0 .. len(vocab) - 1
-split = int(0.9 * len(data))
-train_data, val_data = data[:split], data[split:]       # the same split as the bigram baseline
-
-n, B = 128, 16                                          # context length, sequences per batch
-def get_batch(src, gen):
-    i = torch.randint(len(src) - n - 1, (B,), generator=gen)
-    blk = torch.stack([src[j: j + n + 1] for j in i.tolist()])   # blocks of n + 1 tokens
-    return blk[:, :-1], blk[:, 1:]
-
-torch.manual_seed(0)
-cfg = GPTConfig(V=len(vocab), n_max=n, N=4, d=128, h=4, dropout=0.1)
-model = GPT(cfg)
-P = sum(p.numel() for p in model.parameters())
-print(f"V = {cfg.V:,}; {P / 1e6:.2f}M parameters, {12 * cfg.N * cfg.d**2 / 1e6:.2f}M of them in the blocks")
-
-# AdamW: weight decay on weight matrices only, not on biases, LayerNorm gains, or positions
-decay = [p for name, p in model.named_parameters() if p.dim() == 2 and "pos" not in name]
-no_decay = [p for name, p in model.named_parameters() if p.dim() < 2 or "pos" in name]
-opt = torch.optim.AdamW([{"params": decay, "weight_decay": 0.1},
-                         {"params": no_decay, "weight_decay": 0.0}],
-                        lr=1e-3, betas=(0.9, 0.95))
-steps, warmup, min_ratio = 800, 50, 0.1
-def lr_lambda(s):                                       # linear warmup, then cosine decay to 10%
-    if s < warmup:
-        return (s + 1) / warmup
-    progress = (s - warmup) / (steps - warmup)
-    return min_ratio + (1 - min_ratio) * 0.5 * (1 + math.cos(math.pi * progress))
-sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
-use_bf16 = torch.cuda.is_available()                    # BF16 autocast on a GPU; plain FP32 on a CPU
-
-@torch.no_grad()
-def evaluate(src, iters=10):
-    model.eval()
-    gen = torch.Generator().manual_seed(123)            # the same batches at every evaluation
-    losses = []
-    for _ in range(iters):
-        x, y = get_batch(src, gen)
-        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=use_bf16):
-            losses.append(model(x, y)[1].item())
-    model.train()
-    return sum(losses) / len(losses)
-
-print(f"step 0: val {evaluate(val_data):.2f}, ln V = {math.log(cfg.V):.2f}")
-gen = torch.Generator().manual_seed(0)
-train_time = 0.0
-for step in range(steps):
-    t0 = time.time()
-    x, y = get_batch(train_data, gen)
-    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=use_bf16):
-        _, loss = model(x, y)
-    opt.zero_grad(set_to_none=True)
-    loss.backward()
-    gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)   # returns the norm before clipping
-    opt.step(); sched.step()
-    train_time += time.time() - t0
-    if (step + 1) % 200 == 0:
-        print(f"step {step + 1}: train {evaluate(train_data):.2f}, val {evaluate(val_data):.2f}, "
-              f"grad norm {gnorm:.2f}, lr {sched.get_last_lr()[0]:.1e}")
-D = steps * B * n                                       # training tokens
-print(f"{D:,} tokens ({D / len(train_data):.1f} epochs) in {train_time:.0f} s; "
-      f"6PD = {6 * P * D:.2e} FLOPs, {6 * P * D / train_time / 1e9:.0f} GFLOP/s achieved")
-torch.save({"cfg": cfg, "model": model.state_dict(), "vocab": vocab}, "mini_gpt.pt")   # used in Section 5
-# V = 11,706; 2.31M parameters, 0.79M of them in the blocks
-# step 0: val 9.35, ln V = 9.37
-# step 200: train 5.09, val 5.32, grad norm 0.76, lr 9.1e-04
-# step 400: train 4.62, val 5.04, grad norm 0.90, lr 6.0e-04
-# step 600: train 4.44, val 4.92, grad norm 0.77, lr 2.5e-04
-# step 800: train 4.37, val 4.87, grad norm 0.81, lr 1.0e-04
-# 1,638,400 tokens (5.4 epochs) in 186 s; 6PD = 2.27e+13 FLOPs, 122 GFLOP/s achieved
-```
+Notebook: [8.4.2-pretraining-a-mini-gpt-on-tiny-shakespeare.ipynb](../../code/08-generative-pretraining-gpt/8.4.2-pretraining-a-mini-gpt-on-tiny-shakespeare.ipynb)
 
 ### Code 8.4.3: A fairer bigram baseline
 
 Refits the add-$`\alpha`$ bigram model of Code 8.1.2 with its smoothing spread over only the tokens that occur in the corpus, the vocabulary of the mini GPT.
 
-```python
-import math
-from collections import Counter
-import tiktoken
-
-ids = tiktoken.get_encoding("gpt2").encode(open("input.txt", encoding="utf-8").read())
-split = int(0.9 * len(ids))
-train, val = ids[:split], ids[split:]
-V = len(set(ids))                                       # smooth over the corpus's tokens only
-pair, first = Counter(zip(train[:-1], train[1:])), Counter(train[:-1])
-for alpha in [0.01, 0.003, 0.001]:
-    nll = -sum(math.log((pair[(a, b)] + alpha) / (first[a] + alpha * V))
-               for a, b in zip(val[:-1], val[1:])) / (len(val) - 1)
-    print(f"V = {V:,}, alpha={alpha}: val {nll:.3f}")
-# V = 11,706, alpha=0.01: val 5.498
-# V = 11,706, alpha=0.003: val 5.482
-# V = 11,706, alpha=0.001: val 5.569
-```
+Notebook: [8.4.3-a-fairer-bigram-baseline.ipynb](../../code/08-generative-pretraining-gpt/8.4.3-a-fairer-bigram-baseline.ipynb)
 
 ### Code 8.4.4: The Chinchilla parametric fit
 
 Evaluates the parametric loss fit of Hoffmann et al. (2022) for Gopher and Chinchilla, and finds the compute-optimal model size and token count for four budgets by minimizing the fit subject to $`6PD = C`$.
 
-```python
-# The Chinchilla parametric fit (Hoffmann et al. 2022): L(P, D) = E + A / P^alpha + B / D^beta
-E, A, B, alpha, beta = 1.69, 406.4, 410.7, 0.34, 0.28
-loss = lambda P, D: E + A / P**alpha + B / D**beta
-
-def optimal(C):
-    """Minimize L(P, D) subject to 6PD = C (setting the derivative to zero gives a closed form)."""
-    G = (alpha * A / (beta * B)) ** (1 / (alpha + beta))
-    P = G * (C / 6) ** (beta / (alpha + beta))
-    return P, C / (6 * P)
-
-for name, P, D in [("Gopher", 280e9, 300e9), ("Chinchilla", 70e9, 1.4e12)]:
-    print(f"{name}: C = 6PD = {6 * P * D:.2e}, predicted loss {loss(P, D):.3f}")
-for C in [1e19, 1e21, 1e23, 1e25]:
-    P, D = optimal(C)
-    print(f"C = {C:.0e}: P = {P / 1e9:6.2f}B, D = {D / 1e9:8.1f}B, {D / P:4.0f} tokens per parameter")
-# Gopher: C = 6PD = 5.04e+23, predicted loss 1.993
-# Chinchilla: C = 6PD = 5.88e+23, predicted loss 1.937
-# C = 1e+19: P =   0.23B, D =      7.3B,   32 tokens per parameter
-# C = 1e+21: P =   1.82B, D =     91.4B,   50 tokens per parameter
-# C = 1e+23: P =  14.60B, D =   1141.7B,   78 tokens per parameter
-# C = 1e+25: P = 116.82B, D =  14266.6B,  122 tokens per parameter
-```
+Notebook: [8.4.4-the-chinchilla-parametric-fit.ipynb](../../code/08-generative-pretraining-gpt/8.4.4-the-chinchilla-parametric-fit.ipynb)
 
 ## Key takeaways
 

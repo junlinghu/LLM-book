@@ -127,48 +127,8 @@ The listings below collect the code for this section in the order in which the t
 
 NumPy definitions of sigmoid, tanh, ReLU, GELU, and SiLU, each paired with its derivative. The same definitions generate Figures 2.3 and 2.4; the loop prints each function and its derivative at seven sample points.
 
-```python
-import math
-import numpy as np
+Notebook: [2.2.1-activation-functions-and-their-derivatives.ipynb](../../code/02-neural-network-basics/2.2.1-activation-functions-and-their-derivatives.ipynb)
 
-def sigmoid(z):
-    return 1 / (1 + np.exp(-z))
-
-erf = np.vectorize(math.erf)
-def normal_cdf(z):
-    return 0.5 * (1 + erf(z / math.sqrt(2)))
-def normal_pdf(z):
-    return np.exp(-0.5 * z**2) / math.sqrt(2 * math.pi)
-
-activations = {   # name: (function, derivative)
-    "sigmoid": (sigmoid,                        lambda z: sigmoid(z) * (1 - sigmoid(z))),
-    "tanh":    (np.tanh,                        lambda z: 1 - np.tanh(z) ** 2),
-    "relu":    (lambda z: np.maximum(0, z),     lambda z: (z > 0).astype(float)),
-    "gelu":    (lambda z: z * normal_cdf(z),    lambda z: normal_cdf(z) + z * normal_pdf(z)),
-    "silu":    (lambda z: z * sigmoid(z),       lambda z: sigmoid(z) * (1 + z * (1 - sigmoid(z)))),
-}
-
-np.set_printoptions(suppress=True)
-z = np.array([-5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0])
-for name, (f, df) in activations.items():
-    print(f"{name:8s} g(z):  ", np.round(f(z), 3))
-    print(f"{'':8s} g'(z): ", np.round(df(z), 3))
-```
-
-The printed table is a compact summary of the figures:
-
-```text
-sigmoid  g(z):   [0.007 0.047 0.269 0.5   0.731 0.953 0.993]
-         g'(z):  [0.007 0.045 0.197 0.25  0.197 0.045 0.007]
-tanh     g(z):   [-1.    -0.995 -0.762  0.     0.762  0.995  1.   ]
-         g'(z):  [0.   0.01 0.42 1.   0.42 0.01 0.  ]
-relu     g(z):   [0. 0. 0. 0. 1. 3. 5.]
-         g'(z):  [0. 0. 0. 0. 1. 1. 1.]
-gelu     g(z):   [-0.    -0.004 -0.159  0.     0.841  2.996  5.   ]
-         g'(z):  [-0.    -0.012 -0.083  0.5    1.083  1.012  1.   ]
-silu     g(z):   [-0.033 -0.142 -0.269  0.     0.731  2.858  4.967]
-         g'(z):  [-0.027 -0.088  0.072  0.5    0.928  1.088  1.027]
-```
 ## Key takeaways
 
 - Without a nonlinear activation, any stack of linear layers collapses into a single linear layer, so depth adds nothing.

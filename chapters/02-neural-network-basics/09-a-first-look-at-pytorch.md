@@ -97,133 +97,26 @@ The listings below collect the code for this section in the order in which the t
 
 The single-neuron example of Section 2.6 written with PyTorch tensors. The second line of output shows the backward functions of the last two operations in the recorded graph.
 
-```python
-import torch
-
-x = torch.tensor(0.5)
-w = torch.tensor(1.2, requires_grad=True)
-b = torch.tensor(-0.3, requires_grad=True)
-y = torch.tensor(0.8)
-
-L = (torch.tanh(w * x + b) - y) ** 2
-L.backward()
-print(f"L = {L.item():.4f}, dL/dw = {w.grad.item():.4f}, dL/db = {b.grad.item():.4f}")
-print(L.grad_fn, L.grad_fn.next_functions[0][0])
-```
-
-Output (the memory addresses vary from run to run):
-
-```text
-L = 0.2588, dL/dw = -0.4655, dL/db = -0.9310
-<PowBackward0 object at 0x...> <SubBackward0 object at 0x...>
-```
+Notebook: [2.9.1-the-single-neuron-with-autograd.ipynb](../../code/02-neural-network-basics/2.9.1-the-single-neuron-with-autograd.ipynb)
 
 ### Code 2.9.2: The 2-2-1 worked example in PyTorch
 
 Recomputes the loss and all nine gradients of the worked example in 64-bit precision. It reuses `torch` from Code 2.9.1.
 
-```python
-torch.set_default_dtype(torch.float64)
-
-x = torch.tensor([1.0, 0.5])
-W1 = torch.tensor([[0.5, -0.3], [0.8, 0.2]], requires_grad=True)
-b1 = torch.tensor([0.0, 0.1], requires_grad=True)
-W2 = torch.tensor([1.0, -1.5], requires_grad=True)
-b2 = torch.tensor(0.2, requires_grad=True)
-
-z2 = torch.tanh(x @ W1 + b1) @ W2 + b2
-loss = torch.nn.functional.binary_cross_entropy_with_logits(z2, torch.tensor(1.0))
-loss.backward()
-print(f"loss = {loss.item():.4f}")
-print("dW1 =", W1.grad.numpy().round(4).tolist())
-print("db1 =", b1.grad.numpy().round(4).tolist())
-print("dW2 =", W2.grad.numpy().round(4).tolist(), " db2 =", round(b2.grad.item(), 4))
-```
-
-Output:
-
-```text
-loss = 0.2960
-dW1 = [[-0.1247, 0.3805], [-0.0624, 0.1902]]
-db1 = [-0.1247, 0.3805]
-dW2 = [-0.1835, 0.0255]  db2 = -0.2562
-```
+Notebook: [2.9.2-the-2-2-1-worked-example-in-pytorch.ipynb](../../code/02-neural-network-basics/2.9.2-the-2-2-1-worked-example-in-pytorch.ipynb)
 
 ### Code 2.9.3: Comparing hand-written and autograd gradients
 
 Builds the two-moons MLP with `nn.Sequential`, copies in the initial weights of the from-scratch network, and compares the two sets of gradients on one batch of 64 examples. It uses `make_moons` from `figures/src/style.py` and `init_params`, `forward`, `softmax_cross_entropy`, and `backward` from Section 2.7 (Code 2.7.2).
 
-```python
-import numpy as np
-import torch.nn as nn
-
-X, y = make_moons(n=400, noise=0.2, seed=2)            # two-moons data from figures/src/style.py
-P0 = init_params(2, 16, 2, seed=0)                     # from-scratch initial weights (Section 2.7)
-
-model = nn.Sequential(nn.Linear(2, 16), nn.ReLU(), nn.Linear(16, 2))
-with torch.no_grad():                                  # copy weights without recording a graph
-    model[0].weight.copy_(torch.from_numpy(P0["W1"].T))   # nn.Linear stores (out, in)
-    model[0].bias.copy_(torch.from_numpy(P0["b1"]))
-    model[2].weight.copy_(torch.from_numpy(P0["W2"].T))
-    model[2].bias.copy_(torch.from_numpy(P0["b2"]))
-loss_fn = nn.CrossEntropyLoss()
-Xt, yt = torch.from_numpy(X), torch.from_numpy(y)
-
-# Gradients on one batch of 64 examples: from scratch vs. autograd
-Z, cache = forward(P0, X[:64])
-_, dZ = softmax_cross_entropy(Z, y[:64])
-ours = backward(P0, cache, dZ)
-loss_fn(model(Xt[:64]), yt[:64]).backward()
-theirs = {"W1": model[0].weight.grad.T, "b1": model[0].bias.grad,
-          "W2": model[2].weight.grad.T, "b2": model[2].bias.grad}
-for k in ours:
-    diff = np.abs(ours[k] - theirs[k].numpy()).max()
-    print(f"{k}: max |difference| = {diff:.1e}, allclose: {np.allclose(ours[k], theirs[k].numpy())}")
-```
-
-Output:
-
-```text
-W2: max |difference| = 2.8e-17, allclose: True
-b2: max |difference| = 2.3e-17, allclose: True
-W1: max |difference| = 1.4e-17, allclose: True
-b1: max |difference| = 1.4e-17, allclose: True
-```
+Notebook: [2.9.3-comparing-hand-written-and-autograd-gradients.ipynb](../../code/02-neural-network-basics/2.9.3-comparing-hand-written-and-autograd-gradients.ipynb)
 
 ### Code 2.9.4: Training side by side with the NumPy network
 
 Continues from Code 2.9.3. Trains the PyTorch model with `torch.optim.SGD` and the from-scratch network with `train_sgd` (Section 2.7, Code 2.7.3), from the same initial weights and with the same minibatches, then compares their loss histories.
 
-```python
-opt = torch.optim.SGD(model.parameters(), lr=0.3)
-for p in model.parameters():                          # start clean (we called backward above)
-    p.grad = None
+Notebook: [2.9.4-training-side-by-side-with-the-numpy-network.ipynb](../../code/02-neural-network-basics/2.9.4-training-side-by-side-with-the-numpy-network.ipynb)
 
-rng = np.random.default_rng(0)                        # same shuffling as our train_sgd
-history_torch = []
-for epoch in range(40):
-    order = rng.permutation(len(X))
-    for start in range(0, len(X), 32):
-        idx = torch.from_numpy(order[start:start + 32])
-        loss = loss_fn(model(Xt[idx]), yt[idx])       # forward pass and loss
-        opt.zero_grad()                               # clear old gradients
-        loss.backward()                               # backward pass
-        opt.step()                                    # SGD update
-    with torch.no_grad():                             # evaluation: no graph needed
-        history_torch.append(loss_fn(model(Xt), yt).item())
-
-P = {k: v.copy() for k, v in P0.items()}
-P, history_ours = train_sgd(P, X, y, lr=0.3, epochs=40, batch_size=32, seed=0)
-print(f"final loss: ours {history_ours[-1]:.6f}, PyTorch {history_torch[-1]:.6f}")
-print(f"largest per-epoch difference: {np.abs(np.array(history_ours) - np.array(history_torch)).max():.1e}")
-```
-
-Output:
-
-```text
-final loss: ours 0.139024, PyTorch 0.139024
-largest per-epoch difference: 1.1e-16
-```
 ## Key takeaways
 
 - PyTorch tensors with `requires_grad=True` record a dynamic computational graph as ordinary Python code runs; `loss.backward()` runs reverse-mode autodiff and fills each leaf's `.grad`.

@@ -141,222 +141,27 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 8.2.1: A GPT in about a hundred lines (gpt.py)
 
-The complete GPT-2 model: causal self-attention with a fused query-key-value projection, a GELU FFN, pre-norm blocks, learned positions, a final LayerNorm, and a tied output projection. The residual branches' output weights are initialized with standard deviation $`0.02/\sqrt{2N}`$; the 0.02 for all other weights follows the first GPT, which found a simple $`\mathcal{N}(0, 0.02)`$ initialization sufficient because LayerNorm is used throughout the model (Radford et al. 2018). Save this listing as `gpt.py`: the code of Sections 4 and 5 imports it.
+The complete GPT-2 model: causal self-attention with a fused query-key-value projection, a GELU FFN, pre-norm blocks, learned positions, a final LayerNorm, and a tied output projection.
 
-```python
-import math
-from dataclasses import dataclass
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-@dataclass
-class GPTConfig:
-    V: int = 50257          # vocabulary size
-    n_max: int = 1024       # maximum context length
-    N: int = 12             # number of blocks
-    d: int = 768            # model width
-    h: int = 12             # heads
-    dropout: float = 0.0
-
-class CausalSelfAttention(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        self.qkv = nn.Linear(cfg.d, 3 * cfg.d)          # W_Q, W_K, W_V in one matrix
-        self.proj = nn.Linear(cfg.d, cfg.d)             # W_O
-        self.h, self.dropout = cfg.h, cfg.dropout
-    def forward(self, x):
-        B, n, d = x.shape
-        q, k, v = self.qkv(x).split(d, dim=-1)
-        q, k, v = (t.view(B, n, self.h, d // self.h).transpose(1, 2) for t in (q, k, v))
-        y = F.scaled_dot_product_attention(q, k, v, is_causal=True,   # the causal mask of Section 6.4
-                                           dropout_p=self.dropout if self.training else 0.0)
-        return self.proj(y.transpose(1, 2).reshape(B, n, d))
-
-class MLP(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        self.fc = nn.Linear(cfg.d, 4 * cfg.d)
-        self.proj = nn.Linear(4 * cfg.d, cfg.d)
-    def forward(self, x):
-        return self.proj(F.gelu(self.fc(x), approximate="tanh"))   # GPT-2 uses the tanh form of GELU
-
-class Block(nn.Module):                                 # pre-norm decoder block, no cross-attention
-    def __init__(self, cfg):
-        super().__init__()
-        self.ln1, self.attn = nn.LayerNorm(cfg.d), CausalSelfAttention(cfg)
-        self.ln2, self.mlp = nn.LayerNorm(cfg.d), MLP(cfg)
-        self.drop = nn.Dropout(cfg.dropout)
-    def forward(self, x):
-        x = x + self.drop(self.attn(self.ln1(x)))
-        return x + self.drop(self.mlp(self.ln2(x)))
-
-class GPT(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        self.cfg = cfg
-        self.tok = nn.Embedding(cfg.V, cfg.d)
-        self.pos = nn.Embedding(cfg.n_max, cfg.d)       # learned absolute positions
-        self.drop = nn.Dropout(cfg.dropout)
-        self.blocks = nn.ModuleList(Block(cfg) for _ in range(cfg.N))
-        self.ln_f = nn.LayerNorm(cfg.d)                 # final LayerNorm after the last block
-        self.apply(self._init)
-        for name, p in self.named_parameters():         # residual branches: std / sqrt(2N)
-            if name.endswith("proj.weight"):
-                nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.N))
-    def _init(self, m):
-        if isinstance(m, (nn.Linear, nn.Embedding)):
-            nn.init.normal_(m.weight, std=0.02)
-        if isinstance(m, nn.Linear) and m.bias is not None:
-            nn.init.zeros_(m.bias)
-    def forward(self, idx, targets=None):
-        n = idx.size(1)
-        assert n <= self.cfg.n_max
-        x = self.drop(self.tok(idx) + self.pos(torch.arange(n, device=idx.device)))
-        for block in self.blocks:
-            x = block(x)
-        logits = self.ln_f(x) @ self.tok.weight.T       # output projection tied to the embedding
-        if targets is None:
-            return logits
-        return logits, F.cross_entropy(logits.flatten(0, 1), targets.flatten())
-```
+Notebook: [8.2.1-a-gpt-in-about-a-hundred-lines-gptpy.ipynb](../../code/08-generative-pretraining-gpt/8.2.1-a-gpt-in-about-a-hundred-lines-gptpy.ipynb)
 
 ### Code 8.2.2: Parameter count, leak test, and GPT-2's released weights
 
 Builds a GPT-2 small configuration, compares its parameter count with the formula, runs the causal leak test of Section 6.4, then copies in GPT-2 small's released weights and compares the logits with Hugging Face's `GPT2LMHeadModel`. It imports Code 8.2.1.
 
-```python
-import torch
-from gpt import GPT, GPTConfig
-from transformers import GPT2LMHeadModel
-
-cfg = GPTConfig()                                       # GPT-2 small
-torch.manual_seed(0)
-model = GPT(cfg).eval()
-N, d, V, n_max = cfg.N, cfg.d, cfg.V, cfg.n_max
-print(f"{12 * N * d**2 + V * d + n_max * d:,}")         # formula: weights only
-print(f"{sum(p.numel() for p in model.parameters()):,}")   # with biases and LayerNorms
-
-# Causal leak test (Section 6.4): changing tokens from position 10 on must not change outputs 1-9
-x = torch.randint(0, V, (1, 16))
-x2 = x.clone(); x2[0, 9:] = torch.randint(0, V, (7,))
-with torch.no_grad():
-    print(torch.allclose(model(x)[0, :9], model(x2)[0, :9], atol=1e-5))
-
-# Load GPT-2 small's released weights and compare with Hugging Face
-hf = GPT2LMHeadModel.from_pretrained("gpt2").eval()
-sd = hf.state_dict()
-names = {"attn.c_attn": "attn.qkv", "attn.c_proj": "attn.proj", "mlp.c_fc": "mlp.fc",
-         "mlp.c_proj": "mlp.proj", "ln_1": "ln1", "ln_2": "ln2"}
-with torch.no_grad():
-    model.tok.weight.copy_(sd["transformer.wte.weight"])
-    model.pos.weight.copy_(sd["transformer.wpe.weight"])
-    model.ln_f.load_state_dict({"weight": sd["transformer.ln_f.weight"], "bias": sd["transformer.ln_f.bias"]})
-    for i, block in enumerate(model.blocks):
-        for hf_name, my_name in names.items():
-            w, b = sd[f"transformer.h.{i}.{hf_name}.weight"], sd[f"transformer.h.{i}.{hf_name}.bias"]
-            mod = block.get_submodule(my_name)
-            mod.weight.copy_(w if hf_name.startswith("ln") else w.T)   # HF's Conv1D stores W transposed
-            mod.bias.copy_(b)
-    torch.manual_seed(1)
-    x = torch.randint(0, V, (2, 64))
-    diff = (model(x) - hf(x).logits).abs().max()
-print(f"max |logit difference| = {diff:.2e}, max |logit| = {hf(x).logits.abs().max():.0f}")
-# 124,318,464
-# 124,439,808
-# True
-# max |logit difference| = 1.22e-04, max |logit| = 115
-```
+Notebook: [8.2.2-parameter-count-leak-test-and-gpt-2s-released-weights.ipynb](../../code/08-generative-pretraining-gpt/8.2.2-parameter-count-leak-test-and-gpt-2s-released-weights.ipynb)
 
 ### Code 8.2.3: The formula for all four GPT-2 sizes
 
 Evaluates $`12Nd^2 + Vd + n_{\max} d`$ and the exact count with biases and LayerNorms for the four GPT-2 sizes, and counts the parameters of the released medium and large checkpoints.
 
-```python
-from transformers import GPT2LMHeadModel
-
-def gpt_params(N, d, V=50257, n_max=1024):
-    formula = 12 * N * d**2 + V * d + n_max * d
-    exact = N * (12 * d**2 + 13 * d) + V * d + n_max * d + 2 * d   # + biases and LayerNorms
-    return formula, exact
-
-for name, N, d, reported in [("small", 12, 768, "117M"), ("medium", 24, 1024, "345M"),
-                             ("large", 36, 1280, "762M"), ("XL", 48, 1600, "1542M")]:
-    f, e = gpt_params(N, d)
-    print(f"{name:6s} formula {f / 1e6:7.1f}M  exact {e:,}  reported {reported}")
-
-for m in ["gpt2-medium", "gpt2-large"]:                 # released checkpoints (downloads 1.5 GB and 3 GB)
-    print(m, sum(p.numel() for p in GPT2LMHeadModel.from_pretrained(m).parameters()))
-# small  formula   124.3M  exact 124,439,808  reported 117M
-# medium formula   354.5M  exact 354,823,168  reported 345M
-# large  formula   773.4M  exact 774,030,080  reported 762M
-# XL     formula  1556.6M  exact 1,557,611,200  reported 1542M
-# gpt2-medium 354823168
-# gpt2-large 774030080
-```
+Notebook: [8.2.3-the-formula-for-all-four-gpt-2-sizes.ipynb](../../code/08-generative-pretraining-gpt/8.2.3-the-formula-for-all-four-gpt-2-sizes.ipynb)
 
 ### Code 8.2.4: A block with RMSNorm, RoPE, and SwiGLU
 
 A block with the three recent substitutions. It checks that the SwiGLU FFN with $`d_{\text{ff}} = \tfrac{8}{3} d`$ has $`8d^2`$ weights, that the block has $`12d^2`$ weights plus two RMSNorm gain vectors, and that it is still causal, then applies the parameter formula to GPT-3.
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-class SwiGLU(nn.Module):                                # W_2 (SiLU(W_1 x) * W_3 x), no biases
-    def __init__(self, d, d_ff):
-        super().__init__()
-        self.w1, self.w3 = nn.Linear(d, d_ff, bias=False), nn.Linear(d, d_ff, bias=False)
-        self.w2 = nn.Linear(d_ff, d, bias=False)
-    def forward(self, x):
-        return self.w2(F.silu(self.w1(x)) * self.w3(x))
-
-def rope(x, base=10000.0):
-    """Rotary embedding for x of shape (B, h, n, d_k): rotate each pair of dimensions
-    of the vector at position p by the angle p * omega_i (Section 6.6)."""
-    n, dk = x.shape[-2], x.shape[-1]
-    omega = base ** (-torch.arange(0, dk, 2, dtype=torch.float32) / dk)
-    ang = torch.arange(n, dtype=torch.float32)[:, None] * omega        # (n, d_k/2)
-    cos, sin = ang.cos(), ang.sin()
-    x1, x2 = x[..., 0::2], x[..., 1::2]
-    return torch.stack([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1).flatten(-2)
-
-class ModernBlock(nn.Module):                           # RMSNorm + RoPE attention + SwiGLU
-    def __init__(self, d, h, d_ff):
-        super().__init__()
-        self.norm1, self.norm2 = nn.RMSNorm(d), nn.RMSNorm(d)
-        self.qkv, self.proj = nn.Linear(d, 3 * d, bias=False), nn.Linear(d, d, bias=False)
-        self.ffn, self.h = SwiGLU(d, d_ff), h
-    def attn(self, x):
-        B, n, d = x.shape
-        q, k, v = (t.view(B, n, self.h, -1).transpose(1, 2) for t in self.qkv(x).split(d, -1))
-        q, k = rope(q), rope(k)                         # positions enter through q and k only
-        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
-        return self.proj(y.transpose(1, 2).reshape(B, n, d))
-    def forward(self, x):
-        x = x + self.attn(self.norm1(x))
-        return x + self.ffn(self.norm2(x))
-
-d, h = 768, 12
-d_ff = int(8 * d / 3)                                   # 2048
-blk = ModernBlock(d, h, d_ff)
-ffn = sum(p.numel() for p in blk.ffn.parameters())
-total = sum(p.numel() for p in blk.parameters())
-print(d_ff, ffn, 8 * d * d)                             # d_ff, SwiGLU weights, 8d^2
-print(total, 12 * d * d, total - 12 * d * d)            # block, 12d^2, difference (two RMSNorm gains)
-x = torch.randn(2, 10, d)
-x2 = x.clone(); x2[:, 6:] = torch.randn(2, 4, d)
-print(torch.allclose(blk(x)[:, :6], blk(x2)[:, :6], atol=1e-5))  # still causal?
-
-# The same formula for GPT-3 (Brown et al. 2020): N = 96, d = 12,288, n_max = 2,048
-N, d, V, n_max = 96, 12288, 50257, 2048
-print(f"{(12 * N * d**2 + V * d + n_max * d) / 1e9:.1f}B")
-# 2048 4718592 4718592
-# 7079424 7077888 1536
-# True
-# 174.6B
-```
+Notebook: [8.2.4-a-block-with-rmsnorm-rope-and-swiglu.ipynb](../../code/08-generative-pretraining-gpt/8.2.4-a-block-with-rmsnorm-rope-and-swiglu.ipynb)
 
 ## Key takeaways
 

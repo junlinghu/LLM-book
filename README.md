@@ -7,7 +7,7 @@ This repo holds the book’s chapter drafts, figures, and accompanying code. It 
 ## What this repo is for
 
 - **Read the book in progress.** Chapter text lives under [`chapters/`](chapters/) as Markdown.
-- **Run the examples.** Code that supports a chapter (from-scratch labs, figure scripts, notebooks) lives with that chapter, usually under `figures/src/` or similar.
+- **Run the examples.** Section labs (`### Code X.Y.Z` in the chapter text) are Jupyter notebooks under [`code/`](code/). Figure-generation scripts stay with the chapter, under `figures/` or `figures/src/`.
 - **Regenerate figures.** Where a chapter ships plotting scripts, you can rebuild the images from those scripts rather than editing PNGs by hand.
 
 It is **not** a pretrained-model zoo, a production serving stack, or a complete copy of every commercial LLM paper. The focus is understanding the pipeline end to end.
@@ -17,6 +17,10 @@ It is **not** a pretrained-model zoo, a production serving stack, or a complete 
 ```text
 LLM-book/
 ├── README.md                 ← you are here
+├── code/                     ← section labs as Jupyter notebooks
+│   ├── 02-neural-network-basics/
+│   │   └── 2.5.1-gradient-descent-on-an-elongated-quadratic-bowl.ipynb
+│   └── …
 └── chapters/
     ├── README.md             ← short chapter index
     ├── 01-introduction/
@@ -63,6 +67,8 @@ Readers who want a clear picture of LLMs without unnecessary jargon: engineers, 
 
 Requirements vary by chapter. A typical setup for the neural-network chapters is Python 3 with **NumPy**, **Matplotlib**, and **PyTorch**.
 
+Section labs live as `.ipynb` files under [`code/<chapter>/`](code/). Each `### Code X.Y.Z` heading in a chapter links to a notebook named `X.Y.Z-<kebab-title>.ipynb`. Open that notebook and run it from the top. Later listings in a section are self-contained: imports and definitions they reuse are included in the notebook. Printed results from the chapter are kept as an "Expected output" markdown cell.
+
 Example (Chapter 2 figures):
 
 ```bash
@@ -70,7 +76,7 @@ cd chapters/02-neural-network-basics/figures/src
 for f in fig_*.py; do python "$f"; done
 ```
 
-See each chapter’s `README.md` for that chapter’s labs and dependencies.
+See [`code/README.md`](code/README.md) for the notebook layout, and each chapter’s `README.md` for that chapter’s dependencies.
 
 ## Status
 

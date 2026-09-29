@@ -127,77 +127,15 @@ The listings below collect the code for this section in the order in which the t
 
 ### Code 11.2.1: Sampling responses and their log-probabilities
 
-`generate` samples one response per prompt from the policy at temperature 1 with no truncation, and returns a mask that is 1 on response tokens up to and including the first EOS. `response_logprobs` computes $`\log \pi(y_t \mid x, y_{\lt t})`$ for every response token with one forward pass. Prompts are left-padded so that all responses start at the same position; the position ids are computed from the attention mask so that padding does not shift positions. GPT-2 has no padding token, so EOS doubles as padding, and the mask, not the token id, marks which tokens belong to the response. Section 7 reuses both functions.
+`generate` samples one response per prompt from the policy at temperature 1 with no truncation, and returns a mask that is 1 on response tokens up to and including the first EOS.
 
-```python
-import torch
-import torch.nn.functional as F
-
-def generate(model, tok, prompts, max_new_tokens=24, temperature=1.0):
-    """Sample one response per prompt. Returns token ids, an attention mask,
-    and a mask that is 1 on response tokens up to and including the first EOS."""
-    enc = tok(prompts, return_tensors="pt", padding=True)      # left-padded
-    with torch.no_grad():
-        seqs = model.generate(**enc, do_sample=True, top_k=0, top_p=1.0,
-                              temperature=temperature, max_new_tokens=max_new_tokens,
-                              pad_token_id=tok.pad_token_id)
-    P = enc["input_ids"].shape[1]                              # prompt length (with padding)
-    resp = seqs[:, P:]
-    is_eos = resp == tok.eos_token_id
-    after_eos = (is_eos.cumsum(dim=1) - is_eos.long()) > 0     # strictly after the first EOS
-    resp_mask = (~after_eos).long()
-    attn = torch.cat([enc["attention_mask"], resp_mask], dim=1)
-    return seqs, attn, resp_mask, P
-
-def response_logprobs(model, seqs, attn, P):
-    """log pi(y_t | x, y_<t) for each response position t: shape (B, T)."""
-    pos = (attn.cumsum(dim=1) - 1).clamp(min=0)                # correct positions under left padding
-    logits = model(seqs, attention_mask=attn, position_ids=pos).logits
-    logits = logits[:, P - 1:-1].float()                       # the logits that predict y_1 .. y_T
-    logp = F.log_softmax(logits, dim=-1)
-    return logp.gather(-1, seqs[:, P:].unsqueeze(-1)).squeeze(-1)
-```
+Notebook: [11.2.1-sampling-responses-and-their-log-probabilities.ipynb](../../code/11-rlhf/11.2.1-sampling-responses-and-their-log-probabilities.ipynb)
 
 ### Code 11.2.2: REINFORCE with and without a KL penalty
 
 The first suggested code lab. Run it once with `beta=0.0` and once with `beta=0.1`, and compare the printed reward, the estimated KL divergence from the reference model, and the samples. For a sentiment reward instead of a target word, replace the reward line with the positive-class probability of a small sentiment classifier. Each run takes a few minutes on a laptop CPU.
 
-```python
-import copy
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-def train(beta, steps=60, batch=16, lr=2e-5, target=" happy", seed=0):
-    torch.manual_seed(seed)
-    tok = AutoTokenizer.from_pretrained("distilgpt2")
-    tok.pad_token, tok.padding_side = tok.eos_token, "left"
-    policy = AutoModelForCausalLM.from_pretrained("distilgpt2")
-    ref = copy.deepcopy(policy).eval().requires_grad_(False)    # frozen pi_ref
-    policy.eval()                                                # no dropout: log-probs must be reproducible
-    opt = torch.optim.AdamW(policy.parameters(), lr=lr)
-    prompts = ["Today I feel", "When I got home, I was", "The movie made me",
-               "She smiled and said she was"]
-    for step in range(steps):
-        batch_prompts = [prompts[i % len(prompts)] for i in range(batch)]
-        seqs, attn, mask, P = generate(policy, tok, batch_prompts)
-        texts = tok.batch_decode(seqs[:, P:] * mask + tok.eos_token_id * (1 - mask),
-                                 skip_special_tokens=True)
-        reward = torch.tensor([float(target in t) for t in texts])
-        logp = response_logprobs(policy, seqs, attn, P)
-        with torch.no_grad():
-            ref_logp = response_logprobs(ref, seqs, attn, P)
-        kl_per_seq = ((logp.detach() - ref_logp) * mask).sum(1)  # sample estimate of KL(pi || pi_ref)
-        total = reward - beta * kl_per_seq                       # KL-penalized sequence reward
-        adv = total - total.mean()                               # batch-mean baseline
-        loss = -(adv * (logp * mask).sum(1)).mean()              # REINFORCE
-        opt.zero_grad(); loss.backward(); opt.step()
-        if step % 10 == 0 or step == steps - 1:
-            print(f"beta={beta} step {step:3d}  reward {reward.mean():.2f}  "
-                  f"KL {kl_per_seq.mean():6.2f}  | {texts[0]!r}")
-
-train(beta=0.0)
-train(beta=0.1)
-```
+Notebook: [11.2.2-reinforce-with-and-without-a-kl-penalty.ipynb](../../code/11-rlhf/11.2.2-reinforce-with-and-without-a-kl-penalty.ipynb)
 
 ## Key takeaways
 

@@ -83,77 +83,11 @@ The listings below collect the code for this section in the order in which the t
 
 Runs 100 CartPole episodes with a random policy and with a hand-written policy that pushes toward the side the pole is falling, and prints the average return (the number of steps survived).
 
-```python
-import numpy as np
-import gymnasium as gym
-
-def run_episode(env, policy, seed):
-    obs, info = env.reset(seed=seed)
-    total, steps, done = 0.0, 0, False
-    while not done:
-        action = policy(obs)                         # the agent acts
-        obs, reward, terminated, truncated, info = env.step(action)
-        total += reward                              # the environment responds
-        steps += 1
-        done = terminated or truncated               # pole fell, or 500 steps
-    return total, steps
-
-env = gym.make("CartPole-v1")
-rng = np.random.default_rng(0)
-random_policy = lambda obs: int(rng.integers(2))          # ignore the observation
-lean_policy = lambda obs: int(obs[2] + obs[3] > 0)        # push toward the lean
-for name, pol in [("random", random_policy), ("lean", lean_policy)]:
-    returns = [run_episode(env, pol, seed)[0] for seed in range(100)]
-    print(f"{name:7s} policy: mean return {np.mean(returns):6.1f} "
-          f"(min {min(returns):.0f}, max {max(returns):.0f}) over 100 episodes")
-```
-
-Output:
-
-```text
-random  policy: mean return   23.7 (min 9, max 63) over 100 episodes
-lean    policy: mean return  493.1 (min 320, max 500) over 100 episodes
-```
+Notebook: [10.1.1-the-agent-environment-loop-in-gymnasium.ipynb](../../code/10-reinforcement-learning-basics/10.1.1-the-agent-environment-loop-in-gymnasium.ipynb)
 
 ### Code 10.1.2: State visitation under two policies
 
 Counts how often each gridworld cell is visited under the uniform random policy and under a policy that takes the optimal action (computed by value iteration, Code 10.2.3) with probability 0.8. The `GridWorld` class is listed in Code 10.2.1.
 
-```python
-from gridworld import GridWorld, value_iteration, START
+Notebook: [10.1.2-state-visitation-under-two-policies.ipynb](../../code/10-reinforcement-learning-basics/10.1.2-state-visitation-under-two-policies.ipynb)
 
-def visit_counts(grid, policy_probs, episodes, rng, max_steps=200):
-    counts = np.zeros(grid.n_states)
-    for _ in range(episodes):
-        s = grid.index[START]
-        for _ in range(max_steps):
-            counts[s] += 1
-            a = rng.choice(grid.n_actions, p=policy_probs[s])
-            s, r, done = grid.step(s, a)
-            if done:
-                counts[s] += 1
-                break
-    return counts / episodes
-
-grid = GridWorld()
-_, greedy = value_iteration(grid, gamma=0.9)
-uniform = np.full((grid.n_states, grid.n_actions), 0.25)
-eps = 0.2                                   # mostly greedy, sometimes random
-mostly_greedy = np.full((grid.n_states, grid.n_actions), eps / 4)
-mostly_greedy[np.arange(grid.n_states), greedy] += 1 - eps
-
-rng = np.random.default_rng(1)
-c_uniform = visit_counts(grid, uniform, 2000, rng)
-c_greedy = visit_counts(grid, mostly_greedy, 2000, rng)
-for name, c in [("uniform", c_uniform), ("mostly greedy", c_greedy)]:
-    goal = c[grid.index[(0, 4)]]
-    print(f"{name:13s}: {c.sum():5.1f} visits per episode, "
-          f"reaches goal in {100 * goal:.0f}% of episodes")
-```
-
-Output:
-
-```text
-uniform      :  56.9 visits per episode, reaches goal in 18% of episodes
-mostly greedy:  11.0 visits per episode, reaches goal in 99% of episodes
-```

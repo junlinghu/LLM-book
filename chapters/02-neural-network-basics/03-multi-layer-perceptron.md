@@ -186,72 +186,26 @@ The listings below collect the code for this section in the order in which the t
 
 A one-hidden-layer tanh MLP applied to a random batch of five three-dimensional examples. The comments track each tensor's shape, following the table in [The forward pass, step by step](#the-forward-pass-step-by-step).
 
-```python
-import numpy as np
-
-def mlp_forward(X, W1, b1, W2, b2):
-    Z1 = X @ W1 + b1          # (B, d) @ (d, H) + (H,)  -> (B, H)
-    H = np.tanh(Z1)           # (B, H)
-    Z2 = H @ W2 + b2          # (B, H) @ (H, C) + (C,)  -> (B, C)
-    return Z2, H              # raw output scores and hidden activations
-
-rng = np.random.default_rng(0)
-B, d, Hdim, C = 5, 3, 4, 2
-X = rng.normal(size=(B, d))
-W1, b1 = rng.normal(size=(d, Hdim)), np.zeros(Hdim)
-W2, b2 = rng.normal(size=(Hdim, C)), np.zeros(C)
-Z2, H = mlp_forward(X, W1, b1, W2, b2)
-print("X", X.shape, "-> H", H.shape, "-> Z2", Z2.shape)
-# X (5, 3) -> H (5, 4) -> Z2 (5, 2)
-```
+Notebook: [2.3.1-the-mlp-forward-pass-with-shapes.ipynb](../../code/02-neural-network-basics/2.3.1-the-mlp-forward-pass-with-shapes.ipynb)
 
 ### Code 2.3.2: Checking the 2-2-1 worked example
 
 Reproduces the hand calculation of the worked example: pre-activations, tanh activations, logit, output probability, and cross-entropy loss. It reuses `np` from Code 2.3.1.
 
-```python
-x = np.array([1.0, 0.5])
-W1 = np.array([[0.5, -0.3],
-               [0.8,  0.2]])
-b1 = np.array([0.0, 0.1])
-W2 = np.array([1.0, -1.5])
-b2 = 0.2
-
-z1 = x @ W1 + b1
-h = np.tanh(z1)
-z2 = h @ W2 + b2
-p = 1 / (1 + np.exp(-z2))
-print("z1 =", z1, " h =", h.round(4), f" z2 = {z2:.4f}  p = {p:.4f}  loss = {-np.log(p):.4f}")
-# z1 = [ 0.9 -0.1]  h = [ 0.7163 -0.0997]  z2 = 1.0658  p = 0.7438  loss = 0.2960
-```
+Notebook: [2.3.2-checking-the-2-2-1-worked-example.ipynb](../../code/02-neural-network-basics/2.3.2-checking-the-2-2-1-worked-example.ipynb)
 
 ### Code 2.3.3: The hand-built XOR network
 
 Evaluates the ReLU solution to XOR on all four inputs and prints the hidden representation and the output. It reuses `np` from Code 2.3.1.
 
-```python
-relu = lambda z: np.maximum(0, z)
-X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
-W1 = np.array([[1.0, 1.0],
-               [1.0, 1.0]])
-b1 = np.array([0.0, -1.0])
-W2 = np.array([1.0, -2.0])
-H = relu(X @ W1 + b1)
-print("hidden:", H.tolist(), " output:", H @ W2)
-# hidden: [[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [2.0, 1.0]]  output: [0. 1. 1. 0.]
-```
+Notebook: [2.3.3-the-hand-built-xor-network.ipynb](../../code/02-neural-network-basics/2.3.3-the-hand-built-xor-network.ipynb)
 
 ### Code 2.3.4: Counting MLP parameters
 
 Evaluates the formula $`(d + 1) H + (H + 1) C`$ for the three networks in the parameter-count table.
 
-```python
-def count_params(d, H, C):
-    return (d + 1) * H + (H + 1) * C
+Notebook: [2.3.4-counting-mlp-parameters.ipynb](../../code/02-neural-network-basics/2.3.4-counting-mlp-parameters.ipynb)
 
-for d, H, C in [(2, 2, 1), (2, 16, 1), (784, 100, 10)]:
-    print(f"{d}-{H}-{C}: {count_params(d, H, C):,} parameters")
-```
 ## Key takeaways
 
 - An MLP with one hidden layer computes $`\hat{\mathbf{y}} = o\bigl(g(\mathbf{x} W^{(1)} + \mathbf{b}^{(1)})\, W^{(2)} + \mathbf{b}^{(2)}\bigr)`$: two matrix multiplications with a nonlinearity in between.

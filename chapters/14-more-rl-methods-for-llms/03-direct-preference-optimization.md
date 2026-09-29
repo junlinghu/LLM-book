@@ -122,90 +122,13 @@ Razin et al. (2025) call this *likelihood displacement* and show that it is not 
 
 The first half evaluates the implicit rewards on the numerical pair from this section. The second half optimizes a three-way softmax (chosen, rejected, other) from a tie, for five steps. The reference is the initial policy, so the implicit margin starts at zero.
 
-```python
-import math
-import torch
-import torch.nn.functional as F
-
-beta = 0.1
-logp_w, logp_l = -1.20, -0.80
-ref_w, ref_l = -1.00, -1.10
-r_w = beta * (logp_w - ref_w)
-r_l = beta * (logp_l - ref_l)
-margin = r_w - r_l
-loss = -F.logsigmoid(torch.tensor(margin))
-print(f"implicit rewards {r_w:.3f} {r_l:.3f}  margin {margin:.3f}  "
-      f"loss {loss:.3f}  P(prefer chosen) {torch.sigmoid(torch.tensor(margin)):.3f}")
-
-logits = torch.tensor([0.2, 0.5, 0.0], requires_grad=True)   # chosen, rejected, other
-ref = F.log_softmax(logits.detach(), dim=0)
-opt = torch.optim.SGD([logits], lr=0.5)
-for step in range(5):
-    logp = F.log_softmax(logits, dim=0)
-    h = (logp[0] - ref[0]) - (logp[1] - ref[1])
-    loss = -F.logsigmoid(beta * h)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    with torch.no_grad():
-        pi = F.softmax(logits, dim=0)
-        h = (F.log_softmax(logits, dim=0)[0] - ref[0]) - (F.log_softmax(logits, dim=0)[1] - ref[1])
-        print(f"step {step}: loss {loss.item():.4f} -> pi {[round(p, 4) for p in pi.tolist()]}  "
-              f"margin {beta * h.item():.4f}")
-```
-
-Output:
-
-```text
-implicit rewards -0.020 0.030  margin -0.050  loss 0.718  P(prefer chosen) 0.488
-step 0: loss 0.6931 -> pi [0.3244, 0.4165, 0.259]  margin 0.0050
-step 1: loss 0.6907 -> pi [0.3333, 0.4071, 0.2596]  margin 0.0100
-step 2: loss 0.6882 -> pi [0.3422, 0.3978, 0.26]  margin 0.0150
-step 3: loss 0.6857 -> pi [0.3512, 0.3885, 0.2603]  margin 0.0199
-step 4: loss 0.6832 -> pi [0.3603, 0.3792, 0.2605]  margin 0.0249
-```
-
-The loss printed on each line is the loss *before* that step; the probabilities are *after* it. The chosen response gains what the rejected response loses. The third probability stays near a quarter.
+Notebook: [14.3.1-the-dpo-loss-on-one-pair.ipynb](../../code/14-more-rl-methods-for-llms/14.3.1-the-dpo-loss-on-one-pair.ipynb)
 
 ### Code 14.3.2: Likelihood displacement when responses share a direction
 
 The chosen and rejected responses have nearly aligned score vectors, and a third response points somewhere else. The DPO margin rises while both labeled responses lose probability.
 
-```python
-import torch
-import torch.nn.functional as F
-
-v_w = torch.tensor([1.00, 0.10])
-v_l = torch.tensor([0.95, -0.10])
-v_o = torch.tensor([-0.20, 1.00])
-theta = torch.tensor([0.30, 0.00], requires_grad=True)
-opt = torch.optim.SGD([theta], lr=0.4)
-beta = 0.5
-
-scores = torch.stack([v_w @ theta, v_l @ theta, v_o @ theta])
-ref = F.log_softmax(scores.detach(), dim=0)
-
-for step in range(8):
-    scores = torch.stack([v_w @ theta, v_l @ theta, v_o @ theta])
-    logp = F.log_softmax(scores, dim=0)
-    h = (logp[0] - ref[0]) - (logp[1] - ref[1])
-    loss = -F.logsigmoid(beta * h)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    if step in (0, 7):
-        print(f"step {step}: loss {loss.item():.4f}  "
-              f"logp {[round(v, 3) for v in logp.tolist()]}  h {h.item():.3f}")
-```
-
-Output:
-
-```text
-step 0: loss 0.6931  logp [-0.987, -1.002, -1.347]  h 0.000
-step 7: loss 0.6858  logp [-0.999, -1.043, -1.275]  h 0.030
-```
-
-At step 7 the numbers are the state *before* the eighth update, which is the state after seven updates. The margin $`h`$ grew. The log-probabilities of both the chosen response (first entry) and the rejected response (second) fell, and the unlabeled response rose.
+Notebook: [14.3.2-likelihood-displacement-when-responses-share-a-direction.ipynb](../../code/14-more-rl-methods-for-llms/14.3.2-likelihood-displacement-when-responses-share-a-direction.ipynb)
 
 ## Key takeaways
 

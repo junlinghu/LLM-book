@@ -145,44 +145,7 @@ Empirically, the paper that introduced each method is the evidence to read, and 
 
 Four responses to one prompt score $`1, 0, 1, 0`$. The listing checks that the leave-one-out advantage equals $`K/(K-1)`$ times the centered reward, computes the GRPO z-scores, and compares the two KL estimators of Section 11.6 on three arbitrary token log-probabilities.
 
-```python
-import torch
-
-rewards = torch.tensor([1.0, 0.0, 1.0, 0.0])
-K = rewards.numel()
-mean = rewards.mean()
-std = rewards.std(unbiased=False)                 # population std, matching the group z-score
-loo = torch.stack([
-    rewards[i] - (rewards.sum() - rewards[i]) / (K - 1) for i in range(K)
-])
-centered = rewards - mean
-print("RLOO advantages:       ", [round(a, 4) for a in loo.tolist()])
-print("K/(K-1) * (r - mean):  ", [round(a, 4) for a in ((K / (K - 1)) * centered).tolist()])
-print("GRPO advantages:       ", [round(a, 4) for a in (centered / std).tolist()])
-
-tied = torch.ones(4)
-print("all-tied group std:    ", round(tied.std(unbiased=False).item(), 4))  # 0 -> no update
-
-# Schulman's non-negative estimator of KL(pi || pi_ref) at three sampled tokens.
-logp = torch.tensor([-0.5, -1.2, -0.7])           # log pi(token)
-ref = torch.tensor([-0.4, -1.0, -0.9])            # log pi_ref(token)
-log_rho = ref - logp                              # log(pi_ref / pi)
-k3 = torch.exp(log_rho) - log_rho - 1             # always >= 0
-k1 = logp - ref                                   # unbiased, can be negative
-print(f"k3 per token {[round(v, 4) for v in k3.tolist()]}  sum {k3.sum():.4f}")
-print(f"k1 per token {[round(v, 4) for v in k1.tolist()]}  sum {k1.sum():.4f}")
-```
-
-Output:
-
-```text
-RLOO advantages:        [0.6667, -0.6667, 0.6667, -0.6667]
-K/(K-1) * (r - mean):   [0.6667, -0.6667, 0.6667, -0.6667]
-GRPO advantages:        [1.0, -1.0, 1.0, -1.0]
-all-tied group std:     0.0
-k3 per token [0.0052, 0.0214, 0.0187]  sum 0.0453
-k1 per token [-0.1, -0.2, 0.2]  sum -0.1000
-```
+Notebook: [14.2.1-rloo-and-grpo-advantages-on-one-group.ipynb](../../code/14-more-rl-methods-for-llms/14.2.1-rloo-and-grpo-advantages-on-one-group.ipynb)
 
 ## Key takeaways
 

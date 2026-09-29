@@ -106,112 +106,19 @@ The snippets below reproduce the results described in this section. They need Py
 
 ### Code 7.7.1: Contextual vectors for "bank"
 
-```python
-import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModel
-
-tok = AutoTokenizer.from_pretrained("bert-base-uncased")
-model = AutoModel.from_pretrained("bert-base-uncased").eval()
-cos = lambda a, b: F.cosine_similarity(a, b, dim=0).item()
-
-def word_vector(sentence, word):
-    enc = tok(sentence, return_tensors="pt")
-    with torch.no_grad():
-        hidden = model(**enc).last_hidden_state[0]           # (T, 768): one vector per token
-    tokens = tok.convert_ids_to_tokens(enc["input_ids"][0])
-    return hidden[tokens.index(word)]                        # first occurrence of the word
-
-a = word_vector("we sat on the river bank", "bank")
-b = word_vector("i opened a bank account", "bank")
-c = word_vector("the bank approved my loan", "bank")
-print(f"river vs finance:   {cos(a, b):.3f}")
-print(f"finance vs finance: {cos(b, c):.3f}")
-# river vs finance:   0.332
-# finance vs finance: 0.746
-```
+Notebook: [7.7.1-contextual-vectors-for-bank.ipynb](../../code/07-training-a-transformer/7.7.1-contextual-vectors-for-bank.ipynb)
 
 ### Code 7.7.2: Mean pooling with a padding mask
 
-```python
-import torch
-
-def mean_pool(token_vecs, mask):
-    """token_vecs: (B, T, d) contextual vectors; mask: (B, T), 1 for real tokens, 0 for padding."""
-    m = mask.unsqueeze(-1).float()                    # (B, T, 1)
-    summed = (token_vecs * m).sum(dim=1)              # padding contributes nothing
-    counts = m.sum(dim=1).clamp(min=1e-9)             # number of real tokens per sentence
-    return summed / counts                            # (B, d)
-
-token_vecs = torch.tensor([[[1., 0.], [3., 2.], [0., 0.]],     # 2 real tokens + 1 pad
-                           [[2., 2.], [0., 4.], [4., 0.]]])    # 3 real tokens
-mask = torch.tensor([[1, 1, 0],
-                     [1, 1, 1]])
-print(mean_pool(token_vecs, mask))
-# tensor([[2., 1.],
-#         [2., 2.]])
-```
+Notebook: [7.7.2-mean-pooling-with-a-padding-mask.ipynb](../../code/07-training-a-transformer/7.7.2-mean-pooling-with-a-padding-mask.ipynb)
 
 ### Code 7.7.3: In-batch contrastive loss
 
-```python
-import torch
-import torch.nn.functional as F
-
-def in_batch_contrastive_loss(q, p, temperature=0.05):
-    """q, p: (B, d) embeddings of B matching (query, passage) pairs.
-    Row i of q should match row i of p; the other B - 1 passages act as negatives."""
-    q, p = F.normalize(q, dim=-1), F.normalize(p, dim=-1)
-    scores = q @ p.T / temperature                    # (B, B) scaled cosine similarities
-    labels = torch.arange(q.shape[0])                 # the correct passage is on the diagonal
-    return F.cross_entropy(scores, labels)
-```
+Notebook: [7.7.3-in-batch-contrastive-loss.ipynb](../../code/07-training-a-transformer/7.7.3-in-batch-contrastive-loss.ipynb)
 
 ### Code 7.7.4: Semantic search and clustering
 
-```python
-from sentence_transformers import SentenceTransformer
-from sklearn.cluster import KMeans
-
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
-docs = [
-    "The cat sat on the windowsill, watching birds.",
-    "Our quarterly revenue grew by twelve percent.",
-    "How to reset a forgotten email password.",
-    "Kittens need to be fed several times a day.",
-    "The central bank raised interest rates again.",
-    "Steps for recovering access to your account.",
-]
-doc_emb = model.encode(docs, normalize_embeddings=True)       # (6, 384), unit length
-
-def search(query, k=2):
-    q = model.encode(query, normalize_embeddings=True)        # (384,)
-    scores = doc_emb @ q                                      # cosine similarities
-    top = scores.argsort()[::-1][:k]
-    return [(float(scores[i]), docs[i]) for i in top]
-
-for query in ["I can't log in to my mailbox", "caring for a young cat", "monetary policy news"]:
-    print(query)
-    for score, doc in search(query):
-        print(f"   {score:.3f}  {doc}")
-# I can't log in to my mailbox
-#    0.537  How to reset a forgotten email password.
-#    0.443  Steps for recovering access to your account.
-# caring for a young cat
-#    0.437  Kittens need to be fed several times a day.
-#    0.430  The cat sat on the windowsill, watching birds.
-# monetary policy news
-#    0.509  The central bank raised interest rates again.
-#    0.192  Our quarterly revenue grew by twelve percent.
-
-labels = KMeans(n_clusters=3, n_init=10, random_state=0).fit_predict(doc_emb)
-for c in range(3):
-    print(f"cluster {c}:", [d for d, l in zip(docs, labels) if l == c])
-# cluster 0: ['The cat sat on the windowsill, watching birds.', 'Kittens need to be fed several times a day.']
-# cluster 1: ['How to reset a forgotten email password.', 'Steps for recovering access to your account.']
-# cluster 2: ['Our quarterly revenue grew by twelve percent.', 'The central bank raised interest rates again.']
-```
+Notebook: [7.7.4-semantic-search-and-clustering.ipynb](../../code/07-training-a-transformer/7.7.4-semantic-search-and-clustering.ipynb)
 
 ## Further reading
 
